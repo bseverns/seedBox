@@ -26,6 +26,12 @@ public:
   const std::vector<Seed>& seeds() const { return seeds_; }
   uint32_t masterSeed() const { return masterSeed_; }
   uint8_t focusSeed() const { return focusSeed_; }
+  uint64_t schedulerTicks() const { return scheduler_.ticks(); }
+
+  void onExternalClockTick();
+  void onExternalTransportStart();
+  void onExternalTransportStop();
+  void onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val);
 
 #ifdef SEEDBOX_HW
   MidiRouter midi;
@@ -39,4 +45,5 @@ private:
   uint32_t masterSeed_{0x5EEDB0B1u};
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
+  bool externalClockDominant_{false};
 };

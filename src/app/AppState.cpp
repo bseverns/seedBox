@@ -21,6 +21,13 @@ const char* engineLabel(uint8_t engine) {
 void AppState::initHardware() {
 #ifdef SEEDBOX_HW
   midi.begin();
+  midi.setClockHandler([this]() { onExternalClockTick(); });
+  midi.setStartHandler([this]() { onExternalTransportStart(); });
+  midi.setStopHandler([this]() { onExternalTransportStop(); });
+  midi.setControlChangeHandler(
+      [this](uint8_t ch, uint8_t cc, uint8_t val) {
+        onExternalControlChange(ch, cc, val);
+      });
 #endif
   primeSeeds(masterSeed_);
 }
@@ -33,7 +40,9 @@ void AppState::tick() {
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
-  scheduler_.onTick();
+  if (!externalClockDominant_) {
+    scheduler_.onTick();
+  }
   ++frame_;
 }
 
@@ -64,6 +73,27 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 
   focusSeed_ = 0;
   seedsPrimed_ = true;
+  externalClockDominant_ = false;
+}
+
+void AppState::onExternalClockTick() {
+  if (!seedsPrimed_) {
+    primeSeeds(masterSeed_);
+  }
+  externalClockDominant_ = true;
+  scheduler_.onTick();
+}
+
+void AppState::onExternalTransportStart() {
+  externalClockDominant_ = true;
+}
+
+void AppState::onExternalTransportStop() {
+  externalClockDominant_ = false;
+}
+
+void AppState::onExternalControlChange(uint8_t, uint8_t, uint8_t) {
+  // TODO: map CC data into the parameter router once the macro table lands.
 }
 
 void AppState::reseed(uint32_t masterSeed) {
