@@ -40,6 +40,7 @@ pio device monitor -b 115200
 scripts/gen_version.py   # emits include/BuildInfo.h from git info
 include/                 # public headers
 src/                     # implementation: app/ engine/ io/ util/
+docs/roadmaps/           # living specs for granular + resonator plans
 test/                    # Unity tests (native env)
 ```
 
@@ -163,17 +164,32 @@ We favor fast-to-first-sound setups. Pick your poison:
 
 ### Option B — Granular (expressive, roadmap)
 
-- Design sketch only right now. Goal: stream source audio from SD and keep
-  20–40 active grains per Teensy 4.0 for a comfy CPU margin.
-- Grain size, spray, pitch, window, and stereo spread will come from the seed so
-  patterns morph under deterministic control.
+- `engine/Granular.*` now carries a living voice allocator. Hardware mode arms
+  36 concurrent grains (40 max) while the native sim keeps things lean with a 12
+  voice cap. When the pool overflows we recycle the oldest grain so behavior is
+  deterministic even under duress.
+- Seeds own every parameter: grain size, spray, transpose, window skew, stereo
+  spread, and the source selector (live input vs SD clip slot). The generator in
+  `AppState::primeSeeds` populates those values today so tests and docs can see
+  realistic ranges.
+- Trigger flow is wired: `PatternScheduler` fans seeds into `EngineRouter`, and
+  the router calls `GranularEngine::trigger` with a sample-accurate start time.
+- Dive deeper in [`docs/roadmaps/granular.md`](docs/roadmaps/granular.md) for the
+  CPU budget, slot map, and future perf TODOs.
 
 ### Option C — Resonator / Ping (CPU-light, roadmap)
 
-- Also future-facing. The plan is to fire short excitation bursts into a
-  Karplus-Strong string or modal bank.
-- Seed pitch plus density/probability would dictate excite rate for metallic
-  arpeggios that run all night.
+- `engine/Resonator.*` tracks voice plans for a Karplus-Strong or modal bank.
+  Hardware defaults to 10 simultaneous voices, the sim to 4; overflow steals the
+  oldest ring so metallic clouds stay predictable.
+- Seeds drive excitation duration, damping, brightness, feedback, and bank/mode.
+  Those values are already generated in `AppState::primeSeeds`, so reseeding in
+  the sim shows believable modal spreads.
+- Event flow mirrors the other engines: scheduler → `EngineRouter` →
+  `ResonatorBank::trigger`, which records the burst plan until we wire in the
+  Teensy Audio nodes.
+- The roadmap details (and a hit list of remaining homework) live in
+  [`docs/roadmaps/resonator.md`](docs/roadmaps/resonator.md).
 
 ## Operator console (what you see + touch)
 
@@ -212,6 +228,11 @@ We favor fast-to-first-sound setups. Pick your poison:
 | Expression input 2 | 16 (analog) | CV in 0–3.3 V | Pairs nicely with mutate depth. |
 | DIN MIDI clock/control in | 25 (Serial6 RX) | Hardware MIDI in | Opto-isolated DIN keeps external clock honest while USB stays noisy. |
 | Audio shield line input | I²S RX = 8 | Stereo audio capture | Route external sound into the seed forge for live slicing. |
+| Audio shield line/headphone out | I²S TX = 7 | Stereo output bus | Shared with sampler + granular engine playback. |
+| Audio shield clocks | MCLK 23, BCLK 21, LRCLK 20 | Codec sync | Leave these lanes clear; they also clock the granular live-input capture. |
+| SD card chip select | 10 | SDIO over SPI | Used for long-form sample + grain sources. |
+| SD card data | MOSI 11, MISO 12, SCK 13 | SPI bus | Shared with any other SPI peripherals—plan routing carefully. |
+| Codec + display I²C | SDA 18, SCL 19 | Control/config | Both the SGTL5000 and SSD1306 ride this bus; keep runs short. |
 
 All pin assignments live in `include/HardwareConfig.h` so firmware and CAD stay
 in lockstep. Adjust once there and the rest of the code picks it up, including

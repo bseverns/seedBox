@@ -3,6 +3,7 @@
 #include <vector>
 #include "Seed.h"
 #include "engine/Patterns.h"
+#include "engine/EngineRouter.h"
 #ifdef SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
@@ -42,6 +43,7 @@ private:
   uint32_t frame_{0};
   std::vector<Seed> seeds_{};
   PatternScheduler scheduler_{};
+  EngineRouter engines_{};
   uint32_t masterSeed_{0x5EEDB0B1u};
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
