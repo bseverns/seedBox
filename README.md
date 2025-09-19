@@ -49,7 +49,9 @@ test/                    # Unity tests (native env)
 flowchart LR
   subgraph External_Inputs["External seed sources"]
     Midi["USB MIDI clock / transport / CC"]
+    MidiDIN["DIN MIDI clock / CC"]
     EncoderPress["Encoders + buttons<br/>(hardware reseed)"]
+    AudioIn["Stereo line-in<br/>(SGTL5000 I²S RX)"]
     NativeTests["Native tests & scripts"]
   end
 
@@ -72,6 +74,7 @@ flowchart LR
   end
 
   Midi -->|clock + CC| Scheduler
+  MidiDIN -->|clock + CC| Scheduler
   EncoderPress --> MasterSeed
   NativeTests --> MasterSeed
   MasterSeed --> SeedTable
@@ -80,6 +83,7 @@ flowchart LR
   Scheduler --> Engines
   Scheduler --> TestAsserts
   Engines --> Audio
+  AudioIn --> Engines
   Scheduler -. debug logs .-> Serial
   DisplaySnap --> OLED
   Midi -. shared USB cable .- Serial
@@ -111,6 +115,12 @@ right alongside MIDI data without re-flashing a different firmware build. That
 punk-rock convenience means live rigs stay patched exactly the way your tests
 expect.
 
+Now that the control surface has moved off the I²S pins, a classic 5-pin DIN
+connector slots in on **Serial6 RX (pin 25)**. Bring the outside world's clock
+through an opto-isolator, slam it into that pin, and the scheduler follows
+along without arguing with USB. USB stays the noisy debug/workstation path;
+DIN stays the gig-stable clock feed.
+
 ## Seed lifecycle & voice doctrine
 
 Every tick (24 PPQN) we march through the seed list and enforce this order of
@@ -129,6 +139,19 @@ future engine work lands in the right slot:
 ## Minimal DSP attack plan
 
 We favor fast-to-first-sound setups. Pick your poison:
+
+### External audio input — feed the beast live
+
+- The SGTL5000 on the Teensy audio shield pipes stereo line-in over I²S RX
+  (`pin 8`) straight into the DSP graph. The `HardwareConfig::kAudioShield`
+  struct documents every reserved pin so CAD, firmware, and the wiring harness
+  stay in sync.
+- Because clocks live on `pin 23/21/20`, keep panel controls off that bus (see
+  the encoder/button remap above). That leaves the RX lane wide open for live
+  sampling.
+- Once the engine grows proper granular/sampler nodes, slurp whatever the line
+  input hears, stamp it with the current seed, and spray it back out determin-
+  istically. Live input becomes just another deterministic sound source.
 
 ### Option A — Sampler / One-Shot (first on deck)
 
@@ -180,16 +203,20 @@ We favor fast-to-first-sound setups. Pick your poison:
 |---------|-------------|------|-------|
 | Encoder 1 (Seed/Bank + push) | A:0, B:1, Push:2 | Scrolls focused seed / bank select | Long-press wiring should call `AppState::reseed(...)` for RNG resets. |
 | Encoder 2 (Density/Prob + push) | A:3, B:4, Push:5 | Rotate to balance density vs probability; push cycles parameter focus | Matching MOARkNOBS detent direction. |
-| Encoder 3 (Tone/Tilt + push) | A:6, B:7, Push:8 | Sweeps tone tilt + EQ macros | Push toggles coarse / fine. |
-| Encoder 4 (FX/Mutate + push) | A:9, B:10, Push:11 | Drives master FX send + mutate amount | Push arm for latch automation. |
-| Tap Tempo button | 12 | Human clock in | Short tap = tempo, hold = clock source select. |
-| Shift button | 13 | Modifier chord | Use for alternate encoder layers. |
-| Alt Seed trigger | 14 | Instant seed swap | Handy for A/B testing. |
+| Encoder 3 (Tone/Tilt + push) | A:24, B:26, Push:27 | Sweeps tone tilt + EQ macros | Relocated so the I²S RX line stays free for audio-in. |
+| Encoder 4 (FX/Mutate + push) | A:28, B:29, Push:30 | Drives master FX send + mutate amount | Push arm for latch automation. |
+| Tap Tempo button | 31 | Human clock in | Short tap = tempo, hold = clock source select. |
+| Shift button | 32 | Modifier chord | Use for alternate encoder layers. |
+| Alt Seed trigger | 33 | Instant seed swap | Handy for A/B testing. |
 | Expression input 1 | 15 (analog) | CV in 0–3.3 V | Map to any macro via CC learn. |
 | Expression input 2 | 16 (analog) | CV in 0–3.3 V | Pairs nicely with mutate depth. |
+| DIN MIDI clock/control in | 25 (Serial6 RX) | Hardware MIDI in | Opto-isolated DIN keeps external clock honest while USB stays noisy. |
+| Audio shield line input | I²S RX = 8 | Stereo audio capture | Route external sound into the seed forge for live slicing. |
 
 All pin assignments live in `include/HardwareConfig.h` so firmware and CAD stay
-in lockstep. Adjust once there and the rest of the code picks it up.
+in lockstep. Adjust once there and the rest of the code picks it up, including
+the `kMidiDinInRxPin` + `kAudioShield` structs that fence off the external
+clock jack and I²S line-in.
 
 ## Seed boot + reseed rituals
 
