@@ -3,7 +3,8 @@
 Welcome to the sonic bunker. SeedBox speaks with the same gravelly confidence
 as **MOARkNOBS-42**: this project exists to pick seeds, launch voices, and make
 noise on purpose. It's a ready-to-build scaffold for **Teensy 4.0** with a
-**native (host) test env**. It compiles in two modes:
+**native (host) test env**. It compiles in two modes that share the same core
+state machine:
 
 - `teensy40_usbmidiserial`: real hardware with I²S audio, USB MIDI + Serial.
 - `native`: host build for fast testing of schedulers, JSON, CC mapping (no Teensy libs).
@@ -15,7 +16,7 @@ noise on purpose. It's a ready-to-build scaffold for **Teensy 4.0** with a
 pip install -U platformio
 
 # 2) Enter project
-cd seedbox
+cd seedBox
 
 # 3) Install libraries (first time)
 pio pkg install
@@ -23,7 +24,7 @@ pio pkg install
 # 4) Run unit tests fast (native)
 pio test -e native
 
-# 5) Build hardware target
+# 5) Build hardware target (brings in the Teensy USB + audio stack)
 pio run -e teensy40_usbmidiserial
 
 # 6) Upload (if using teensy-cli)
@@ -42,14 +43,56 @@ src/                     # implementation: app/ engine/ io/ util/
 test/                    # Unity tests (native env)
 ```
 
+## Big-picture signal flow (seeds in, sound out)
+
+```mermaid
+flowchart LR
+  subgraph External_Inputs[External seed sources]
+    Midi[USB MIDI clock / transport / CC]
+    EncoderPress[Encoders + buttons<br/> (hardware reseed)]
+    NativeTests[Native tests & scripts]
+  end
+
+  subgraph Seed_Factory[Internal seed forge]
+    MasterSeed[Master RNG seed<br/>(0x5EEDB0B1 default)]
+    SeedTable[Deterministic seed table<br/>(4 seeds via xorshift)]
+  end
+
+  subgraph Core[SeedBox core]
+    Scheduler[Pattern scheduler<br/>24 PPQN brain]
+    DisplaySnap[Display snapshot formatter]
+    Engines[(Audio engines<br/>(Sampler stub today,<br/>Granular/Ping planned))]
+  end
+
+  subgraph Outputs
+    Audio[I²S audio bus / SGTL5000]
+    Serial[USB serial debug]
+    OLED[SSD1306 OLED]
+    TestAsserts[Unity assertions (native)]
+  end
+
+  Midi -->|clock + CC| Scheduler
+  EncoderPress --> MasterSeed
+  NativeTests --> MasterSeed
+  MasterSeed --> SeedTable
+  SeedTable --> Scheduler
+  SeedTable --> DisplaySnap
+  Scheduler --> Engines
+  Scheduler --> TestAsserts
+  Engines --> Audio
+  Scheduler -. debug logs .-> Serial
+  DisplaySnap --> OLED
+  Midi -. shared USB cable .- Serial
+```
+
 ## MIDI nerve center
 
 SeedBox keeps a USB MIDI umbilical cord plugged in at all times. On the
 hardware target the Teensy enumerates as `USB_MIDI_SERIAL`, so the same cable
-carries note clocks **and** serial debug spew. The native build fakes the
-hardware but mirrors the routing logic so you can write tests that fling MIDI
-events straight at the app without touching silicon. The `MidiRouter` watches
-the USB inbox for three critical message families:
+carries note clocks **and** serial debug spew. The native build skips the USB
+stack entirely (that code is `#ifdef SEEDBOX_HW`), so tests focus on the
+scheduler/display logic and drive reseeds directly. On hardware the
+`MidiRouter` watches the USB inbox for three critical message families:
 
 1. **Clock / Start / Stop** – incoming transport decides when the internal
    scheduler advances ticks. We treat the external clock as gospel, so the
@@ -60,8 +103,8 @@ the USB inbox for three critical message families:
    stub, but the plumbing already captures channel, controller, and value.
 3. **Future note / SysEx hooks** – there is room to latch note-on velocity for
    per-seed accenting or pump bulk dumps for seed banks. Those handlers stay
-   empty until we finish defining the dialect, but the README makes the intent
-   explicit so nobody forgets what the ports are for.
+   empty in code today, but the README makes the intent explicit so nobody
+   forgets what the ports are for.
 
 Because the USB wire doubles as a serial console, you can print debug traces
 right alongside MIDI data without re-flashing a different firmware build. That
@@ -71,41 +114,43 @@ expect.
 ## Seed lifecycle & voice doctrine
 
 Every tick (24 PPQN) we march through the seed list and enforce this order of
-operations — no compromises:
+operations — the comments in `PatternScheduler::onTick` document each stage so
+future engine work lands in the right slot:
 
 1. **Pick** – the scheduler decides which seed wakes up. Density gates and
    probabilities do the filtering so only the chosen ones speak.
 2. **Schedule** – translate clock time + jitter into sample-accurate triggers so
    the DSP core can slam voices in on the grid (or just off it, artistically).
-3. **Render** – the engine instantiates a voice from the seed's genome and
-   routes it through the shared FX chain. This is where the sound actually hits.
-4. **Mutate** – if `mutateAmt > 0` the engine walks a reversible random drift
-   over whitelisted parameters (micro pitch, tone tilt, ±5% density, etc.) while
-   staying deterministic thanks to the stored PRNG seed.
+3. **Render** – placeholder today. `Sampler::trigger` is a stub that will
+   allocate a voice once the DSP graph lands.
+4. **Mutate** – also future work. The hook exists so mutate math can live next
+   to the render call once those parameters matter.
 
 ## Minimal DSP attack plan
 
 We favor fast-to-first-sound setups. Pick your poison:
 
-### Option A — Sampler / One-Shot (fastest)
+### Option A — Sampler / One-Shot (first on deck)
 
-- Preload up to 16 one-shots into RAM for snappy percussion or glitch kits; long
-  clips can stream from SD without drama.
-- Wrap each trigger with a contour: envelope + tilt-EQ + soft clipper, then dump
-  it into the master delay / verb / limiter bus.
+- The C++ skeleton exists (`engine/Sampler.*`) but only stubs are wired today.
+  The plan is to preload up to 16 one-shots into RAM for snappy percussion while
+  longer clips stream from SD.
+- Trigger handling will eventually wrap each hit with envelope + tilt-EQ + soft
+  clipper before hitting the shared FX bus.
 
-### Option B — Granular (expressive)
+### Option B — Granular (expressive, roadmap)
 
-- Stream source audio from SD and keep 20–40 active grains per Teensy 4.0 for a
-  comfy CPU margin.
-- Grain size, spray, pitch, window, and stereo spread all come from the seed so
+- Design sketch only right now. Goal: stream source audio from SD and keep
+  20–40 active grains per Teensy 4.0 for a comfy CPU margin.
+- Grain size, spray, pitch, window, and stereo spread will come from the seed so
   patterns morph under deterministic control.
 
-### Option C — Resonator / Ping (CPU-light, musical)
+### Option C — Resonator / Ping (CPU-light, roadmap)
 
-- Fire a short excitation burst into a Karplus-Strong string or modal bank.
-- Seed pitch plus density/probability dictate the excite rate; perfect for
-  metallic arpeggios that run all night.
+- Also future-facing. The plan is to fire short excitation bursts into a
+  Karplus-Strong string or modal bank.
+- Seed pitch plus density/probability would dictate excite rate for metallic
+  arpeggios that run all night.
 
 ## Operator console (what you see + touch)
 
@@ -171,14 +216,14 @@ in lockstep. Adjust once there and the rest of the code picks it up.
   regression tests that assert against the display without touching a screen.
 
 - Every reseed regenerates the same deterministic seed table on both targets
-  thanks to the shared xorshift RNG, so snapshots, scheduler hits, and audio
-  all stay in sync.
+  thanks to the shared xorshift RNG, so snapshots, scheduler hits, and future
+  audio all stay in sync.
 
 ## Notes
 
 - Hardware audio is stubbed behind `SEEDBOX_HW`; native builds use a monotonic
   sample counter so schedulers behave.
-- The sampler engine is the first citizen; PlatformIO `build_src_filter` keeps
-  its hardware-only pieces out of native builds.
-- Granular and resonator engines plug into the same seed doctrine, so extending
-  the box is just more seeds, not more chaos.
+- PlatformIO `build_src_filter` keeps hardware-only pieces out of native builds
+  so tests stay fast.
+- Granular and resonator engines will plug into the same seed doctrine, so
+  extending the box should stay deterministic.
