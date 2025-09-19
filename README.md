@@ -47,28 +47,28 @@ test/                    # Unity tests (native env)
 
 ```mermaid
 flowchart LR
-  subgraph External_Inputs[External seed sources]
-    Midi[USB MIDI clock / transport / CC]
-    EncoderPress[Encoders + buttons<br/> (hardware reseed)]
-    NativeTests[Native tests & scripts]
+  subgraph External_Inputs["External seed sources"]
+    Midi["USB MIDI clock / transport / CC"]
+    EncoderPress["Encoders + buttons<br/>(hardware reseed)"]
+    NativeTests["Native tests & scripts"]
   end
 
-  subgraph Seed_Factory[Internal seed forge]
-    MasterSeed[Master RNG seed<br/>(0x5EEDB0B1 default)]
-    SeedTable[Deterministic seed table<br/>(4 seeds via xorshift)]
+  subgraph Seed_Factory["Internal seed forge"]
+    MasterSeed["Master RNG seed<br/>(0x5EEDB0B1 default)"]
+    SeedTable["Deterministic seed table<br/>(4 seeds via xorshift)"]
   end
 
-  subgraph Core[SeedBox core]
-    Scheduler[Pattern scheduler<br/>24 PPQN brain]
-    DisplaySnap[Display snapshot formatter]
-    Engines[(Audio engines<br/>(Sampler stub today,<br/>Granular/Ping planned))]
+  subgraph Core["SeedBox core"]
+    Scheduler["Pattern scheduler<br/>24 PPQN brain"]
+    DisplaySnap["Display snapshot formatter"]
+    Engines[("Audio engines<br/>(Sampler stub today,<br/>Granular/Ping planned)")]
   end
 
   subgraph Outputs
-    Audio[I²S audio bus / SGTL5000]
-    Serial[USB serial debug]
-    OLED[SSD1306 OLED]
-    TestAsserts[Unity assertions (native)]
+    Audio["I²S audio bus / SGTL5000"]
+    Serial["USB serial debug"]
+    OLED["SSD1306 OLED"]
+    TestAsserts["Unity assertions (native)"]
   end
 
   Midi -->|clock + CC| Scheduler
