@@ -6,6 +6,11 @@ void PatternScheduler::setBpm(float bpm) { bpm_ = bpm; }
 
 void PatternScheduler::addSeed(const Seed& s) { seeds_.push_back(s); }
 
+void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t)) {
+  triggerCtx_ = ctx;
+  triggerFn_ = fn;
+}
+
 bool PatternScheduler::densityGate(float density, uint64_t tick) {
   // simple model: expected hits per beat, at 24 PPQN => 6 ticks per 16th
   if (density <= 0.f) return false;
@@ -44,7 +49,9 @@ void PatternScheduler::onTick() {
       // probability gate
       if (RNG::uniform01(s.prng) < s.probability) {
         const uint32_t t = nowSamples() + msToSamples(s.jitterMs);
-        (void)t; // placeholder: would call engine.trigger(s, t);
+        if (triggerFn_) {
+          triggerFn_(triggerCtx_, s, t);
+        }
       }
     }
   }

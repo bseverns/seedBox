@@ -14,4 +14,8 @@ inline uint32_t xorshift(uint32_t& state) {
 inline float uniform01(uint32_t& state) {
   return (xorshift(state) >> 8) * (1.0f / 16777216.0f); // 24-bit mantissa
 }
+
+inline float uniformSigned(uint32_t& state) {
+  return (uniform01(state) * 2.0f) - 1.0f;
+}
 } // namespace RNG

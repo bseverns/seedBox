@@ -29,10 +29,18 @@ void AppState::initHardware() {
         onExternalControlChange(ch, cc, val);
       });
 #endif
+  engines_.init(EngineRouter::Mode::kHardware);
+  engines_.granular().setMaxActiveVoices(36);
+  engines_.granular().armLiveInput(true);
+  engines_.resonator().setMaxVoices(10);
   primeSeeds(masterSeed_);
 }
 
 void AppState::initSim() {
+  engines_.init(EngineRouter::Mode::kSim);
+  engines_.granular().setMaxActiveVoices(12);
+  engines_.granular().armLiveInput(false);
+  engines_.resonator().setMaxVoices(4);
   primeSeeds(masterSeed_);
 }
 
@@ -51,6 +59,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   seeds_.clear();
   scheduler_ = PatternScheduler{};
   scheduler_.setBpm(120.f);
+  scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
 
   uint32_t state = masterSeed_;
   constexpr size_t kSeedCount = 4;
@@ -67,6 +76,25 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     seed.tone = RNG::uniform01(state);
     seed.spread = 0.1f + 0.8f * RNG::uniform01(state);
     seed.mutateAmt = 0.05f + 0.15f * RNG::uniform01(state);
+
+    seed.granular.grainSizeMs = 35.f + 120.f * RNG::uniform01(state);
+    seed.granular.sprayMs = 4.f + 24.f * RNG::uniform01(state);
+    seed.granular.transpose = static_cast<float>(static_cast<int32_t>(RNG::xorshift(state) % 13) - 6);
+    seed.granular.windowSkew = (RNG::uniform01(state) * 2.f) - 1.f;
+    seed.granular.stereoSpread = 0.2f + 0.7f * RNG::uniform01(state);
+    seed.granular.source = (RNG::uniform01(state) > 0.4f)
+                               ? static_cast<uint8_t>(GranularEngine::Source::kSdClip)
+                               : static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
+    seed.granular.sdSlot = static_cast<uint8_t>(RNG::xorshift(state) % GranularEngine::kSdClipSlots);
+
+    seed.resonator.exciteMs = 2.0f + 10.0f * RNG::uniform01(state);
+    seed.resonator.damping = RNG::uniform01(state);
+    seed.resonator.brightness = RNG::uniform01(state);
+    seed.resonator.feedback = 0.55f + 0.4f * RNG::uniform01(state);
+    if (seed.resonator.feedback > 0.99f) seed.resonator.feedback = 0.99f;
+    seed.resonator.mode = static_cast<uint8_t>(i % 2);
+    seed.resonator.bank = static_cast<uint8_t>(RNG::xorshift(state) % 6);
+
     seeds_.push_back(seed);
     scheduler_.addSeed(seeds_.back());
   }
