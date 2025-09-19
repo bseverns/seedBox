@@ -42,6 +42,32 @@ src/                     # implementation: app/ engine/ io/ util/
 test/                    # Unity tests (native env)
 ```
 
+## MIDI nerve center
+
+SeedBox keeps a USB MIDI umbilical cord plugged in at all times. On the
+hardware target the Teensy enumerates as `USB_MIDI_SERIAL`, so the same cable
+carries note clocks **and** serial debug spew. The native build fakes the
+hardware but mirrors the routing logic so you can write tests that fling MIDI
+events straight at the app without touching silicon. The `MidiRouter` watches
+the USB inbox for three critical message families:
+
+1. **Clock / Start / Stop** – incoming transport decides when the internal
+   scheduler advances ticks. We treat the external clock as gospel, so the
+   router converts each `0xF8` clock pulse into a 24 PPQN tick and fans it out
+   to the seed scheduler.
+2. **Control Change (CC)** – raw CC data gets normalized and mapped to density,
+   mutate, FX sends, or whatever macro you bind later. For now the handler is a
+   stub, but the plumbing already captures channel, controller, and value.
+3. **Future note / SysEx hooks** – there is room to latch note-on velocity for
+   per-seed accenting or pump bulk dumps for seed banks. Those handlers stay
+   empty until we finish defining the dialect, but the README makes the intent
+   explicit so nobody forgets what the ports are for.
+
+Because the USB wire doubles as a serial console, you can print debug traces
+right alongside MIDI data without re-flashing a different firmware build. That
+punk-rock convenience means live rigs stay patched exactly the way your tests
+expect.
+
 ## Seed lifecycle & voice doctrine
 
 Every tick (24 PPQN) we march through the seed list and enforce this order of
