@@ -23,6 +23,22 @@ uint32_t PatternScheduler::msToSamples(float ms) {
 }
 
 void PatternScheduler::onTick() {
+  // Seed lifecycle doctrine, MOARkNOBS style:
+  // 1) PICK: this scheduler is the authority — we march through seeds_ in
+  //    their programmed order every 24 PPQN tick and let densityGate decide if
+  //    the seed is even allowed to wake up on this tick.
+  // 2) SCHEDULE: once a seed earns a hit we grab the current clock, smear it by
+  //    the seed's jitter, and book the trigger time in samples (see nowSamples
+  //    and msToSamples) so the render engine can fire with sample-accurate
+  //    timing.
+  // 3) RENDER: the actual audio engine (sampler / granular / resonator) will
+  //    instantiate a voice using the seed's genome when we call into it with
+  //    trigger time `t`. That hook lives where the placeholder `(void)t` sits.
+  // 4) MUTATE: if mutateAmt > 0 the engine gets to nudge whitelisted params in
+  //    a bounded random walk (micro pitch, tone tilt, ±5% density, etc.). We
+  //    keep it deterministic by reseeding RNG with s.prng so a hard reset drops
+  //    us right back to the original voice. Mutate plumbing lands alongside the
+  //    engine trigger call.
   for (auto &s : seeds_) {
     if (densityGate(s.density, tickCount_)) {
       // probability gate
