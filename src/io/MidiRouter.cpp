@@ -9,6 +9,10 @@ void MidiRouter::begin() {
   // Nothing to initialize today. Teensy USB stack already spun up by the
   // framework before we enter here.
 #endif
+  clockHandler_ = {};
+  startHandler_ = {};
+  stopHandler_ = {};
+  controlChangeHandler_ = {};
 }
 
 void MidiRouter::onUsbEvent() {
@@ -24,10 +28,20 @@ void MidiRouter::onUsbEvent() {
 #endif
 }
 
-void MidiRouter::onControlChange(uint8_t, uint8_t, uint8_t) {
-  // TODO: map CCs to the parameter router once the macro table lands.
+void MidiRouter::onControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
+  if (controlChangeHandler_) {
+    controlChangeHandler_(ch, cc, val);
+  }
 }
 
-void MidiRouter::onClockTick() { /* TODO: scheduler tick */ }
-void MidiRouter::onStart()     { /* TODO: scheduler start */ }
-void MidiRouter::onStop()      { /* TODO: scheduler stop  */ }
+void MidiRouter::onClockTick() {
+  if (clockHandler_) clockHandler_();
+}
+
+void MidiRouter::onStart() {
+  if (startHandler_) startHandler_();
+}
+
+void MidiRouter::onStop() {
+  if (stopHandler_) stopHandler_();
+}
