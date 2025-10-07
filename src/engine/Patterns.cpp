@@ -1,6 +1,6 @@
 #include "engine/Patterns.h"
-#include "src/util/RNG.h"
-#include "src/util/Units.h"
+#include "util/RNG.h"
+#include "util/Units.h"
 
 void PatternScheduler::setBpm(float bpm) { bpm_ = bpm; }
 
