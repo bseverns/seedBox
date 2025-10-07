@@ -89,7 +89,6 @@ uint8_t GranularEngine::allocateVoice() {
 void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whenSamples) {
   voice.active = true;
   voice.startSample = whenSamples;
-  voice.seedPrng = seed.prng;
   voice.seedId = static_cast<uint8_t>(seed.id);
   voice.sizeMs = seed.granular.grainSizeMs;
   voice.sprayMs = seed.granular.sprayMs;
@@ -97,6 +96,8 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
   voice.stereoSpread = seed.granular.stereoSpread;
   voice.source = resolveSource(seed.granular.source);
   voice.sdSlot = seed.granular.sdSlot;
+
+  uint32_t prng = seed.prng;
 
   // playbackRate pulls from both the seed pitch (global) and granular
   // transpose (local per-engine). RNG seeded with the per-seed PRNG keeps
@@ -108,7 +109,7 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
   }
 
   if (voice.sprayMs > 0.f) {
-    const float spray = (RNG::uniformSigned(seed.prng) * voice.sprayMs);
+    const float spray = (RNG::uniformSigned(prng) * voice.sprayMs);
     const uint32_t offset = Units::msToSamples(std::abs(spray));
     if (spray >= 0.f) {
       voice.startSample += offset;
@@ -116,6 +117,8 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
       voice.startSample = (voice.startSample > offset) ? (voice.startSample - offset) : 0u;
     }
   }
+
+  voice.seedPrng = prng;
 }
 
 void GranularEngine::trigger(const Seed& seed, uint32_t whenSamples) {
