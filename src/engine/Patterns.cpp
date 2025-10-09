@@ -1,22 +1,33 @@
 #include "engine/Patterns.h"
+#include <cmath>
+#include <cstdint>
 #include "util/RNG.h"
 #include "util/Units.h"
 
 void PatternScheduler::setBpm(float bpm) { bpm_ = bpm; }
 
-void PatternScheduler::addSeed(const Seed& s) { seeds_.push_back(s); }
+void PatternScheduler::addSeed(const Seed& s) {
+  seeds_.push_back(s);
+  densityAccumulators_.push_back(0.f);
+}
 
 void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t)) {
   triggerCtx_ = ctx;
   triggerFn_ = fn;
 }
 
-bool PatternScheduler::densityGate(float density, uint64_t tick) {
-  // simple model: expected hits per beat, at 24 PPQN => 6 ticks per 16th
+bool PatternScheduler::densityGate(size_t seedIndex, float density) {
   if (density <= 0.f) return false;
-  const float ticksPerBeat = 24.f;
-  const float period = ticksPerBeat / density; // ticks between hits on average
-  return (static_cast<uint64_t>(tick % (uint64_t)(period > 1 ? period : 1)) == 0);
+  if (seedIndex >= densityAccumulators_.size()) return false;
+
+  static constexpr float kTicksPerBeat = 24.f;
+  float& accumulator = densityAccumulators_[seedIndex];
+  accumulator += density / kTicksPerBeat;
+  if (accumulator >= 1.f) {
+    accumulator -= 1.f;
+    return true;
+  }
+  return false;
 }
 
 uint32_t PatternScheduler::nowSamples() {
@@ -44,11 +55,26 @@ void PatternScheduler::onTick() {
   //    keep it deterministic by reseeding RNG with s.prng so a hard reset drops
   //    us right back to the original voice. Mutate plumbing lands alongside the
   //    engine trigger call.
-  for (auto &s : seeds_) {
-    if (densityGate(s.density, tickCount_)) {
+  for (size_t i = 0; i < seeds_.size(); ++i) {
+    Seed& s = seeds_[i];
+    if (densityGate(i, s.density)) {
       // probability gate
       if (RNG::uniform01(s.prng) < s.probability) {
-        const uint32_t t = nowSamples() + msToSamples(s.jitterMs);
+        const uint32_t baseSamples = nowSamples();
+        int32_t jitterSamples = 0;
+        if (s.jitterMs != 0.f) {
+          const float jitterMs = RNG::uniformSigned(s.prng) * s.jitterMs;
+          const uint32_t magnitude = msToSamples(std::abs(jitterMs));
+          jitterSamples = static_cast<int32_t>(magnitude);
+          if (jitterMs < 0.f) {
+            jitterSamples = -jitterSamples;
+          }
+        }
+        int64_t scheduled = static_cast<int64_t>(baseSamples) + static_cast<int64_t>(jitterSamples);
+        if (scheduled < 0) {
+          scheduled = 0;
+        }
+        const uint32_t t = static_cast<uint32_t>(scheduled);
         if (triggerFn_) {
           triggerFn_(triggerCtx_, s, t);
         }

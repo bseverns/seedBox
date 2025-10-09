@@ -25,8 +25,29 @@ void test_density_gate_runs() {
   TEST_ASSERT_TRUE(counter.calls > 0);
 }
 
+void test_density_fractional_counts() {
+  PatternScheduler ps;
+  Counter counter;
+  ps.setTriggerCallback(&counter, triggerCounter);
+
+  Seed s{};
+  s.density = 1.5f;
+  s.probability = 1.0f;
+  s.jitterMs = 0.f;
+  ps.addSeed(s);
+
+  const int ticksToSimulate = 24 * 16; // 16 beats
+  for (int i = 0; i < ticksToSimulate; ++i) {
+    ps.onTick();
+  }
+
+  const int expectedHits = static_cast<int>(16 * s.density);
+  TEST_ASSERT_EQUAL_INT(expectedHits, counter.calls);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_density_gate_runs);
+  RUN_TEST(test_density_fractional_counts);
   return UNITY_END();
 }
