@@ -11,6 +11,18 @@ state machine:
 
 ## Quickstart
 
+### TL;DR menu
+
+- [Builder bootstrapping primer](docs/builder_bootstrap.md) — walkthrough of the
+  dev environment, hardware wiring, and how to keep your notebook synced with
+  the repo history.
+- [Roadmaps for the sound engines](docs/README.md) — intent docs for the DSP
+  that is coming online next.
+- [Source layout overview](#structure) — quick map of folders when you are in
+  the weeds of `src/`.
+
+### Fastest path to a working toolchain
+
 ```bash
 # 1) Install PlatformIO if needed
 pip install -U platformio
@@ -43,6 +55,11 @@ src/                     # implementation: app/ engine/ io/ util/
 docs/roadmaps/           # living specs for granular + resonator plans
 test/                    # Unity tests (native env)
 ```
+
+The new [builder bootstrapping primer](docs/builder_bootstrap.md) is the tour of
+every folder with links out to schematics, datasheets, and the "why" behind
+major files. Keep that doc close — it doubles as a lab notebook and onboarding
+script for the next rebel who clones this repo.
 
 ## Big-picture signal flow (seeds in, sound out)
 
@@ -121,6 +138,11 @@ connector slots in on **Serial6 RX (pin 25)**. Bring the outside world's clock
 through an opto-isolator, slam it into that pin, and the scheduler follows
 along without arguing with USB. USB stays the noisy debug/workstation path;
 DIN stays the gig-stable clock feed.
+
+Need a refresher on exactly where the UART pins live? The
+[builder bootstrapping primer](docs/builder_bootstrap.md#hardware-wiring--test-points)
+has a printable pin cheat sheet that mirrors the `HardwareConfig` structs in
+code.
 
 ## Seed lifecycle & voice doctrine
 
