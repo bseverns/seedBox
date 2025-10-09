@@ -7,6 +7,9 @@ rationale, and battle plans.
 
 ## How this folder is organized
 
+- `builder_bootstrap.md`
+  - The onboarding field manual. Covers environment setup, wiring diagrams, and
+    lab ideas for students. Read this first if you're powering hardware.
 - `roadmaps/`
   - Living design documents for in-flight engines. Each roadmap walks through
     intent, constraints, and open TODOs so future contributors can land new
