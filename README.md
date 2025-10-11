@@ -178,11 +178,21 @@ We favor fast-to-first-sound setups. Pick your poison:
 
 ### Option A — Sampler / One-Shot (first on deck)
 
-- The C++ skeleton exists (`engine/Sampler.*`) but only stubs are wired today.
-  The plan is to preload up to 16 one-shots into RAM for snappy percussion while
-  longer clips stream from SD.
-- Trigger handling will eventually wrap each hit with envelope + tilt-EQ + soft
-  clipper before hitting the shared FX bus.
+- `engine/Sampler.*` now owns a deterministic four-voice pool. Every trigger
+  records the sample handle, `Seed::env*` ADSR values, tilt/tone target, stereo
+  spread gains, playback rate, and the exact sample where the hit should fire.
+  Same data structure feeds both hardware and the native sim so tests and gigs
+  stay in lockstep.
+- `Sampler::init` builds a legit Teensy Audio graph on hardware: RAM preloads
+  plus SD streaming players feeding per-voice envelopes → tilt filters → a
+  stereo mix bus. The native build keeps a lightweight stub so Unity tests can
+  interrogate the state without dragging in `<Audio.h>`.
+- `Sampler::trigger` steals the oldest voice when the pool overflows, derives
+  playback rate from `Seed::pitch`, applies the seed's ADSR + tilt EQ + stereo
+  width, and stamps the future launch time so the scheduler never guesses.
+- Tests under `test/test_engine/test_sampler_voice_pool.cpp` lock in the voice
+  order/stealing rules. Treat that file like liner notes for how the sampler is
+  supposed to behave.
 
 ### Option B — Granular (expressive, roadmap)
 
