@@ -7,7 +7,7 @@ builds stay reproducible.
 
 | Target | Platform | Framework package | Notes |
 | ------ | -------- | ----------------- | ----- |
-| `native` | `native@1.2.1` | `platformio/framework-arduino@3.20006.0` | Uses host g++ with Arduino headers for parity. |
+| `native` | `native@1.2.1` | _(none — bare-metal g++ build)_ | Uses host g++ with the HAL mocks and standard library. |
 | `teensy40` | `teensy@5.0.0` | `platformio/framework-arduinoteensy@~1.159.0` | Teensy 4.0 USB MIDI/Serial profile. |
 
 ### Libraries
