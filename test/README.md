@@ -1,37 +1,34 @@
-# Test harness — keeping the seeds honest
+# Test harness — keeping the seeds honest (and fun)
 
-Tests live here for a reason: determinism is the whole shtick. SeedBox mirrors
-the MOARkNOBS-42 vibe by turning every assumption into a check you can run on a
-sleep-deprived tour laptop.
+Welcome to the safety net. These tests run in the `native` PlatformIO
+environment so you can check ideas on a laptop before ever touching hardware.
+Think of this folder as the detective agency for your audio experiments.
 
-## Layout
+## What's where
 
-- `test_app/`
-  - Focuses on `AppState` rituals: seeding, reseeding, display snapshots. If the
-    UI lies, it's because a test here let it slip.
-- `test_patterns/`
-  - Exercises the scheduler brain: tick math, seed density, trigger ordering.
-    Expand this whenever you touch timing code.
+| Folder | Focus | Why you should care |
+| --- | --- | --- |
+| `test_app/` | Covers `AppState`, reseeding rituals, display snapshots. | Stops UI lies before they hit the OLED. |
+| `test_patterns/` | Stresses the scheduler, tick math, and trigger ordering. | Keeps rhythms tight even after wild refactors. |
 
-All tests are PlatformIO Unity suites targeting the `native` environment so you
-can run them without a Teensy plugged in.
+Everything uses Unity (the test framework bundled with PlatformIO), which keeps
+setup light and failure messages readable.
 
-## How to run them
+## Run the whole suite
 
 ```bash
 pio test -e native
 ```
 
-Run that after every change touching `src/` or `include/`. The native build is
-your fast feedback loop, so keep it green.
+That command is the heartbeat of the project. Run it whenever you touch `src/`
+or `include/` code.
 
-## Writing new tests
+## Writing new tests without dread
 
-- Narrate your intent in comments. Future contributors should understand the
-  scenario without scrolling.
-- Seed values should be explicit constants. Deterministic inputs make failures
-  reproducible.
-- If a bug only shows up on hardware, reproduce the edge case here with a mocked
-  dependency, then document the hardware quirk in `docs/`.
+- Narrate your intent with comments. Leave breadcrumbs for the next late-night
+  debugger.
+- Use explicit seed values so failures are repeatable.
+- If you discover a hardware-only quirk, recreate it here with a mocked
+  dependency and document the original scenario in `docs/`.
 
-When in doubt, over-test. Boring tests keep the live rigs weird in a good way.
+Healthy tests let us stay bold with the music experiments.

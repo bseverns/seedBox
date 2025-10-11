@@ -1,24 +1,23 @@
-# Utility scripts — small helpers, loud intent
+# Utility scripts — the pit crew
 
-This directory is the pit crew for SeedBox builds. Every script should explain
-its mission up front and be safe to run on a laptop mid-soundcheck.
+`scripts/` holds tiny helpers that keep the build smooth and the version info
+honest. Nothing here should feel scary; if a script needs special setup, it must
+say so loudly.
 
-## Current roster
+## What's in the garage
 
-- `gen_version.py`
-  - Emits `include/BuildInfo.h` with the current git hash, branch, and build
-    timestamp.
-  - PlatformIO calls this before builds so the firmware can scream its identity
-    over serial.
-  - If you touch the output format, update the consuming code in `src/` and note
-    the change in the README.
+| Script | Job | Notes |
+| --- | --- | --- |
+| `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
 
-## Adding new scripts
+## When you add a script
 
-1. Keep dependencies standard-library unless you've documented the install
-   steps in the top-level README.
-2. Make the script idempotent—rerunning it shouldn't trash existing build
+1. Prefer standard-library dependencies. If you need extra packages, document
+   the install steps in the top-level README.
+2. Make reruns safe — scripts should be idempotent so they never trash previous
    artifacts.
-3. Drop a usage example in this file. Future-you will forget the CLI flags.
+3. Drop a usage example either in the script header or this README. Future you
+   will appreciate the reminder.
 
-Scripts are support acts, but they deserve headliner-level docs.
+Treat these helpers like the band techs: not flashy, but the show can't start
+without them.

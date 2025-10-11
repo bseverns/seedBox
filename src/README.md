@@ -1,46 +1,37 @@
-# SeedBox source tree — how the noise is carved
+# SeedBox source tree — story mode
 
-This folder is the beating heart of SeedBox. The layout mirrors the MOARkNOBS
-ethos: obvious boundaries, verbose intent, and comments that read like a
-late-night pair-programming session. Here's how to navigate it without stepping
-on any landmines.
+Welcome to the part of the project where ideas turn into actual code. This
+folder is organized so you can read it like a workshop logbook: short riffs,
+plenty of breadcrumbs, and room to sketch your own experiments.
 
-## Directory tour
+## Map of the land
 
-- `app/`
-  - Owns global state (`AppState`) and the teaching-friendly façade around it.
-  - Anything that coordinates UI snapshots, reseed rituals, or seed genomes
-    lives here.
-- `engine/`
-  - Audio engines with deterministic trigger plumbing. Today it's mostly
-    skeletons (`Sampler`, `Granular`, `Resonator`), but the contracts are real
-    and shared across hardware + native builds.
-- `io/`
-  - Hardware shims: MIDI routers, display drivers, codec setup. Wraps the
-    Teensy-specific bits behind `#ifdef SEEDBOX_HW` so the native sim stays
-    portable.
-- `profiles/`
-  - Seed generators and macro maps. This is where we teach the box what a
-    "granular seed" even means.
-- `util/`
-  - Shared helpers (timers, deterministic RNG wrappers, logging). Keep them
-    tiny and well-tested; anything spooky belongs here before it touches audio.
-- `main.cpp`
-  - The thin bootstrapper. Picks hardware vs native init paths and hands control
-    to the app layer.
+| Folder | What you'll find | Why it matters |
+| --- | --- | --- |
+| `app/` | High-level conductors like `AppState` and UI snapshot helpers. | Keeps the instrument's mood steady and understandable. |
+| `engine/` | Audio engines (sampler stubs today, more wild stuff tomorrow). | Where seeds become sound textures. |
+| `io/` | MIDI, display, codec glue — all the hardware conversations. | Lets the same code behave on laptop + Teensy. |
+| `profiles/` | Seed recipes and macro maps. | Defines what a "granular seed" or other persona means. |
+| `util/` | Tiny helpers, timers, deterministic RNG, logging. | The toolbox for everyone else. |
+| `main.cpp` | A thin doorway into the whole system. | Chooses native vs hardware boot and hands off to `app/`. |
 
-## Development expectations
+Each subfolder tries to self-document. If you add something new, drop a short
+comment or mini README nearby so the next curious hacker can follow along.
 
-- **Document your intent inline.** If a function name doesn't scream its
-  purpose, leave a block comment above it that does.
-- **Keep native + hardware parity.** Build both environments after structural
-  changes so determinism stays intact.
-- **Respect the seed doctrine.** New engines must flow through the scheduler →
-  router → engine trigger pipeline. Drop a README update (here or in docs/) if
-  you tweak that choreography.
+## Working here without stress
 
-## Testing from this folder
+- **Trace the flow**: Start at `main.cpp`, hop into `app/`, then explore engines
+  and IO as you need. It's okay to treat it like a choose-your-own-adventure.
+- **Mirror changes in tests**: Most logic has a friend in `test/`. When you tweak
+  behavior, update the matching test so the intent stays obvious.
+- **Keep hardware flags gentle**: Wrap Teensy-only code in `#ifdef SEEDBOX_HW`
+  so the `native` build stays a truthful simulator.
 
-Most units have dedicated tests under `test/`. If you add a helper here, wire a
-matching test case and explain the edge cases in the test comments. The idea is
-to leave future contributors a map, not a mystery.
+## When you extend the story
+
+1. Sketch the idea in words first (README, doc comment, or a quick diagram).
+2. Build the behavior in code.
+3. Capture the lesson in a test or example so future readers see it in action.
+
+Think of `src/` as the main stage and everything else as the backstage crew. The
+show goes best when the set list is clear and the amps aren't humming.
