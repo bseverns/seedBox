@@ -24,6 +24,7 @@
 //   unit tests and notebooks can inspect state without an SGTL5000 nearby.
 class Sampler {
 public:
+  Sampler();
   static constexpr uint8_t kMaxVoices = 4;
 
   struct VoiceState {
@@ -105,6 +106,7 @@ private:
 
 #ifdef SEEDBOX_HW
   struct HardwareVoice {
+    HardwareVoice();
     // RAM-resident sample player (Teensy Audio library).
     AudioPlayMemory ramPlayer;
     // SD-card streaming player. Both RAM + SD feed the same mixer with mute
@@ -117,7 +119,7 @@ private:
     AudioFilterStateVariable toneFilter;
   };
 
-  std::array<HardwareVoice, kMaxVoices> hwVoices_{};
+  std::array<HardwareVoice, kMaxVoices> hwVoices_;
   AudioMixer4 voiceMixerLeft_;
   AudioMixer4 voiceMixerRight_;
   AudioOutputI2S output_;

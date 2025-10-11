@@ -235,7 +235,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   // OLED real estate is tiny, so we jam the master seed into the title and then
   // use status/metrics/nuance rows to narrate what's happening with the focus
   // seed. Think of it as a glorified logcat for the front panel.
-  std::snprintf(out.title, sizeof(out.title), "SeedBox %06X", masterSeed_ & 0xFFFFFFu);
+  const unsigned int displaySeed = static_cast<unsigned int>(masterSeed_ & 0xFFFFFFu);
+  std::snprintf(out.title, sizeof(out.title), "SeedBox %06X", displaySeed);
 
   if (seeds_.empty()) {
     std::snprintf(out.status, sizeof(out.status), "no seeds loaded");
@@ -245,7 +246,12 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   }
 
   const Seed& s = seeds_[std::min<size_t>(focusSeed_, seeds_.size() - 1)];
-  std::snprintf(out.status, sizeof(out.status), "#%02u %s %+0.1fst", s.id, engineLabel(s.engine), s.pitch);
+  std::snprintf(out.status,
+                sizeof(out.status),
+                "#%02u %s %+0.1fst",
+                static_cast<unsigned int>(s.id),
+                engineLabel(s.engine),
+                s.pitch);
   std::snprintf(out.metrics, sizeof(out.metrics), "Den %.2f Prob %.2f", s.density, s.probability);
   std::snprintf(out.nuance, sizeof(out.nuance), "Jit %.1fms Mu %.2f", s.jitterMs, s.mutateAmt);
 }

@@ -18,6 +18,25 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
 }
 
+Sampler::Sampler()
+#ifdef SEEDBOX_HW
+    : hwVoices_{}, voiceMixerLeft_(), voiceMixerRight_(), output_(), patchCables_()
+#endif
+{
+#ifdef SEEDBOX_HW
+  patchCables_.reserve(static_cast<size_t>(kMaxVoices) * 6 + 2);
+#endif
+}
+
+#ifdef SEEDBOX_HW
+Sampler::HardwareVoice::HardwareVoice()
+    : ramPlayer(),
+      sdPlayer(),
+      sourceMixer(),
+      envelope(),
+      toneFilter() {}
+#endif
+
 void Sampler::init() {
   nextHandle_ = 1;
   for (auto& v : voices_) {
