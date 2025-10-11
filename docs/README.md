@@ -9,6 +9,7 @@ not intimidate.
 | File or folder | What you'll learn | Best time to read |
 | --- | --- | --- |
 | `builder_bootstrap.md` | Environment setup, wiring diagrams, lab ideas. | When you're booting hardware or helping a friend get started. |
+| `hardware_bill_of_materials.md` | Shopping list + sourcing lore for the physical rig. | Before you smash the "buy" button. |
 | `roadmaps/` | Long-form design notes for current and future engines. | When you're planning a feature or trying to understand the vision. |
 | _(future add-ons)_ | Calibration guides, wiring art, troubleshooting logs. | Whenever the community uncovers new stories worth sharing. |
 
