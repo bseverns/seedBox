@@ -11,6 +11,11 @@ not intimidate.
 | `builder_bootstrap.md` | Environment setup, wiring diagrams, lab ideas. | When you're booting hardware or helping a friend get started. |
 | `hardware_bill_of_materials.md` | Shopping list + sourcing lore for the physical rig. | Before you smash the "buy" button. |
 | `roadmaps/` | Long-form design notes for current and future engines. | When you're planning a feature or trying to understand the vision. |
+| `hal.md` | Timing budgets, HAL seam philosophy, mock tips. | Before touching audio callbacks. |
+| `toolchain.md` | PlatformIO pins and regeneration commands. | When updating dependencies. |
+| `interop_mn42.md` | CC and NRPN handshake with the MN42 synth. | Before wiring interop. |
+| `assumptions.md` | The running ledger of performance bets. | Anytime you tweak timing or memory. |
+| `ethics.md` | Quiet Mode policy and privacy stance. | When data or telemetry enters the chat. |
 | _(future add-ons)_ | Calibration guides, wiring art, troubleshooting logs. | Whenever the community uncovers new stories worth sharing. |
 
 Suggested starting points in `roadmaps/`:

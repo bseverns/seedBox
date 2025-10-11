@@ -1,22 +1,23 @@
 #include "BuildInfo.h"
 #include "app/AppState.h"
+#include "hal/hal_audio.h"
+#include "hal/hal_io.h"
 
 #ifdef SEEDBOX_HW
-  #include <Audio.h>
   #include "io/MidiRouter.h"
   #include "engine/Sampler.h"
-  AudioControlSGTL5000 sgtl5000;
 #endif
 
 AppState app;
 
 void setup() {
 #ifdef SEEDBOX_HW
-  AudioMemory(64);
-  sgtl5000.enable();
-  sgtl5000.volume(0.6f);
+  seedbox::hal::init_audio({64, 0.6f, 48000.0f, 128});
+  seedbox::hal::init_io();
   app.initHardware();
 #else
+  seedbox::hal::init_audio();
+  seedbox::hal::init_io();
   app.initSim();
 #endif
 }

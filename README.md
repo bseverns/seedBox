@@ -1,72 +1,134 @@
-# SeedBox — playground for seeds, sound, and experiments
+# SeedBox — tiny lab for seeds, sound, and mischief
 
-SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
-companion project to the MOARkNOBS mythos: a Teensy 4.0 instrument that can
-also run a "pretend hardware" build on your laptop. You can poke at rhythm
-engines, reseed algorithms, or display sketches without needing a soldered rig.
+[![CI](https://github.com/bseverns/seedbox/actions/workflows/ci.yml/badge.svg)](https://github.com/bseverns/seedbox/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![PlatformIO](https://img.shields.io/badge/PlatformIO-ready-orange.svg)](https://platformio.org/)
 
-## Why you might hang out here
+SeedBox is half studio notebook, half teaching guide. It runs on a Teensy 4.0 or
+natively with PlatformIO, letting you test rhythm ideas on a laptop before
+hauling gear to the gig.
 
-- **You like sound experiments.** Sequencers, granular dreams, happy accidents —
-  they all live under one roof.
-- **You learn by building.** The repo doubles as a studio notebook, so every
-  folder tries to teach what it's doing.
-- **You want a friendly start.** No gatekeeping; just enough tooling to get the
-  firmware compiled and the tests humming.
-
-## Quick orientation
-
-| Folder | What's going on | First doc to read |
-| --- | --- | --- |
-| `docs/` | Roadmaps, design notes, wiring sketches. | [Builder primer](docs/builder_bootstrap.md) |
-| `src/` | The actual instrument brain. | [Source tour](src/README.md) |
-| `include/` | Header contracts the rest of the world relies on. | [Interface notes](include/README.md) |
-| `test/` | Native tests that keep the grooves deterministic. | [Test guide](test/README.md) |
-| `scripts/` | Helper tools (version stamping, etc.). | [Script cheat sheet](scripts/README.md) |
+Quiet Mode is the default: no SD writes, no secret network calls, deterministic
+RNG seeded with `0x5EEDB0B1`. Flip it off by compiling with `-D QUIET_MODE=0` if
+you really need persistence.
 
 ## Pick your adventure
 
-- **Just want to hear something?** Plug in a Teensy 4.0, follow the wiring in
-  `docs/`, then build the `teensy40_usbmidiserial` target in PlatformIO.
-- **No hardware handy?** Run the `native` environment. It uses the same logic as
-  the hardware build and spits out logs/tests so you can tweak algorithms on the
-  couch.
-- **Documentary mode?** Read the roadmaps in `docs/` and drop ideas directly in
-  Markdown. We treat documentation as part of the jam session.
+| Mode | What you get | Jump in |
+| ---- | ------------- | ------- |
+| Minimal sprout | Deterministic four-seed loop, ready to mutate. | [`examples/01_sprout`](examples/01_sprout) |
+| Reseed rituals | Manual reseed cadence + MN42 nudges. | [`examples/02_reseed`](examples/02_reseed) |
+| Headless sim | CLI-only harness for CI and teach-ins. | [`examples/03_headless`](examples/03_headless) |
 
-## Friendly setup checklist
+**TODO:** "Listen here" once tiny WAV fixtures land.
 
-These steps look long, but they're just the usual PlatformIO tune‑up written
-like a zine.
-
-1. Install PlatformIO once: `pip install -U platformio`
-2. Clone this repo and step inside: `cd seedBox`
-3. Grab project dependencies: `pio pkg install`
-4. Run the fast tests (no hardware required): `pio test -e native`
-5. When you're ready for the real synth, build the Teensy target:
-   `pio run -e teensy40_usbmidiserial`
-
-## High-level flow (aka how seeds become sound)
+## Builder primer
 
 ```mermaid
 flowchart LR
-  Seeds["Seed ideas\n(clock, random, buttons)"] --> Scheduler
-  Scheduler --> Engines["Audio engines"]
-  Engines --> Output["Speakers / logs / display"]
-  Tests["Native test suites"] --> Scheduler
-  Notes["Roadmaps & notebooks"] --> Seeds
+  Install[Install PlatformIO] --> Clone
+  Clone[Clone repo] --> Configure[Confirm QUIET_MODE]
+  Configure --> BuildNative[pio run -e native]
+  BuildNative --> TestNative[pio test -e native]
+  TestNative --> BuildHW[pio run -e teensy40]
 ```
 
-This is intentionally simple. Each box has its own README if you want the
-geekier signal-flow diagrams later.
+1. `pip install -U platformio`
+2. `git clone git@github.com:bseverns/seedbox.git`
+3. `cd seedBox`
+4. `pio run -e native && pio test -e native`
+5. `pio run -e teensy40` (compile-only smoke)
 
-## Contributing without fear
+See [`docs/toolchain.md`](docs/toolchain.md) for pinned versions and regeneration
+commands.
 
-- Speak plainly in comments and docs. Pretend you're writing to your future
-  self after a loud gig.
-- Keep hardware-only code wrapped in the `SEEDBOX_HW` flag so the native build
-  stays honest.
-- When you add a new idea, sketch it in Markdown or tests before wiring it into
-  the firmware. The notebook is as important as the code.
+## Source tour
+
+```mermaid
+flowchart TB
+  subgraph Core
+    Engines[engine/*]
+    App[app/*]
+    Seeds[include/Seed.h]
+  end
+  subgraph HAL
+    Audio[src/hal/hal_audio.cpp]
+    IO[src/hal/hal_io.cpp]
+  end
+  Tests[test/* --> tests/native_golden]
+  Examples[examples/*]
+  Engines --> HAL
+  App --> HAL
+  HAL --> Tests
+  Examples --> App
+```
+
+- [`src/hal/hal_audio.h`](src/hal/hal_audio.h) details the callback seam.
+- [`src/hal/hal_io.h`](src/hal/hal_io.h) keeps LEDs, buttons, and counters tame.
+- [`docs/hal.md`](docs/hal.md) explains the 2.67 ms deadline and no-alloc rule.
+- **TODO:** Capture oscilloscope traces showing callback headroom.
+
+## Interface notes
+
+```mermaid
+graph LR
+  MN42[MN42 synth] -- CC#14/21/51 --> SeedBox
+  SeedBox -- NRPN 0x77/0x01 --> MN42
+  SeedBox -- HAL events --> LEDs
+```
+
+- Shared constants live in [`src/interop/mn42_map.h`](src/interop/mn42_map.h).
+- Handshake walkthrough: [`docs/interop_mn42.md`](docs/interop_mn42.md).
+- Quiet Mode + ethics stance: [`docs/ethics.md`](docs/ethics.md).
+- **TODO:** Embed screenshots of the MN42 control surface once we can capture it.
+
+## Test guide
+
+```mermaid
+stateDiagram-v2
+  [*] --> Unit
+  Unit --> Golden: ENABLE_GOLDEN
+  Unit --> Native: default
+  Native --> CI
+  Golden --> TODOFixtures
+```
+
+- Fast unit tests live under [`test/`](test/README.md).
+- Golden harness stubs: [`tests/native_golden`](tests/native_golden/README.md).
+- Run with `pio test -e native` (golden tests skipped unless `ENABLE_GOLDEN=1`).
+- **TODO:** Generate 1–2 second WAVs and hash them into `golden.json`.
+
+## Script cheat sheet
+
+```mermaid
+graph TD
+  Version[scripts/gen_version.py] --> Build
+  Future[TODO scripts/render_audio.py] --> Golden
+```
+
+- Scripts live in [`scripts/`](scripts/README.md).
+- `gen_version.py` stamps builds with the git revision.
+- Add your own helper scripts but keep dependencies minimal.
+- **TODO:** Provide a script that renders tiny WAV previews into `/out`.
+
+## Governance + release notes
+
+- MIT code license: [`LICENSE`](LICENSE)
+- CC-BY-4.0 docs license: [`LICENSE-docs`](LICENSE-docs)
+- Contributor Covenant: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- Contribution guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Security policy: [`SECURITY.md`](SECURITY.md)
+- Release process: [`RELEASING.md`](RELEASING.md)
+- Change log: [`CHANGELOG.md`](CHANGELOG.md)
+
+## Test commands (copy/paste)
+
+```bash
+pio run -e native && pio test -e native
+pio run -e teensy40
+```
+
+If the proxy blocks dependency downloads, rerun after the tunnel opens. CI will
+mirror these checks without uploading artifacts.
 
 Bring your curiosity, your sense of play, and maybe some headphones.
