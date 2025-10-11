@@ -13,15 +13,18 @@ builds stay reproducible.
 ### Libraries
 
 ```
-teensy/Audio@=1.3
-teensy/OctoWS2811@=1.5
-teensy/Encoder@=1.4.3
-fortyseveneffects/MIDI Library@=5.0.2
-bblanchon/ArduinoJson@=7.4.2
-greiman/SdFat@=2.3.1
-adafruit/Adafruit SSD1306@=2.5.15
-adafruit/Adafruit GFX Library@=1.12.3
-adafruit/Adafruit BusIO@=1.17.4
+# shared across envs
+bblanchon/ArduinoJson@7.4.2
+
+# teensy40 only
+teensy/Audio@1.3
+teensy/OctoWS2811@1.5
+teensy/Encoder@1.4.3
+fortyseveneffects/MIDI Library@5.0.2
+greiman/SdFat@2.3.1
+adafruit/Adafruit SSD1306@2.5.15
+adafruit/Adafruit GFX Library@1.12.3
+adafruit/Adafruit BusIO@1.17.4
 ```
 
 ## Reproducing the pin set
