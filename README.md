@@ -211,17 +211,22 @@ We favor fast-to-first-sound setups. Pick your poison:
 
 ### Option C — Resonator / Ping (CPU-light, roadmap)
 
-- `engine/Resonator.*` tracks voice plans for a Karplus-Strong or modal bank.
-  Hardware defaults to 10 simultaneous voices, the sim to 4; overflow steals the
-  oldest ring so metallic clouds stay predictable.
+- `engine/Resonator.*` now ships with a full Karplus-Strong/modal audio graph on
+  Teensy targets and deterministic stubs on native builds. Hardware defaults to
+  10 simultaneous voices, the sim to 4; overflow steals the oldest ring so
+  metallic clouds stay predictable.
 - Seeds drive excitation duration, damping, brightness, feedback, and bank/mode.
   Those values are already generated in `AppState::primeSeeds`, so reseeding in
   the sim shows believable modal spreads.
 - Event flow mirrors the other engines: scheduler → `EngineRouter` →
-  `ResonatorBank::trigger`, which records the burst plan until we wire in the
-  Teensy Audio nodes.
-- The roadmap details (and a hit list of remaining homework) live in
+  `ResonatorBank::trigger`, which writes burst envelopes, delay taps, modal
+  filter tunings, and stereo gains straight into the DSP plan.
+- Modal presets are documented (and guarded) so courseware can reference real
+  ratio sets: check the atlas in
   [`docs/roadmaps/resonator.md`](docs/roadmaps/resonator.md).
+- Native tests (`test_resonator_voice_pool.cpp`) snapshot voice plans and prove
+  voice stealing honors start time → handle ordering, keeping the sim perfectly
+  in sync with hardware intent.
 
 ## Operator console (what you see + touch)
 
