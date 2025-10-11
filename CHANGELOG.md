@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - TODO: Score new golden audio fixtures and publish tiny WAV previews.
 - TODO: Expand MN42 handshake coverage with real integration captures.
+- Fixed: Pin Teensy builds to the upstream PaulStoffregen library IDs so CI
+  stops choking on the Audio stack.
 
 ## [0.1.0] - 2025-02-14
 

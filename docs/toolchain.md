@@ -17,15 +17,20 @@ builds stay reproducible.
 bblanchon/ArduinoJson@7.4.2
 
 # teensy40 only
-teensy/Audio@1.3.0
-teensy/OctoWS2811@1.5
-teensy/Encoder@1.4.3
+PaulStoffregen/Audio@1.3
+PaulStoffregen/OctoWS2811@1.5
+PaulStoffregen/Encoder@1.4.3
 fortyseveneffects/MIDI Library@5.0.2
 greiman/SdFat@2.3.1
 adafruit/Adafruit SSD1306@2.5.15
 adafruit/Adafruit GFX Library@1.12.3
 adafruit/Adafruit BusIO@1.17.4
 ```
+
+We pull Paul Stoffregen's libraries directly from the PlatformIO registry so the
+versions line up with the Teensyduino bundle. If the registry ever hiccups,
+swap the spec for a `https://github.com/...git#<commit>` reference and note it
+in this ledger.
 
 ## Reproducing the pin set
 
