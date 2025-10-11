@@ -178,11 +178,21 @@ We favor fast-to-first-sound setups. Pick your poison:
 
 ### Option A — Sampler / One-Shot (first on deck)
 
-- The C++ skeleton exists (`engine/Sampler.*`) but only stubs are wired today.
-  The plan is to preload up to 16 one-shots into RAM for snappy percussion while
-  longer clips stream from SD.
-- Trigger handling will eventually wrap each hit with envelope + tilt-EQ + soft
-  clipper before hitting the shared FX bus.
+- `engine/Sampler.*` now owns a deterministic four-voice pool. Every trigger
+  records the sample handle, `Seed::env*` ADSR values, tilt/tone target, stereo
+  spread gains, playback rate, and the exact sample where the hit should fire.
+  Same data structure feeds both hardware and the native sim so tests and gigs
+  stay in lockstep.
+- `Sampler::init` builds a legit Teensy Audio graph on hardware: RAM preloads
+  plus SD streaming players feeding per-voice envelopes → tilt filters → a
+  stereo mix bus. The native build keeps a lightweight stub so Unity tests can
+  interrogate the state without dragging in `<Audio.h>`.
+- `Sampler::trigger` steals the oldest voice when the pool overflows, derives
+  playback rate from `Seed::pitch`, applies the seed's ADSR + tilt EQ + stereo
+  width, and stamps the future launch time so the scheduler never guesses.
+- Tests under `test/test_engine/test_sampler_voice_pool.cpp` lock in the voice
+  order/stealing rules. Treat that file like liner notes for how the sampler is
+  supposed to behave.
 
 ### Option B — Granular (expressive, roadmap)
 
@@ -201,17 +211,22 @@ We favor fast-to-first-sound setups. Pick your poison:
 
 ### Option C — Resonator / Ping (CPU-light, roadmap)
 
-- `engine/Resonator.*` tracks voice plans for a Karplus-Strong or modal bank.
-  Hardware defaults to 10 simultaneous voices, the sim to 4; overflow steals the
-  oldest ring so metallic clouds stay predictable.
+- `engine/Resonator.*` now ships with a full Karplus-Strong/modal audio graph on
+  Teensy targets and deterministic stubs on native builds. Hardware defaults to
+  10 simultaneous voices, the sim to 4; overflow steals the oldest ring so
+  metallic clouds stay predictable.
 - Seeds drive excitation duration, damping, brightness, feedback, and bank/mode.
   Those values are already generated in `AppState::primeSeeds`, so reseeding in
   the sim shows believable modal spreads.
 - Event flow mirrors the other engines: scheduler → `EngineRouter` →
-  `ResonatorBank::trigger`, which records the burst plan until we wire in the
-  Teensy Audio nodes.
-- The roadmap details (and a hit list of remaining homework) live in
+  `ResonatorBank::trigger`, which writes burst envelopes, delay taps, modal
+  filter tunings, and stereo gains straight into the DSP plan.
+- Modal presets are documented (and guarded) so courseware can reference real
+  ratio sets: check the atlas in
   [`docs/roadmaps/resonator.md`](docs/roadmaps/resonator.md).
+- Native tests (`test_resonator_voice_pool.cpp`) snapshot voice plans and prove
+  voice stealing honors start time → handle ordering, keeping the sim perfectly
+  in sync with hardware intent.
 
 ## Operator console (what you see + touch)
 
@@ -288,6 +303,22 @@ clock jack and I²S line-in.
 - Every reseed regenerates the same deterministic seed table on both targets
   thanks to the shared xorshift RNG, so snapshots, scheduler hits, and future
   audio all stay in sync.
+
+### Engine cycling (SMP / GRA / PING)
+
+- `AppState::setSeedEngine(seedIndex, engineId)` flips a seed between sampler,
+  granular, and resonator mode. Under the hood we update the live `seeds_`
+  vector **and** push the revision straight into `PatternScheduler` so the next
+  trigger fires the new engine without skipping a beat.
+- Selections are sticky. We stash the engine choice for each seed, so reseeding
+  with a new master RNG still remembers which slots were droning through the
+  resonator and which ones were slicing samples. Think of it like taping notes
+  to your modular — nothing gets lost when you reboot the room.
+- Performance gesture: fire MIDI CC 20 at the box (value ≥ 64 walks forward,
+  value < 64 walks backward) and the focused seed will cycle through
+  `SMP → GRA → PING → SMP`. Hardware buttons can piggyback on that mapping, so a
+  front-panel toggle just spits the same CC. The OLED status line updates on the
+  very next frame, making it obvious which flavor you just armed.
 
 ## Notes
 

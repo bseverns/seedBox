@@ -1,8 +1,9 @@
 # Option B — Granular engine battle plan
 
 This is the manifest for the granular roadmap baked into `engine/Granular.*`.
-Nothing renders audio yet; we're locking in the control surface so the DSP graph
-can slide in later without rewiring the scheduler.
+The control scaffolding now spins up a real DSP graph (or tidy stubs for the
+simulator), so we can reason about routing, voice stealing, and graph patching
+before the audio assets exist.
 
 ## Voice budget
 
@@ -41,9 +42,24 @@ between triggers while still reseeding cleanly.
 1. Scheduler decides a seed is allowed to fire.
 2. `EngineRouter::dispatchThunk` hands the trigger to `GranularEngine::trigger`.
 3. `trigger` claims/steals a voice, writes the plan (start sample, playback rate,
-   source, etc.).
-4. Once the Teensy Audio graph is ready, we drive the buffer offsets from this
-   plan and keep the control path untouched.
+   source, etc.), and immediately maps those parameters onto the Teensy
+   `AudioEffectGranular` nodes (hardware) or stub handles (sim).
+4. Source routing honors `Seed::granular.source` by flipping the voice input
+   mixer between the live I²S bus (slot 0) and a registered SD clip stream.
+5. Spray/jitter, window skew, and stereo spread all get baked into the
+   `GrainVoice` record so notebooks/tests can narrate exactly what would hit the
+   DAC.
+
+## DSP graph sketch
+
+- Each grain voice owns a Teensy `AudioEffectGranular` with a tiny source mixer
+  that crossfades between live input and an SD clip trigger.
+- Voice outputs land in 10 submix mixers (4 voices per group) that collapse into
+  a final L/R mixer pair before feeding I²S. Native builds keep a stub vector of
+  "connections" so we can assert routing without dragging `Audio.h` into the
+  host toolchain.
+- `GrainVoice::dspHandle` tracks which DSP slot a plan inhabits. Tests can dump
+  the struct and see which mixer slot the scheduling logic targeted.
 
 ## CPU sanity checks still todo
 
@@ -51,3 +67,6 @@ between triggers while still reseeding cleanly.
 - Add optional debug builds that print histogram of grain sizes and spray.
 - Stress test with live input muted to make sure SD streaming alone holds 40
   grains without underflowing.
+- Profile the submix cascade once real assets land; the current fan-out (4
+  voices per mixer, 3-layer sum) is conservative but we should validate block
+  usage once envelopes and jittered buffers start chewing cycles.

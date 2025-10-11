@@ -4,11 +4,32 @@
 #include "util/RNG.h"
 #include "util/Units.h"
 
+// PatternScheduler keeps the macro timing math honest. Seeds live inside this
+// object until they're triggered, and every method tries to narrate what part
+// of the groove machine it's touching. Students can trace the timeline by
+// following the call sites in AppState.
+
+// Set the global tempo. We leave the unit intentionally boring (BPM) so the
+// teaching demo can focus on density/probability instead of fancy transport
+// math.
 void PatternScheduler::setBpm(float bpm) { bpm_ = bpm; }
 
+// Add a seed to the scheduling roster and make sure it has a matching density
+// accumulator slot. The accumulator tracks fractional hits until densityGate
+// decides it's time to trigger.
 void PatternScheduler::addSeed(const Seed& s) {
   seeds_.push_back(s);
   densityAccumulators_.push_back(0.f);
+}
+
+// Update the copy of the seed the scheduler owns. Returns false if the caller
+// fat-fingered the index so the tests can assert deterministic behaviour.
+bool PatternScheduler::updateSeed(size_t index, const Seed& s) {
+  if (index >= seeds_.size()) {
+    return false;
+  }
+  seeds_[index] = s;
+  return true;
 }
 
 void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t)) {
@@ -16,10 +37,21 @@ void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const See
   triggerFn_ = fn;
 }
 
+const Seed* PatternScheduler::seedForDebug(size_t index) const {
+  if (index >= seeds_.size()) {
+    return nullptr;
+  }
+  return &seeds_[index];
+}
+
 bool PatternScheduler::densityGate(size_t seedIndex, float density) {
   if (density <= 0.f) return false;
   if (seedIndex >= densityAccumulators_.size()) return false;
 
+  // Each seed accrues fractional hits according to its density. Once the
+  // accumulator crosses 1.0 we let the note through and subtract 1.0 so the
+  // groove stays phase-aligned. Think of it as a poor-person's Bernoulli clock
+  // that stays deterministic for tests.
   static constexpr float kTicksPerBeat = 24.f;
   float& accumulator = densityAccumulators_[seedIndex];
   accumulator += density / kTicksPerBeat;
@@ -30,6 +62,10 @@ bool PatternScheduler::densityGate(size_t seedIndex, float density) {
   return false;
 }
 
+// Utility conversions keep the scheduling math agnostic from whether we're in
+// sim or hardware land. Units::simNowSamples and Units::msToSamples hide the
+// platform specifics so lectures can focus on timing concepts instead of
+// transport glue.
 uint32_t PatternScheduler::nowSamples() {
   return Units::simNowSamples();
 }
