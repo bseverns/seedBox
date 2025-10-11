@@ -106,7 +106,7 @@ Sampler::VoiceState Sampler::voice(uint8_t index) const {
   return state;
 }
 
-uint8_t Sampler::allocateVoice(uint32_t whenSamples) {
+uint8_t Sampler::allocateVoice(uint32_t /*whenSamples*/) {
   // First pass: look for a free slot. Most of the time we will find one because
   // the pool is tiny and percussive.
   for (uint8_t i = 0; i < kMaxVoices; ++i) {

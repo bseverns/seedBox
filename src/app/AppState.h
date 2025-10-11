@@ -31,10 +31,10 @@ public:
   void tick();
 
   struct DisplaySnapshot {
-    char title[17];
-    char status[17];
-    char metrics[17];
-    char nuance[17];
+    char title[32];
+    char status[32];
+    char metrics[32];
+    char nuance[32];
   };
 
   // Populate the snapshot struct with text destined for the OLED / debug

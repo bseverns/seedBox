@@ -94,7 +94,7 @@ private:
     float rightGain{0.0f};
   };
 
-  uint8_t allocateVoice(uint32_t whenSamples);
+  uint8_t allocateVoice(uint32_t /*whenSamples*/);
   void configureVoice(VoiceInternal& voice, uint8_t index, const Seed& seed, uint32_t whenSamples);
   static float pitchToPlaybackRate(float semitones);
   static float clamp01(float value);

@@ -28,3 +28,13 @@ void loop() {
 #endif
   app.tick();
 }
+
+#ifndef ARDUINO
+int main() {
+  setup();
+  while (true) {
+    loop();
+  }
+  return 0;
+}
+#endif
