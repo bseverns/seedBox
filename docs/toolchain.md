@@ -19,7 +19,7 @@ bblanchon/ArduinoJson@7.4.2
 # teensy40 only
 PaulStoffregen/Audio@1.3
 PaulStoffregen/OctoWS2811@1.5
-PaulStoffregen/Encoder@1.4.1
+PaulStoffregen/Encoder@1.4.2
 fortyseveneffects/MIDI Library@5.0.2
 greiman/SdFat@2.3.1
 adafruit/Adafruit SSD1306@2.5.15

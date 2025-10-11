@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TODO: Expand MN42 handshake coverage with real integration captures.
 - Fixed: Pin Teensy builds to the upstream PaulStoffregen library IDs so CI
   stops choking on the Audio stack.
-- Fixed: Lock the Encoder driver to `PaulStoffregen/Encoder@1.4.1` from the
+- Fixed: Lock the Encoder driver to `PaulStoffregen/Encoder@1.4.2` from the
   registry so Teensy builds stop timing out on Git clones.
 
 ## [0.1.0] - 2025-02-14
