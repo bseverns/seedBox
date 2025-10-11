@@ -1,6 +1,7 @@
 #include "app/AppState.h"
 #include <algorithm>
 #include <cstdio>
+#include "SeedboxConfig.h"
 #include "util/RNG.h"
 #ifdef SEEDBOX_HW
   #include "io/Storage.h"
@@ -35,14 +36,16 @@ const char* engineLabel(uint8_t engine) {
 // behaves the same.
 void AppState::initHardware() {
 #ifdef SEEDBOX_HW
-  midi.begin();
-  midi.setClockHandler([this]() { onExternalClockTick(); });
-  midi.setStartHandler([this]() { onExternalTransportStart(); });
-  midi.setStopHandler([this]() { onExternalTransportStop(); });
-  midi.setControlChangeHandler(
-      [this](uint8_t ch, uint8_t cc, uint8_t val) {
-        onExternalControlChange(ch, cc, val);
-      });
+  if (!seedbox::quietModeEnabled()) {
+    midi.begin();
+    midi.setClockHandler([this]() { onExternalClockTick(); });
+    midi.setStartHandler([this]() { onExternalTransportStart(); });
+    midi.setStopHandler([this]() { onExternalTransportStop(); });
+    midi.setControlChangeHandler(
+        [this](uint8_t ch, uint8_t cc, uint8_t val) {
+          onExternalControlChange(ch, cc, val);
+        });
+  }
 #endif
   engines_.init(EngineRouter::Mode::kHardware);
   engines_.granular().setMaxActiveVoices(36);

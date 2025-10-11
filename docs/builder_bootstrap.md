@@ -5,6 +5,16 @@ teaching guide you reach for when someone says "make it work on my desk." Treat
 it as a living index — when you learn something gnarly or wire a new widget,
 leave breadcrumbs here so the next person can ship faster.
 
+```mermaid
+graph TD
+  Prep[Clone repo] --> Tools[Install PlatformIO]
+  Tools --> Pins[Read docs/toolchain.md]
+  Pins --> Build[pio run -e native]
+  Build --> Tests[pio test -e native]
+  Tests --> Examples[Run examples/01_sprout]
+  Examples --> TODOClip["TODO: listen here (sprout.wav)"]
+```
+
 ## Table of contents
 
 1. [Environment setup](#environment-setup)
@@ -37,6 +47,8 @@ pio pkg install
 - The first command pulls in PlatformIO globally so `pio` is on your path.
 - `pio pkg install` reads `platformio.ini` and downloads all Teensy + Unity
   dependencies into `.pio/`. Re-run this after editing `platformio.ini`.
+- Kick the tires with `pio run -e native --project-option "src_dir=examples/01_sprout"`
+  to watch the simulator print the seed table (quiet mode stays on).
 
 ### Nice-to-have extras
 
@@ -97,10 +109,17 @@ assignments shift so firmware and CAD stay aligned.
 | Goal | Command | Notes |
 |------|---------|-------|
 | Run unit tests fast | `pio test -e native` | Uses the host build; Teensy libs mocked out. |
-| Build firmware | `pio run -e teensy40_usbmidiserial` | Generates `.pio/build/.../firmware.hex`. |
-| Upload via CLI | `pio run -e teensy40_usbmidiserial --target upload` | Requires `teensy-loader-cli`. |
+| Build firmware | `pio run -e teensy40` | Generates `.pio/build/.../firmware.hex`. |
+| Upload via CLI | `pio run -e teensy40 --target upload` | Requires `teensy-loader-cli`. |
 | Open serial console | `pio device monitor -b 115200` | Shares the USB cable with MIDI clock. |
 | Regenerate build info | `python scripts/gen_version.py` | Only needed if the auto-hook fails. |
+| Inspect pins | `cat docs/toolchain.md` | Cross-check version pins before debugging. |
+
+Crosslinks:
+
+- Curious about reseeding? Run [Example 02 — reseed ritual](../examples/02_reseed/README.md).
+- Need HAL timing details? Read [docs/hal.md](hal.md).
+- Waiting on audio fixtures? Track TODOs in [tests/native_golden/README.md](../tests/native_golden/README.md).
 
 When documenting lab sessions, jot down the exact command invocations and link
 to this table. Future students can replay your steps.
@@ -123,14 +142,18 @@ or fixes for flaky USB hubs.
 
 ## Student labs & suggested experiments
 
-1. **Clock detective**: Use the native build to simulate incoming MIDI clock at
-   different BPM values. Record how the scheduler's tick counter behaves and add
-   the plots to the repo's `/docs/labs/` folder (create it when you have data).
+1. **Clock detective**: Use [Example 03 — headless loop](../examples/03_headless/README.md)
+   to simulate incoming MIDI clock at different BPM values. Record how the
+   scheduler's tick counter behaves and add the plots to the repo's `/docs/labs/`
+   folder (create it when you have data).
 2. **Reseed rituals**: Modify the test suite to reseed mid-pattern and track the
    deterministic output. Teach classmates how to prove the system is stable.
 3. **Hardware smoke test**: Build a checklist that walks through power-up,
    OLED boot splash, encoder rotation, and MIDI transport detection. Convert the
    checklist into an automated hardware-in-the-loop test when possible.
+4. **Golden audio rehearsal**: When `ENABLE_GOLDEN` ships fixtures, script a
+   render for `sprout.wav` and update `tests/native_golden/golden.json`. TODO:
+   capture the clip and link it back here.
 
 As you run these labs, paste links to your findings or PRs below each bullet so
 the lineage stays obvious.

@@ -1,0 +1,14 @@
+{
+  "fixtures": [
+    {
+      "name": "sprout",
+      "sha256": "TODO_FILL_HASH",
+      "duration_seconds": 1.0
+    },
+    {
+      "name": "reseed",
+      "sha256": "TODO_FILL_HASH",
+      "duration_seconds": 2.0
+    }
+  ]
+}

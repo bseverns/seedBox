@@ -4,6 +4,14 @@
 honest. Nothing here should feel scary; if a script needs special setup, it must
 say so loudly.
 
+```mermaid
+graph LR
+  git --> GenVersion[`gen_version.py`]
+  GenVersion --> BuildInfo[`include/BuildInfo.h`]
+  BuildInfo --> Firmware
+  Firmware --> TODOAudio["TODO: listen here (release-notes.wav)"]
+```
+
 ## What's in the garage
 
 | Script | Job | Notes |
@@ -21,3 +29,10 @@ say so loudly.
 
 Treat these helpers like the band techs: not flashy, but the show can't start
 without them.
+
+Crosslinks:
+
+- Release flow lives in [RELEASING.md](../RELEASING.md).
+- Toolchain pins sit in [docs/toolchain.md](../docs/toolchain.md).
+- TODO audio fixtures will eventually be mentioned in `CHANGELOG.md` — keep this
+  README pointing to the same filenames.

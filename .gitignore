@@ -2,6 +2,9 @@
 /.vscode
 .DS_Store
 *.log
-build/
 *.swp
 *.swo
+build/
+/out/
+/artifacts/
+*.wav

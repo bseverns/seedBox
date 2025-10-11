@@ -1,20 +1,14 @@
 #include "BuildInfo.h"
 #include "app/AppState.h"
-
-#ifdef SEEDBOX_HW
-  #include <Audio.h>
-  #include "io/MidiRouter.h"
-  #include "engine/Sampler.h"
-  AudioControlSGTL5000 sgtl5000;
-#endif
+#include "hal/hal_audio.h"
+#include "hal/hal_io.h"
 
 AppState app;
 
 void setup() {
+  seedbox::hal::bootAudioBackend();
+  seedbox::hal::bootIo(app);
 #ifdef SEEDBOX_HW
-  AudioMemory(64);
-  sgtl5000.enable();
-  sgtl5000.volume(0.6f);
   app.initHardware();
 #else
   app.initSim();
@@ -22,8 +16,6 @@ void setup() {
 }
 
 void loop() {
-#ifdef SEEDBOX_HW
-  while (usbMIDI.read()) { app.midi.onUsbEvent(); }
-#endif
+  seedbox::hal::pollIo(app);
   app.tick();
 }
