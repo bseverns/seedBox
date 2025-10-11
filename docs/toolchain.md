@@ -17,7 +17,7 @@ builds stay reproducible.
 bblanchon/ArduinoJson@7.4.2
 
 # teensy40 only
-teensy/Audio@1.3
+teensy/Audio@1.3.0
 teensy/OctoWS2811@1.5
 teensy/Encoder@1.4.3
 fortyseveneffects/MIDI Library@5.0.2

@@ -9,6 +9,7 @@ say so loudly.
 | Script | Job | Notes |
 | --- | --- | --- |
 | `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
+| `add_desktop_flag.py` | Injects the `SEEDBOX_DESKTOP_ENTRY` define for full builds. | Skips unit tests so Unity mains remain the only `main()` on deck. |
 
 ## When you add a script
 

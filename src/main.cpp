@@ -29,7 +29,7 @@ void loop() {
   app.tick();
 }
 
-#if !defined(ARDUINO) && !defined(UNIT_TEST)
+#if defined(SEEDBOX_DESKTOP_ENTRY) && !defined(UNIT_TEST) && !defined(PLATFORMIO_UNIT_TEST)
 int main() {
   setup();
   while (true) {
