@@ -6,6 +6,10 @@ namespace {
 constexpr uint8_t kEngineCycleCc = 20;
 }
 
+// Exercise the MIDI CC engine-cycling path. The test doubles as documentation
+// for how the UI encoder should behave: CC 20 with a value >= 64 rotates the
+// focused seed forward, lower values rotate backward, and the OLED snapshot
+// mirrors the change.
 void test_cc_cycles_engine_and_snapshot_updates() {
   AppState app;
   app.initSim();
@@ -29,6 +33,9 @@ void test_cc_cycles_engine_and_snapshot_updates() {
   TEST_ASSERT_NOT_NULL(strstr(snap.status, "SMP"));
 }
 
+// Once a seed is explicitly assigned an engine we expect that choice to survive
+// across reseeds and for the PatternScheduler mirror to stay in sync. This test
+// walks through that exact ritual.
 void test_engine_selection_persists_and_updates_scheduler() {
   AppState app;
   app.initSim();
