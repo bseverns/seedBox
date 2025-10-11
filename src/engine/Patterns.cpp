@@ -11,9 +11,24 @@ void PatternScheduler::addSeed(const Seed& s) {
   densityAccumulators_.push_back(0.f);
 }
 
+bool PatternScheduler::updateSeed(size_t index, const Seed& s) {
+  if (index >= seeds_.size()) {
+    return false;
+  }
+  seeds_[index] = s;
+  return true;
+}
+
 void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t)) {
   triggerCtx_ = ctx;
   triggerFn_ = fn;
+}
+
+const Seed* PatternScheduler::seedForDebug(size_t index) const {
+  if (index >= seeds_.size()) {
+    return nullptr;
+  }
+  return &seeds_[index];
 }
 
 bool PatternScheduler::densityGate(size_t seedIndex, float density) {

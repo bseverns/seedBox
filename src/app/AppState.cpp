@@ -8,6 +8,16 @@
 #endif
 
 namespace {
+constexpr uint8_t kEngineCount = 3;
+constexpr uint8_t kEngineCycleCc = 20;
+
+uint8_t sanitizeEngine(uint8_t engine) {
+  if (kEngineCount == 0) {
+    return 0;
+  }
+  return static_cast<uint8_t>(engine % kEngineCount);
+}
+
 const char* engineLabel(uint8_t engine) {
   switch (engine) {
     case 0: return "SMP";
@@ -56,6 +66,7 @@ void AppState::tick() {
 
 void AppState::primeSeeds(uint32_t masterSeed) {
   masterSeed_ = masterSeed ? masterSeed : 0x5EEDB0B1u;
+  const std::vector<uint8_t> previousSelections = seedEngineSelections_;
   seeds_.clear();
   scheduler_ = PatternScheduler{};
   scheduler_.setBpm(120.f);
@@ -63,11 +74,12 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 
   uint32_t state = masterSeed_;
   constexpr size_t kSeedCount = 4;
+  seedEngineSelections_.assign(kSeedCount, 0);
   for (size_t i = 0; i < kSeedCount; ++i) {
     Seed seed{};
     seed.id = static_cast<uint32_t>(i);
     seed.prng = RNG::xorshift(state);
-    seed.engine = static_cast<uint8_t>(i % 3);
+    seed.engine = 0;
     seed.sampleIdx = static_cast<uint8_t>(i % 16);
     seed.pitch = static_cast<float>(static_cast<int32_t>(RNG::xorshift(state) % 25) - 12);
     seed.density = 0.5f + 0.75f * RNG::uniform01(state);
@@ -99,6 +111,13 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     scheduler_.addSeed(seeds_.back());
   }
 
+  for (size_t i = 0; i < kSeedCount; ++i) {
+    const uint8_t desired = (i < previousSelections.size())
+                                ? previousSelections[i]
+                                : seeds_[i].engine;
+    setSeedEngine(static_cast<uint8_t>(i), desired);
+  }
+
   focusSeed_ = 0;
   seedsPrimed_ = true;
   externalClockDominant_ = false;
@@ -120,8 +139,28 @@ void AppState::onExternalTransportStop() {
   externalClockDominant_ = false;
 }
 
-void AppState::onExternalControlChange(uint8_t, uint8_t, uint8_t) {
-  // TODO: map CC data into the parameter router once the macro table lands.
+void AppState::onExternalControlChange(uint8_t, uint8_t cc, uint8_t val) {
+  if (cc == kEngineCycleCc) {
+    if (kEngineCount == 0) {
+      return;
+    }
+    if (seeds_.empty()) {
+      return;
+    }
+    const size_t count = seeds_.size();
+    const uint8_t focus = static_cast<uint8_t>(std::min<size_t>(focusSeed_, count - 1));
+    const uint8_t current = seeds_[focus].engine;
+    uint8_t target = current;
+    if (val >= 64) {
+      target = static_cast<uint8_t>((current + 1) % kEngineCount);
+    } else {
+      target = static_cast<uint8_t>((current + kEngineCount - 1) % kEngineCount);
+    }
+    setSeedEngine(focus, target);
+    return;
+  }
+
+  // Future CC maps will route through here once the macro table lands.
 }
 
 void AppState::reseed(uint32_t masterSeed) {
@@ -135,6 +174,24 @@ void AppState::setFocusSeed(uint8_t index) {
   }
   const uint8_t count = static_cast<uint8_t>(seeds_.size());
   focusSeed_ = static_cast<uint8_t>(index % count);
+}
+
+void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
+  if (seeds_.empty()) {
+    return;
+  }
+  const size_t count = seeds_.size();
+  const size_t idx = static_cast<size_t>(seedIndex) % count;
+  const uint8_t sanitized = sanitizeEngine(engineId);
+
+  if (seedEngineSelections_.size() < count) {
+    seedEngineSelections_.resize(count, 0);
+  }
+
+  Seed& seed = seeds_[idx];
+  seed.engine = sanitized;
+  seedEngineSelections_[idx] = sanitized;
+  scheduler_.updateSeed(idx, seed);
 }
 
 void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
@@ -151,4 +208,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   std::snprintf(out.status, sizeof(out.status), "#%02u %s %+0.1fst", s.id, engineLabel(s.engine), s.pitch);
   std::snprintf(out.metrics, sizeof(out.metrics), "Den %.2f Prob %.2f", s.density, s.probability);
   std::snprintf(out.nuance, sizeof(out.nuance), "Jit %.1fms Mu %.2f", s.jitterMs, s.mutateAmt);
+}
+
+const Seed* AppState::debugScheduledSeed(uint8_t index) const {
+  return scheduler_.seedForDebug(static_cast<size_t>(index));
 }

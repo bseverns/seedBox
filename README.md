@@ -304,6 +304,22 @@ clock jack and I²S line-in.
   thanks to the shared xorshift RNG, so snapshots, scheduler hits, and future
   audio all stay in sync.
 
+### Engine cycling (SMP / GRA / PING)
+
+- `AppState::setSeedEngine(seedIndex, engineId)` flips a seed between sampler,
+  granular, and resonator mode. Under the hood we update the live `seeds_`
+  vector **and** push the revision straight into `PatternScheduler` so the next
+  trigger fires the new engine without skipping a beat.
+- Selections are sticky. We stash the engine choice for each seed, so reseeding
+  with a new master RNG still remembers which slots were droning through the
+  resonator and which ones were slicing samples. Think of it like taping notes
+  to your modular — nothing gets lost when you reboot the room.
+- Performance gesture: fire MIDI CC 20 at the box (value ≥ 64 walks forward,
+  value < 64 walks backward) and the focused seed will cycle through
+  `SMP → GRA → PING → SMP`. Hardware buttons can piggyback on that mapping, so a
+  front-panel toggle just spits the same CC. The OLED status line updates on the
+  very next frame, making it obvious which flavor you just armed.
+
 ## Notes
 
 - Hardware audio is stubbed behind `SEEDBOX_HW`; native builds use a monotonic

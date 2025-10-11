@@ -24,10 +24,13 @@ public:
   void captureDisplaySnapshot(DisplaySnapshot& out) const;
   void reseed(uint32_t masterSeed);
   void setFocusSeed(uint8_t index);
+  void setSeedEngine(uint8_t seedIndex, uint8_t engineId);
   const std::vector<Seed>& seeds() const { return seeds_; }
   uint32_t masterSeed() const { return masterSeed_; }
   uint8_t focusSeed() const { return focusSeed_; }
   uint64_t schedulerTicks() const { return scheduler_.ticks(); }
+
+  const Seed* debugScheduledSeed(uint8_t index) const;
 
   void onExternalClockTick();
   void onExternalTransportStart();
@@ -44,6 +47,7 @@ private:
   std::vector<Seed> seeds_{};
   PatternScheduler scheduler_{};
   EngineRouter engines_{};
+  std::vector<uint8_t> seedEngineSelections_{};
   uint32_t masterSeed_{0x5EEDB0B1u};
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
