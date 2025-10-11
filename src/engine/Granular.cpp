@@ -1,8 +1,20 @@
 #include "engine/Granular.h"
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include "util/RNG.h"
 #include "util/Units.h"
+
+namespace {
+constexpr float kHalfPi = 1.57079637f;
+
+std::pair<float, float> constantPowerPan(float spread) {
+  const float clamped = std::max(0.0f, std::min(1.0f, spread));
+  const float pan = (clamped * 2.0f) - 1.0f;  // -1 = left, +1 = right
+  const float angle = (pan + 1.0f) * 0.5f * kHalfPi;
+  return {std::cos(angle), std::sin(angle)};
+}
+}  // namespace
 
 namespace {
 static uint8_t clampVoices(uint8_t voices) {
@@ -27,6 +39,55 @@ void GranularEngine::init(Mode mode) {
   sdClips_[0].inUse = true;
   sdClips_[0].type = Source::kLiveInput;
   sdClips_[0].path = "live-in";
+  sdClips_[0].handle = 0;
+
+#ifdef SEEDBOX_HW
+  patchCables_.clear();
+
+  // Plenty of buffers so the granular engine can overlap windows without
+  // choking. We'll revisit once the real DSP patch lands on Teensy silicon.
+  AudioMemory(160);
+
+  for (uint8_t i = 0; i < kVoicePoolSize; ++i) {
+    auto &hw = hwVoices_[i];
+    hw.sourceMixer.gain(0, 0.0f);
+    hw.sourceMixer.gain(1, 0.0f);
+    hw.granular.begin(hw.grainMemory, static_cast<int>(sizeof(hw.grainMemory) / sizeof(hw.grainMemory[0])));
+
+    const uint8_t group = static_cast<uint8_t>(i / kMixerFanIn);
+    const uint8_t slot = static_cast<uint8_t>(i % kMixerFanIn);
+
+    voiceMixerLeft_[group].gain(slot, 0.0f);
+    voiceMixerRight_[group].gain(slot, 0.0f);
+
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(liveInput_, 0, hw.sourceMixer, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sdPlayer, 0, hw.sourceMixer, 1));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sourceMixer, 0, hw.granular, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.granular, 0, voiceMixerLeft_[group], slot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.granular, 0, voiceMixerRight_[group], slot));
+
+    voices_[i].dspHandle = i;
+  }
+
+  for (uint8_t group = 0; group < kMixerGroups; ++group) {
+    const uint8_t submixIndex = static_cast<uint8_t>(group / kMixerFanIn);
+    const uint8_t submixSlot = static_cast<uint8_t>(group % kMixerFanIn);
+    submixLeft_[submixIndex].gain(submixSlot, 1.0f);
+    submixRight_[submixIndex].gain(submixSlot, 1.0f);
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerLeft_[group], 0, submixLeft_[submixIndex], submixSlot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerRight_[group], 0, submixRight_[submixIndex], submixSlot));
+  }
+
+  for (uint8_t submix = 0; submix < kSubmixCount; ++submix) {
+    finalMixLeft_.gain(submix, 1.0f);
+    finalMixRight_.gain(submix, 1.0f);
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(submixLeft_[submix], 0, finalMixLeft_, submix));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(submixRight_[submix], 0, finalMixRight_, submix));
+  }
+
+  patchCables_.emplace_back(std::make_unique<AudioConnection>(finalMixLeft_, 0, output_, 0));
+  patchCables_.emplace_back(std::make_unique<AudioConnection>(finalMixRight_, 0, output_, 1));
+#endif
 }
 
 void GranularEngine::setMaxActiveVoices(uint8_t voices) {
@@ -43,12 +104,20 @@ void GranularEngine::registerSdClip(uint8_t slot, const char* path) {
   sdClips_[slot].inUse = true;
   sdClips_[slot].type = Source::kSdClip;
   sdClips_[slot].path = path;
+  sdClips_[slot].handle = slot;
 }
 
 uint8_t GranularEngine::activeVoiceCount() const {
   return static_cast<uint8_t>(std::count_if(voices_.begin(), voices_.begin() + static_cast<size_t>(maxActiveVoices_), [](const GrainVoice& v) {
     return v.active;
   }));
+}
+
+GranularEngine::GrainVoice GranularEngine::voice(uint8_t index) const {
+  if (index >= kVoicePoolSize) {
+    return GrainVoice{};
+  }
+  return voices_[index];
 }
 
 GranularEngine::Source GranularEngine::resolveSource(uint8_t encoded) const {
@@ -63,6 +132,25 @@ GranularEngine::Source GranularEngine::resolveSource(uint8_t encoded) const {
     return Source::kSdClip;
   }
   return slot.type;
+}
+
+const GranularEngine::SourceSlot* GranularEngine::resolveSourceSlot(Source source, uint8_t requestedSlot) const {
+  if (source == Source::kLiveInput) {
+    return &sdClips_[0];
+  }
+  if (requestedSlot < kSdClipSlots) {
+    const SourceSlot& slot = sdClips_[requestedSlot];
+    if (slot.inUse && slot.type == Source::kSdClip) {
+      return &slot;
+    }
+  }
+  for (uint8_t i = 1; i < kSdClipSlots; ++i) {
+    const SourceSlot& slot = sdClips_[i];
+    if (slot.inUse && slot.type == Source::kSdClip) {
+      return &slot;
+    }
+  }
+  return nullptr;
 }
 
 uint8_t GranularEngine::allocateVoice() {
@@ -97,6 +185,15 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
   voice.source = resolveSource(seed.granular.source);
   voice.sdSlot = seed.granular.sdSlot;
 
+  const SourceSlot* resolved = resolveSourceSlot(voice.source, voice.sdSlot);
+  if (resolved != nullptr) {
+    voice.sourcePath = resolved->path;
+    voice.sourceHandle = resolved->handle;
+  } else {
+    voice.sourcePath = nullptr;
+    voice.sourceHandle = 0;
+  }
+
   uint32_t prng = seed.prng;
 
   // playbackRate pulls from both the seed pitch (global) and granular
@@ -121,14 +218,43 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
   voice.seedPrng = prng;
 }
 
+void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
+  const auto [left, right] = constantPowerPan(voice.stereoSpread);
+  voice.leftGain = left;
+  voice.rightGain = right;
+
+#ifdef SEEDBOX_HW
+  auto& hw = hwVoices_[index];
+  hw.sourceMixer.gain(0, voice.source == Source::kLiveInput ? 1.0f : 0.0f);
+  hw.sourceMixer.gain(1, voice.source == Source::kSdClip ? 1.0f : 0.0f);
+
+  if (voice.source == Source::kSdClip && voice.sourcePath != nullptr) {
+    hw.sdPlayer.stop();
+    hw.sdPlayer.play(voice.sourcePath);
+  }
+
+  hw.granular.setSpeed(voice.playbackRate);
+
+  const float clampedWindow = std::max(-1.0f, std::min(1.0f, voice.windowSkew));
+  const float mix = (clampedWindow + 1.0f) * 0.5f;
+  hw.granular.setMix(mix);
+  hw.granular.setGrainLength(static_cast<int>(std::max(1.0f, voice.sizeMs)));
+
+  const uint8_t group = static_cast<uint8_t>(index / kMixerFanIn);
+  const uint8_t slot = static_cast<uint8_t>(index % kMixerFanIn);
+  voiceMixerLeft_[group].gain(slot, voice.leftGain);
+  voiceMixerRight_[group].gain(slot, voice.rightGain);
+#else
+  (void)index;
+#endif
+}
+
 void GranularEngine::trigger(const Seed& seed, uint32_t whenSamples) {
   if (maxActiveVoices_ == 0) {
     return;
   }
   uint8_t voiceIndex = allocateVoice();
   planGrain(voices_[voiceIndex], seed, whenSamples);
-
-  // Once the DSP side lands we will push the voice plan into the Teensy Audio
-  // objects here. For now we just keep the state machine hot so scheduling and
-  // documentation can evolve in parallel.
+  voices_[voiceIndex].dspHandle = voiceIndex;
+  mapGrainToGraph(voiceIndex, voices_[voiceIndex]);
 }
