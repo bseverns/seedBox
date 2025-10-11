@@ -29,7 +29,7 @@ void loop() {
   app.tick();
 }
 
-#ifndef ARDUINO
+#if !defined(ARDUINO) && !defined(UNIT_TEST)
 int main() {
   setup();
   while (true) {

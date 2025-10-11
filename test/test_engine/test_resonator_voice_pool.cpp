@@ -155,10 +155,4 @@ void test_resonator_preset_lookup_guards_index() {
   TEST_ASSERT_EQUAL_STRING(bank.presetName(5), bank.presetName(200));
 }
 
-int main(int, char **) {
-  UNITY_BEGIN();
-  RUN_TEST(test_resonator_maps_seed_into_voice_plan);
-  RUN_TEST(test_resonator_voice_stealing_by_start_then_handle);
-  RUN_TEST(test_resonator_preset_lookup_guards_index);
-  return UNITY_END();
-}
+// Shared entry point lives in test_main.cpp to avoid multiple definition brawls.

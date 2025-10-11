@@ -45,9 +45,4 @@ void test_density_fractional_counts() {
   TEST_ASSERT_EQUAL_INT(expectedHits, counter.calls);
 }
 
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_density_gate_runs);
-  RUN_TEST(test_density_fractional_counts);
-  return UNITY_END();
-}
+// Entry point is shared via test_main.cpp to keep linkers chill.

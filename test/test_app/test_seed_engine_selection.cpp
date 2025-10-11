@@ -56,9 +56,4 @@ void test_engine_selection_persists_and_updates_scheduler() {
   TEST_ASSERT_EQUAL_UINT8(2, scheduled->engine);
 }
 
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_cc_cycles_engine_and_snapshot_updates);
-  RUN_TEST(test_engine_selection_persists_and_updates_scheduler);
-  return UNITY_END();
-}
+// Entry point comes from test_main.cpp so we can stitch multiple suites.

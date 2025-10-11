@@ -41,8 +41,4 @@ void test_plan_grain_sprays_and_mutates_prng() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(seed.id), voice.seedId);
 }
 
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_plan_grain_sprays_and_mutates_prng);
-  return UNITY_END();
-}
+// Test entry point lives in test_main.cpp so multiple suites can link together.

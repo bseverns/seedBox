@@ -134,6 +134,9 @@ uint8_t Sampler::allocateVoice(uint32_t /*whenSamples*/) {
 }
 
 void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& seed, uint32_t whenSamples) {
+#ifndef SEEDBOX_HW
+  (void)index;
+#endif
   // Mark the slot active and capture every seed parameter so state inspection is
   // just reading from this struct.
   voice.active = true;
