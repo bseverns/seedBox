@@ -27,7 +27,7 @@ leave breadcrumbs here so the next person can ship faster.
   toolchain paths differ — document the quirks in this section if you go that
   route.
 
-### Core tooling
+### PlatformIO bring-up
 
 ```bash
 pip install --upgrade platformio
@@ -37,6 +37,8 @@ pio pkg install
 - The first command pulls in PlatformIO globally so `pio` is on your path.
 - `pio pkg install` reads `platformio.ini` and downloads all Teensy + Unity
   dependencies into `.pio/`. Re-run this after editing `platformio.ini`.
+- Stash any generated `.wav` renders in `out/` and log artifacts in `artifacts/`.
+  Both are ignored by git, so no one has to review binary blobs in PRs.
 
 ### Nice-to-have extras
 

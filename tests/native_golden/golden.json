@@ -1,0 +1,16 @@
+{
+  "fixtures": [
+    {
+      "name": "drone-intro",
+      "hash": "TODO_FILL_HASH",
+      "notes": "Capture the ambient bed once the resampler stops changing."
+    },
+    {
+      "name": "arpeggio-rise",
+      "hash": "TODO_FILL_HASH",
+      "notes": "Bounce eight bars of the sequencer's 1.0 reference pattern."
+    }
+  ],
+  "last_updated_by": "TODO_FILL_HASH",
+  "tooling": "Record via ENABLE_GOLDEN=1 then run the future hash script."
+}
