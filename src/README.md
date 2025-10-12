@@ -26,6 +26,9 @@ comment or mini README nearby so the next curious hacker can follow along.
   behavior, update the matching test so the intent stays obvious.
 - **Keep hardware flags gentle**: Wrap Teensy-only code in `#ifdef SEEDBOX_HW`
   so the `native` build stays a truthful simulator.
+- **Check quiet mode**: `SeedBoxConfig::kQuietMode` keeps seeds + IO muted until
+  you're ready. Disable it per-env in `platformio.ini` when you want hardware to
+  sing.
 
 ## When you extend the story
 

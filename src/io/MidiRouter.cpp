@@ -1,4 +1,5 @@
 #include "io/MidiRouter.h"
+#include "SeedBoxConfig.h"
 
 #ifdef SEEDBOX_HW
   #include <usb_midi.h>
@@ -17,6 +18,9 @@ void MidiRouter::begin() {
 
 void MidiRouter::onUsbEvent() {
 #ifdef SEEDBOX_HW
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    return;
+  }
   // usbMIDI.read() already pulled a fresh packet. Route it based on type so the
   // rest of the app only sees semantic callbacks instead of raw status bytes.
   if (usbMIDI.getType() == midi::Clock) onClockTick();

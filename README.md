@@ -46,6 +46,31 @@ like a zine.
 5. When you're ready for the real synth, build the Teensy target:
    `pio run -e teensy40_usbmidiserial`
 
+## Quiet mode (default sandbox state)
+
+SeedBox now boots with `QUIET_MODE=1`. That means:
+
+- Seeds stay unprimed until you explicitly compile with quiet mode off.
+- Storage helpers refuse to write, keeping classrooms safe from surprise SD
+  scribbles.
+- Hardware IO (USB/DIN MIDI, seed persistence) is stubbed so the rig wakes up
+  silent.
+
+Want the full-noise experience? Flip the flag by overriding the PlatformIO env:
+
+```ini
+[env:teensy40_usbmidiserial]
+build_flags =
+  ${env.build_flags}
+  -D SEEDBOX_HW=1
+  -D USB_MIDI
+  -D QUIET_MODE=0
+```
+
+Or, for a one-off build, tack on `--project-option "build_flags += -D QUIET_MODE=0"`
+to your `pio run` invocation. The OLED will remind you it's snoozing until you
+do.
+
 ## High-level flow (aka how seeds become sound)
 
 ```mermaid
