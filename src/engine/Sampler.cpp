@@ -1,5 +1,6 @@
 #include "engine/Sampler.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #ifdef SEEDBOX_HW
 #include <Arduino.h>
@@ -20,20 +21,7 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
 }
 
-Sampler::Sampler()
-#ifdef SEEDBOX_HW
-    : hwVoices_(),
-      voiceMixerLeft_(nullptr),
-      voiceMixerRight_(nullptr),
-      output_(nullptr),
-      patchCables_()
-#endif
-{
-#ifdef SEEDBOX_HW
-  hwVoices_.reserve(kMaxVoices);
-  patchCables_.reserve(static_cast<size_t>(kMaxVoices) * 6 + 2);
-#endif
-}
+Sampler::Sampler() = default;
 
 Sampler::~Sampler() = default;
 
@@ -44,6 +32,19 @@ struct Sampler::HardwareVoice {
   AudioMixer4 sourceMixer;
   AudioEffectEnvelope envelope;
   AudioFilterStateVariable toneFilter;
+};
+
+struct Sampler::HardwareGraph {
+  AudioMixer4 voiceMixerLeft;
+  AudioMixer4 voiceMixerRight;
+  AudioOutputI2S output;
+  std::array<std::unique_ptr<HardwareVoice>, Sampler::kMaxVoices> voices;
+  std::vector<std::unique_ptr<AudioConnection>> patchCables;
+  bool wired{false};
+
+  HardwareGraph() {
+    patchCables.reserve(static_cast<size_t>(Sampler::kMaxVoices) * 6 + 2);
+  }
 };
 #endif
 
@@ -66,20 +67,16 @@ void Sampler::init() {
 
 #ifdef SEEDBOX_HW
 void Sampler::ensureHardwareGraph() {
-  if (!voiceMixerLeft_) {
-    voiceMixerLeft_ = std::make_unique<AudioMixer4>();
-    voiceMixerRight_ = std::make_unique<AudioMixer4>();
-    output_ = std::make_unique<AudioOutputI2S>();
+  if (!hardware_) {
+    hardware_ = std::make_unique<HardwareGraph>();
   }
 
-  if (hwVoices_.size() != kMaxVoices) {
-    hwVoices_.clear();
-    for (uint8_t i = 0; i < kMaxVoices; ++i) {
-      hwVoices_.emplace_back(std::make_unique<HardwareVoice>());
-    }
+  auto& hw = *hardware_;
+  if (hw.wired) {
+    return;
   }
 
-  patchCables_.clear();
+  hw.patchCables.clear();
 
   // Reserve audio memory blocks for the voice pool. Teensy Audio needs to know
   // upfront how many 128-sample buffers it can juggle. This is the knob to
@@ -87,40 +84,45 @@ void Sampler::ensureHardwareGraph() {
   AudioMemory(96);
 
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
-    auto& hw = *hwVoices_[i];
+    if (!hw.voices[i]) {
+      hw.voices[i] = std::make_unique<HardwareVoice>();
+    }
+    auto& voice = *hw.voices[i];
 
     // Default mixer gains balance the RAM + SD sources. Later, once actual
     // sample tables land, a trigger call toggles the appropriate source on/off.
-    hw.sourceMixer.gain(0, 1.0f);
-    hw.sourceMixer.gain(1, 1.0f);
+    voice.sourceMixer.gain(0, 1.0f);
+    voice.sourceMixer.gain(1, 1.0f);
 
     // Prime the envelope with sane defaults. The configureVoice path overwrites
     // these values every trigger so the sampler tracks Seed intent.
-    hw.envelope.attack(1.0f);
-    hw.envelope.decay(50.0f);
-    hw.envelope.sustain(0.8f);
-    hw.envelope.release(100.0f);
+    voice.envelope.attack(1.0f);
+    voice.envelope.decay(50.0f);
+    voice.envelope.sustain(0.8f);
+    voice.envelope.release(100.0f);
 
     // Tone filter starts bright-ish and wide. ConfigureVoice narrows it based on
     // the seed's tilt request.
-    hw.toneFilter.frequency(6000.0f);
-    hw.toneFilter.resonance(0.707f);
+    voice.toneFilter.frequency(6000.0f);
+    voice.toneFilter.resonance(0.707f);
 
     // Patch the signal chain:
     //   RAM sample + SD sample -> mixer -> envelope -> tilt filter -> stereo mix
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.ramPlayer, 0, hw.sourceMixer, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sdPlayer, 0, hw.sourceMixer, 1));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sourceMixer, 0, hw.envelope, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.envelope, 0, hw.toneFilter, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, *voiceMixerLeft_, i));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, *voiceMixerRight_, i));
+    hw.patchCables.emplace_back(std::make_unique<AudioConnection>(voice.ramPlayer, 0, voice.sourceMixer, 0));
+    hw.patchCables.emplace_back(std::make_unique<AudioConnection>(voice.sdPlayer, 0, voice.sourceMixer, 1));
+    hw.patchCables.emplace_back(std::make_unique<AudioConnection>(voice.sourceMixer, 0, voice.envelope, 0));
+    hw.patchCables.emplace_back(std::make_unique<AudioConnection>(voice.envelope, 0, voice.toneFilter, 0));
+    hw.patchCables.emplace_back(std::make_unique<AudioConnection>(voice.toneFilter, 0, hw.voiceMixerLeft, i));
+    hw.patchCables.emplace_back(std::make_unique<AudioConnection>(voice.toneFilter, 0, hw.voiceMixerRight, i));
 
-    voiceMixerLeft_->gain(i, 0.0f);
-    voiceMixerRight_->gain(i, 0.0f);
+    hw.voiceMixerLeft.gain(i, 0.0f);
+    hw.voiceMixerRight.gain(i, 0.0f);
   }
 
-  patchCables_.emplace_back(std::make_unique<AudioConnection>(*voiceMixerLeft_, 0, *output_, 0));
-  patchCables_.emplace_back(std::make_unique<AudioConnection>(*voiceMixerRight_, 0, *output_, 1));
+  hw.patchCables.emplace_back(std::make_unique<AudioConnection>(hw.voiceMixerLeft, 0, hw.output, 0));
+  hw.patchCables.emplace_back(std::make_unique<AudioConnection>(hw.voiceMixerRight, 0, hw.output, 1));
+
+  hw.wired = true;
 }
 #endif
 
@@ -207,7 +209,8 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   voice.rightGain = std::sin(angle);
 
 #ifdef SEEDBOX_HW
-  auto& hw = *hwVoices_[index];
+  ensureHardwareGraph();
+  auto& hw = *hardware_->voices[index];
   if (voice.usesSdStreaming) {
     hw.sourceMixer.gain(0, 0.0f);
     hw.sourceMixer.gain(1, 1.0f);
@@ -230,8 +233,8 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   hw.toneFilter.resonance(0.707f);
 
   // Stereo gains feed into a pair of mixers that eventually land on I²S out.
-  voiceMixerLeft_->gain(index, voice.leftGain);
-  voiceMixerRight_->gain(index, voice.rightGain);
+  hardware_->voiceMixerLeft.gain(index, voice.leftGain);
+  hardware_->voiceMixerRight.gain(index, voice.rightGain);
 
   // Placeholder scheduling: AudioPlayMemory/SdWav start calls will land here
   // once sample assets are wired. For now we rely on startSample to keep the

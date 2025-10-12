@@ -6,14 +6,7 @@
 #ifdef SEEDBOX_HW
 #include <memory>
 #include <vector>
-
-class AudioMixer4;
-class AudioOutputI2S;
 class AudioConnection;
-class AudioPlayMemory;
-class AudioPlaySdWav;
-class AudioEffectEnvelope;
-class AudioFilterStateVariable;
 #endif
 
 // Sampler owns a deterministic voice pool shared between hardware and the
@@ -114,12 +107,9 @@ private:
 
 #ifdef SEEDBOX_HW
   struct HardwareVoice;
+  struct HardwareGraph;
   void ensureHardwareGraph();
 
-  std::vector<std::unique_ptr<HardwareVoice>> hwVoices_;
-  std::unique_ptr<AudioMixer4> voiceMixerLeft_;
-  std::unique_ptr<AudioMixer4> voiceMixerRight_;
-  std::unique_ptr<AudioOutputI2S> output_;
-  std::vector<std::unique_ptr<AudioConnection>> patchCables_;
+  std::unique_ptr<HardwareGraph> hardware_;
 #endif
 };
