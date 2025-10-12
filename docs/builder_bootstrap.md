@@ -99,8 +99,10 @@ assignments shift so firmware and CAD stay aligned.
 | Goal | Command | Notes |
 |------|---------|-------|
 | Run unit tests fast | `pio test -e native` | Uses the host build; Teensy libs mocked out. |
-| Build firmware | `pio run -e teensy40_usbmidiserial` | Generates `.pio/build/.../firmware.hex`. |
-| Upload via CLI | `pio run -e teensy40_usbmidiserial --target upload` | Requires `teensy-loader-cli`. |
+| Build firmware | `pio run -e teensy40` | Generates `.pio/build/.../firmware.hex`. |
+| Build firmware (legacy alias) | `pio run -e teensy40_usbmidiserial` | Same build, kept for 2024 scripts. |
+| Upload via CLI | `pio run -e teensy40 --target upload` | Requires `teensy-loader-cli`. |
+| Upload via CLI (legacy alias) | `pio run -e teensy40_usbmidiserial --target upload` | Same CLI for legacy docs. |
 | Open serial console | `pio device monitor -b 115200` | Shares the USB cable with MIDI clock. |
 | Regenerate build info | `python scripts/gen_version.py` | Only needed if the auto-hook fails. |
 
