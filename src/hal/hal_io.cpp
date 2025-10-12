@@ -1,7 +1,7 @@
 #include "hal/hal_io.h"
 
 #ifdef SEEDBOX_HW
-  #include <Arduino.h>
+  #include "hal/ArduinoGlue.h"
 #endif
 
 namespace seedbox::hal {

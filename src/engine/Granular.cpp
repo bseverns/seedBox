@@ -1,5 +1,5 @@
 #ifdef SEEDBOX_HW
-#  include <Arduino.h>
+#  include "hal/ArduinoGlue.h"
 #  include <Audio.h>
 #endif
 #include "engine/Granular.h"

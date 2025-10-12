@@ -1,5 +1,5 @@
 #ifdef SEEDBOX_HW
-#  include <Arduino.h>
+#  include "hal/ArduinoGlue.h"
 #endif
 #include "app/AppState.h"
 #include <algorithm>

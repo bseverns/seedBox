@@ -3,7 +3,7 @@
 #include <array>
 #include <cmath>
 #ifdef SEEDBOX_HW
-#include <Arduino.h>
+#include "hal/ArduinoGlue.h"
 #include <Audio.h>
 #include <memory>
 #endif

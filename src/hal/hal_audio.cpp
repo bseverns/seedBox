@@ -1,7 +1,7 @@
 #include "hal/hal_audio.h"
 
 #ifdef SEEDBOX_HW
-  #include <Arduino.h>
+  #include "hal/ArduinoGlue.h"
   #include <Audio.h>
 #endif
 

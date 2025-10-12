@@ -1,7 +1,7 @@
 #include "io/MidiRouter.h"
 
 #ifdef SEEDBOX_HW
-#  include <Arduino.h>
+#  include "hal/ArduinoGlue.h"
 #  include <MIDI.h>
 #  ifdef __GNUC__
 #    pragma GCC diagnostic push

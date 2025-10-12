@@ -4,7 +4,7 @@
 #include "Seed.h"
 
 #ifdef SEEDBOX_HW
-#include <Arduino.h>
+#include "hal/ArduinoGlue.h"
 #include <Audio.h>
 #include <memory>
 #include <vector>

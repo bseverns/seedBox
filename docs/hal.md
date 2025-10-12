@@ -32,6 +32,9 @@ flowchart LR
 
 - `src/hal/hal_audio.h/.cpp` — audio device seam (Teensy vs. native mock).
 - `src/hal/hal_io.h/.cpp` — lightweight IO hooks (LEDs, inputs, sensors).
+- `include/hal/ArduinoGlue.h` — wraps `<Arduino.h>` so Teensy's usb_midi casts
+  do not spam CI with warnings. Include this helper instead of `<Arduino.h>` in
+  project code.
 
 When `SEEDBOX_HW` is defined the Teensy implementations compile in; otherwise
 native mocks provide stubbed timing and logging.

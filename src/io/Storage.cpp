@@ -1,7 +1,7 @@
 #include "io/Storage.h"
 
 #ifdef SEEDBOX_HW
-  #include <Arduino.h>
+  #include "hal/ArduinoGlue.h"
   #include <SdFat.h>
   #include <ArduinoJson.h>
   static SdFat SD;
