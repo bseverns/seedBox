@@ -37,6 +37,14 @@ without juggling table indices.
 Mutate logic will eventually perturb these fields with bounded random walks
 between triggers while still reseeding cleanly.
 
+> ⚙️ **Teensy Audio quirk** — the stock `AudioEffectGranular` that ships with the
+> framework only exposes `setSpeed()` and the pitch/freeze entry points.
+> SeedBox still records window skew + grain size as first-class seed data, then
+> maps the requests onto whatever knobs the active core hands us (falling back
+> to `beginPitchShift()` when `setGrainLength()` is missing). When we eventually
+> ship a custom DSP node the same orchestration code will drive its richer API
+> without mutating the planner.
+
 ## Trigger flow (see `EngineRouter` + `PatternScheduler`)
 
 1. Scheduler decides a seed is allowed to fire.
