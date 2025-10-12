@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 #include "Seed.h"
 
 class PatternScheduler {
