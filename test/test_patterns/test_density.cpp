@@ -44,10 +44,3 @@ void test_density_fractional_counts() {
   const int expectedHits = static_cast<int>(16 * s.density);
   TEST_ASSERT_EQUAL_INT(expectedHits, counter.calls);
 }
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_density_gate_runs);
-  RUN_TEST(test_density_fractional_counts);
-  return UNITY_END();
-}

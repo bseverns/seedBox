@@ -103,10 +103,3 @@ void test_sampler_voice_stealing_is_oldest_first() {
   TEST_ASSERT_NOT_EQUAL(Sampler::kMaxVoices, foundIndex);
   TEST_ASSERT_EQUAL_UINT8(expectedSteal, foundIndex);
 }
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_sampler_stores_seed_state);
-  RUN_TEST(test_sampler_voice_stealing_is_oldest_first);
-  return UNITY_END();
-}
