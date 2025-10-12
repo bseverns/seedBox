@@ -4,8 +4,11 @@
 #include "hal/hal_io.h"
 
 #ifdef SEEDBOX_HW
-  #include "io/MidiRouter.h"
-  #include "engine/Sampler.h"
+#  include <Arduino.h>
+#  include <MIDI.h>
+#  include <usb_midi.h>
+#  include "engine/Sampler.h"
+#  include "io/MidiRouter.h"
 #endif
 
 AppState app;

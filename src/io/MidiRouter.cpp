@@ -1,7 +1,9 @@
 #include "io/MidiRouter.h"
 
 #ifdef SEEDBOX_HW
-  #include <usb_midi.h>
+#  include <Arduino.h>
+#  include <MIDI.h>
+#  include <usb_midi.h>
 #endif
 
 void MidiRouter::begin() {
