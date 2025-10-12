@@ -20,6 +20,9 @@ file to understand the vocabulary before diving into implementation details.
   include these headers without drama.
 - When you rename or add a struct field, update the nearby README/test/doc so the
   story stays consistent.
+- Call out supporting flags in comments: `QUIET_MODE` keeps logs tame for
+  waveform captures in `out/`, while `ENABLE_GOLDEN` helps tests file evidence in
+  `artifacts/`.
 
 Headers may feel formal, but they're just another way of teaching future you
 what the system expects.
