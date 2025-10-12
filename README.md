@@ -71,6 +71,16 @@ geekier signal-flow diagrams later.
 - When you add a new idea, sketch it in Markdown or tests before wiring it into
   the firmware. The notebook is as important as the code.
 
+### Release ritual and changelog
+
+Before you ship something shiny, cruise through the new
+[`RELEASING.md`](RELEASING.md) checklist. It walks you through version bumps,
+tags, and the CI gauntlet without killing the vibe.
+
+Curious where we log the weirdness? The
+[`CHANGELOG.md`](CHANGELOG.md) keeps a running diary of hardened edges and the
+audio fixtures still on deck. Read it like a zine: it's meant to teach future
+you what mattered, not just what files flipped.
 ## Community contracts & fine print
 
 We keep the legalese light but visible so nobody trips over it later:
