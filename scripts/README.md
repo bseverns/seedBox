@@ -9,6 +9,7 @@ say so loudly.
 | Script | Job | Notes |
 | --- | --- | --- |
 | `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
+| `ensure_teensy_macros.py` | Guards the Teensy hardware CPP macros. | Runs as a pre-build hook and only back-fills missing defines, so CI keeps its DSP toys without macro redefinition drama. |
 
 ## When you add a script
 
