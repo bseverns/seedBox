@@ -3,7 +3,14 @@
 #ifdef SEEDBOX_HW
 #  include <Arduino.h>
 #  include <MIDI.h>
+#  ifdef __GNUC__
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wcast-function-type"
+#  endif
 #  include <usb_midi.h>
+#  ifdef __GNUC__
+#    pragma GCC diagnostic pop
+#  endif
 #endif
 
 void MidiRouter::begin() {
