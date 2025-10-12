@@ -33,6 +33,8 @@ engines, reseed algorithms, or display sketches without needing a soldered rig.
   couch.
 - **Documentary mode?** Read the roadmaps in `docs/` and drop ideas directly in
   Markdown. We treat documentation as part of the jam session.
+- **Wiring SeedBox to an MN42?** Start with the
+  [interop cheat sheet](docs/interop_mn42.md) so your CC handshakes stay in tune.
 
 ## Friendly setup checklist
 
