@@ -42,7 +42,19 @@
 
 #include <Arduino.h>
 
-#include <Audio.h>
+#include <AudioStream.h>
+#include <control_sgtl5000.h>
+#include <effect_delay.h>
+#include <effect_envelope.h>
+#include <effect_granular.h>
+#include <filter_biquad.h>
+#include <filter_variable.h>
+#include <input_i2s.h>
+#include <mixer.h>
+#include <output_i2s.h>
+#include <play_memory.h>
+#include <play_sd_wav.h>
+#include <synth_whitenoise.h>
 #include <memory>
 #include <vector>
 #endif

@@ -14,8 +14,12 @@ jobs:
       matrix:
         include:
           - name: native
+            env: native
+            usb: ''
             command: pio test -e native
           - name: teensy40
+            env: teensy40
+            usb: USB_MIDI_SERIAL
             command: pio run -e teensy40
     steps:
       - name: Check out code
@@ -28,6 +32,51 @@ jobs:
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
+
+      - name: Confirm Teensy USB type
+        if: ${{ matrix.usb != '' }}
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          env = "${{ matrix.env }}"
+          expected = "${{ matrix.usb }}"
+
+          result = subprocess.run(
+              [
+                  "pio",
+                  "project",
+                  "config",
+                  "--json-output",
+                  "--environment",
+                  env,
+              ],
+              check=True,
+              capture_output=True,
+              text=True,
+          )
+          config = json.loads(result.stdout)
+          usb_value = None
+          for entry in config:
+              if entry.get("option") == "board_build.usbtype":
+                  usb_value = entry.get("value")
+                  break
+
+          if usb_value is None:
+              print(f"No USB type configured for {env}", file=sys.stderr)
+              sys.exit(1)
+
+          if usb_value != expected:
+              print(
+                  f"USB type mismatch for {env}: expected {expected}, found {usb_value}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print(f"USB type for {env}: {usb_value}")
+          PY
 
       - name: Execute ${{ matrix.name }} target
         run: ${{ matrix.command }}
