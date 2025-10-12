@@ -67,7 +67,7 @@ pio pkg install
 
 - **MCU**: Teensy 4.0
 - **Audio interface**: PJRC Audio Shield (SGTL5000)
-- **Display**: SSD1306 OLED over I²C (default address `0x3C`)
+- **Display**: SparkFun Qwiic OLED 1.3" (SH1107 over I²C, default address `0x3C`)
 - **Input**: Two rotary encoders + push buttons, USB MIDI, plus dual 3.5 mm
   Type-A MIDI jacks (DIN is dead; embrace the mini TRS future)
 
@@ -76,7 +76,7 @@ pio pkg install
 | Function | Pin(s) | Notes |
 |----------|--------|-------|
 | I²S Audio (SGTL5000) | 23 (MCLK), 21 (BCLK), 20 (LRCLK), 7 (TX), 8 (RX), 10 (SD_CS) | Keep these quiet; they belong to the audio shield stack. |
-| OLED I²C | 18 (SDA), 19 (SCL) | Add 4.7 kΩ pull-ups if the bus gets noisy. |
+| OLED I²C | 18 (SDA), 19 (SCL) | Qwiic OLED already has pull-ups; add externals only if you hang more devices. |
 | USB MIDI | Native USB port | Enumerates as `USB_MIDI_SERIAL`. |
 | TRS MIDI IN | 28 (Serial7 RX) | Mirror the Type-A spec; route the opto output from the TRS jack straight here. |
 | TRS MIDI OUT | 29 (Serial7 TX) | Buffer with the usual 33 Ω resistors before hitting the jack. |
@@ -89,6 +89,11 @@ pio pkg install
 > the TX leg through a pair of 33 Ω resistors before touching the OUT jack. With
 > DIN retired, the switched jacks simply mute the TRS path when nothing is
 > plugged in, leaving USB MIDI as the silent fallback.
+
+> **Qwiic cabling tip:** The SparkFun OLED ships with JST-SH connectors and
+> on-board pull-ups. Either use a stock Qwiic lead into the Teensy (red=3.3 V,
+> black=GND, blue=SDA, yellow=SCL) or solder directly to the castellated pads if
+> you crave a slimmer wiring harness.
 
 Print this table and tape it to your bench. Update the pin map when hardware
 assignments shift so firmware and CAD stay aligned.
