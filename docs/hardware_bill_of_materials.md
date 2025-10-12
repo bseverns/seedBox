@@ -33,9 +33,10 @@ alternatives without frying the groove.
 
 | Item | Suggested part numbers & sources | Why it matters | Notes |
 | --- | --- | --- | --- |
-| DIN-5 MIDI jack (female) | Switchcraft, Kobiconn panel jack | Hardware clock & note input. | Wire to Serial6 RX via opto-isolator. |
+| 3.5 mm TRS jacks (Type-A, x2) | PJRC T35-TRS, Adafruit 4399, DIYCables panel jacks | Modern MIDI I/O without adapters. | Follow the Type-A pinout: tip = MIDI+, ring = MIDI−, sleeve = ground. Route the IN jack to Serial7 RX (pin 28) and the OUT jack to Serial7 TX (pin 29) through the proper resistors. |
 | 6N138 or PC900 opto-isolator | MIDI IN isolation | Complies with the MIDI electrical spec so your rig survives bad cables. | Remember the 220 Ω + 1 N4148 LED protection network. |
 | 220 Ω resistors (x2) | MIDI input current limiting | Works with the opto-isolator LED. | 1/4 W carbon film is fine. |
+| 33 Ω resistors (x2) | MIDI Type-A output impedance | Protects the Teensy pins and meets the spec when driving TRS. | Mount them inline on the TX leg before the jack. |
 | 1 N4148 diodes (x2) | MIDI input protection | Shields the opto LED from reverse voltage. | Any fast small-signal diode works. |
 | MIDI breakout PCB or perfboard | DIY layout platform | Keeps the opto, resistors, and jack tidy. | Perfboard is fine for prototypes. |
 

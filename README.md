@@ -48,7 +48,8 @@ as tutorials.
 ## Pick your adventure
 
 - **Just want to hear something?** Plug in a Teensy 4.0, follow the wiring in
-  `docs/`, then build the `teensy40` target in PlatformIO (the older
+  `docs/` (the map now leans fully into 1/8" Type-A MIDI jacks riding beside
+  USB), then build the `teensy40` target in PlatformIO (the older
   `teensy40_usbmidiserial` alias still works if your muscle memory insists).
 - **No hardware handy?** Run the `native` environment. It uses the same logic as
   the hardware build and spits out logs/tests so you can tweak algorithms on the
@@ -79,7 +80,7 @@ SeedBox now boots with `QUIET_MODE=1`. That means:
 - Seeds stay unprimed until you explicitly compile with quiet mode off.
 - Storage helpers refuse to write, keeping classrooms safe from surprise SD
   scribbles.
-- Hardware IO (USB/DIN MIDI, seed persistence) is stubbed so the rig wakes up
+- Hardware IO (USB/TRS MIDI, seed persistence) is stubbed so the rig wakes up
   silent.
 
 Want the full-noise experience? Flip the flag by overriding the PlatformIO env:
