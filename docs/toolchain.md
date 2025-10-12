@@ -38,6 +38,10 @@ Welcome to the noisy little corner where we keep the build stack honest. Below a
    pio run -t envdump -e teensy40
    ```
 5. Update `platformio.ini` with the versions you just observed. Keep `native` and `teensy40` sections explicit—no shared `[env]` blocks hiding defaults.
-6. Refresh this document with the new versions and any weirdness you hit (403s, missing packages, etc.). Future-you will be grateful for the breadcrumbs.
+6. While you are in there, sanity-check the hardware build flags. We now pin the usual Teensy IDs (`ARDUINO_TEENSY40`,
+   `TEENSYDUINO`, `__ARM_ARCH_7EM__`, `__IMXRT1062__`) directly in `platformio.ini` because PlatformIO occasionally drops them
+   during CI. When those symbols vanish the audio nodes collapse into ghost classes—no `AudioMixer4::gain`, no granular effect,
+   just sad abstract shells. Hard-defining them keeps the DSP graph tangible even when the toolchain forgets who it is.
+7. Refresh this document with the new versions and any weirdness you hit (403s, missing packages, etc.). Future-you will be grateful for the breadcrumbs.
 
 Stay curious, take notes, and don’t be afraid to scribble in the margins. That’s how this place stays half lab notebook, half zine.
