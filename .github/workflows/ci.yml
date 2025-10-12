@@ -22,10 +22,12 @@ jobs:
         run: pip install platformio
       - name: Show PlatformIO envs
         run: |
-          pio project config --json-output | python - <<'PY'
-          import json, sys
-          data = json.load(sys.stdin)
-          print("Envs:", [env["name"] for env in data.get("envs", [])])
+          python - <<'PY'
+          import configparser
+          config = configparser.ConfigParser()
+          config.read('platformio.ini')
+          envs = [section.split(':', 1)[1] for section in config.sections() if section.startswith('env:')]
+          print('Envs:', envs)
           PY
       - name: Cache PlatformIO
         uses: actions/cache@v4
