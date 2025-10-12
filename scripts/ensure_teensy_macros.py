@@ -23,9 +23,21 @@ REQUIRED_MACROS = {
 }
 
 
+def _iter_defines():
+    """Yield every CPPDEFINES entry that already exists on the env."""
+
+    defines = env.get("CPPDEFINES") or []  # type: ignore[attr-defined]
+    if isinstance(defines, (str, tuple)):
+        defines = [defines]
+
+    # SCons happily stores either strings or (name, value) tuples in here.
+    for entry in defines:  # type: ignore[assignment]
+        yield entry
+
+
 def _defined(name: str) -> bool:
     """Return True if *name* already appears in the CPPDEFINES list."""
-    for entry in env["CPPDEFINES"]:  # type: ignore[index]
+    for entry in _iter_defines():
         if isinstance(entry, tuple):
             macro, *_ = entry
             if macro == name:
