@@ -10,6 +10,7 @@ Think of this folder as the detective agency for your audio experiments.
 | --- | --- | --- |
 | `test_app/` | Covers `AppState`, reseeding rituals, display snapshots. | Stops UI lies before they hit the OLED. |
 | `test_patterns/` | Stresses the scheduler, tick math, and trigger ordering. | Keeps rhythms tight even after wild refactors. |
+| `native_golden/` | Placeholder harness for WAV fixtures + hashing rituals. | Lays down the roadmap for future regression ear-tests. |
 
 Everything uses Unity (the test framework bundled with PlatformIO), which keeps
 setup light and failure messages readable.
