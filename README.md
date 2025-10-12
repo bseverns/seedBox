@@ -22,13 +22,28 @@ engines, reseed algorithms, or display sketches without needing a soldered rig.
 
 ## Quick orientation
 
+```mermaid
+flowchart LR
+  Repo[(Repo root)] --> Docs["docs/\nstoryboards"]
+  Repo --> Source["src/\nengines"]
+  Repo --> Include["include/\ncontracts"]
+  Repo --> Tests["test/\ntruth serum"]
+  Repo --> Scripts["scripts/\npit crew"]
+  Tests -->|golden logs| Artifacts["artifacts/ (ignored)"]
+  Source -->|renders| Out["out/ (ignored)"]
+```
+
 | Folder | What's going on | First doc to read |
 | --- | --- | --- |
 | `docs/` | Roadmaps, design notes, wiring sketches. | [Builder primer](docs/builder_bootstrap.md) |
 | `src/` | The actual instrument brain. | [Source tour](src/README.md) |
 | `include/` | Header contracts the rest of the world relies on. | [Interface notes](include/README.md) |
-| `test/` | Native tests that keep the grooves deterministic. | [Test guide](test/README.md) |
+| `test/` | Native tests that keep the grooves deterministic. | [Test guide](test/README.md) + [golden recipe](test/README.md#toggle-able-test-flags) |
 | `scripts/` | Helper tools (version stamping, etc.). | [Script cheat sheet](scripts/README.md) |
+
+Head straight to [`docs/roadmaps/`](docs/roadmaps) for narrative design notes or
+into [`test/test_engine/`](test/test_engine) for executable examples that double
+as tutorials.
 
 ## Pick your adventure
 
@@ -39,6 +54,9 @@ engines, reseed algorithms, or display sketches without needing a soldered rig.
   couch.
 - **Documentary mode?** Read the roadmaps in `docs/` and drop ideas directly in
   Markdown. We treat documentation as part of the jam session.
+- **Example safari?** The tests inside [`test/test_app`](test/test_app) and
+  [`test/test_patterns`](test/test_patterns) are intentionally verbose. Read
+  them like workshop demos, then riff with your own cases.
 
 ## Friendly setup checklist
 
@@ -51,6 +69,31 @@ like a zine.
 4. Run the fast tests (no hardware required): `pio test -e native`
 5. When you're ready for the real synth, build the Teensy target:
    `pio run -e teensy40_usbmidiserial`
+
+## Quiet mode (default sandbox state)
+
+SeedBox now boots with `QUIET_MODE=1`. That means:
+
+- Seeds stay unprimed until you explicitly compile with quiet mode off.
+- Storage helpers refuse to write, keeping classrooms safe from surprise SD
+  scribbles.
+- Hardware IO (USB/DIN MIDI, seed persistence) is stubbed so the rig wakes up
+  silent.
+
+Want the full-noise experience? Flip the flag by overriding the PlatformIO env:
+
+```ini
+[env:teensy40_usbmidiserial]
+build_flags =
+  ${env.build_flags}
+  -D SEEDBOX_HW=1
+  -D USB_MIDI
+  -D QUIET_MODE=0
+```
+
+Or, for a one-off build, tack on `--project-option "build_flags += -D QUIET_MODE=0"`
+to your `pio run` invocation. The OLED will remind you it's snoozing until you
+do.
 
 ## High-level flow (aka how seeds become sound)
 
@@ -66,13 +109,81 @@ flowchart LR
 This is intentionally simple. Each box has its own README if you want the
 geekier signal-flow diagrams later.
 
+### How CI babysits the jams
+
+```mermaid
+sequenceDiagram
+  participant Dev as Dev
+  participant CI as CI (GitHub Actions)
+  participant PIO as PlatformIO
+  Dev->>CI: push / PR
+  CI->>PIO: run `pio test -e native`
+  CI->>PIO: run `pio run -e teensy40_usbmidiserial`
+  PIO-->>CI: status + logs
+  CI-->>Dev: badges flip + artifacts/ snapshots
+```
+
+The CI workflow mirrors what you do locally so surprises stay onstage, not
+mid-gig.
+
+### Build flags cheat sheet
+
+| Flag | Where it matters | What it does |
+| --- | --- | --- |
+| `SEEDBOX_HW` | `src/`, `include/` | Enables Teensy-only IO paths so the firmware talks to real hardware. Leave it off for `native`. |
+| `QUIET_MODE` | `src/util/`, tests | Silences verbose logging when you want clean terminal output or audio renders in `out/`. |
+| `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` so regressions show up as diffable golden files. |
+
+Any new flag deserves a note in the matching README so the teaching vibes stay
+strong.
+
+## Examples, lessons, and crosslinks
+
+- **Docs:** Start with the [builder bootstrap](docs/builder_bootstrap.md) then
+  wander through [hardware BOM](docs/hardware_bill_of_materials.md) and the
+  [roadmaps](docs/roadmaps) when you want story time.
+- **Source tours:** [`src/README.md`](src/README.md) threads the narrative, while
+  in-file comments point to specific seed recipes.
+- **Tests as tutorials:** [`test/README.md`](test/README.md) explains the suites
+  and calls out how `ENABLE_GOLDEN` captures new expectations.
+- **Scripts:** [`scripts/README.md`](scripts/README.md) keeps the automation
+  gentle and hackable.
+
+## Audio postcard (TODO)
+
+> TODO: Capture a 30-second SeedBox groove and drop the `.wav` into `out/`. When
+> it graduates to a repeatable expectation, promote the render into
+> `artifacts/` alongside golden logs so the CI badge can brag about it.
+
 ## Contributing without fear
 
 - Speak plainly in comments and docs. Pretend you're writing to your future
   self after a loud gig.
 - Keep hardware-only code wrapped in the `SEEDBOX_HW` flag so the native build
   stays honest.
+- Reach for `QUIET_MODE` when you want lean logs and `ENABLE_GOLDEN` when you
+  need new reference data in tests.
 - When you add a new idea, sketch it in Markdown or tests before wiring it into
   the firmware. The notebook is as important as the code.
+
+### Release ritual and changelog
+
+Before you ship something shiny, cruise through the new
+[`RELEASING.md`](RELEASING.md) checklist. It walks you through version bumps,
+tags, and the CI gauntlet without killing the vibe.
+
+Curious where we log the weirdness? The
+[`CHANGELOG.md`](CHANGELOG.md) keeps a running diary of hardened edges and the
+audio fixtures still on deck. Read it like a zine: it's meant to teach future
+you what mattered, not just what files flipped.
+## Community contracts & fine print
+
+We keep the legalese light but visible so nobody trips over it later:
+
+- **Code & binaries:** [MIT License](LICENSE)
+- **Docs, zines, and sketches:** [Creative Commons BY 4.0](LICENSE-docs)
+- **How we treat each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
+- **How to join the build party:** [Contributing guide](CONTRIBUTING.md)
+- **What to do if you find a bug with teeth:** [Security policy](SECURITY.md)
 
 Bring your curiosity, your sense of play, and maybe some headphones.

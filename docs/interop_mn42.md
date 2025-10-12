@@ -1,0 +1,82 @@
+# SeedBox ↔ MN42 Interop Cheat Sheet
+
+Welcome to the tiny treaty between SeedBox and the MN42 controller. This page
+keeps both synth brains honest about which MIDI CCs they speak, how they wave
+hello, and what to poke when you want the rigs to vibe in sync. Think lab notes,
+not corporate whitepaper.
+
+## TL;DR handshake
+
+1. **MN42 boots** and spits a Control Change on channel 1, controller 14,
+   value `0x01`. That's the punk rock version of “hey, I'm awake.”
+2. **SeedBox receives** that CC, routes it through `MidiRouter`, and when its own
+   subsystems are caffeinated, it fires back CC 14 with value `0x11`.
+3. **Both ends send keep-alives** every few seconds (same CC 14, value `0x7F`).
+   Miss two beats and you can assume the other side face-planted.
+4. **Optional identity flex:** MN42 drops a short SysEx packet using the
+   non-commercial ID `0x7D` followed by the ASCII-ish signature `0x4D 0x4E 0x42`
+   (`M N B`). SeedBox ignores any mystery gear without that vibe.
+
+All of those literal numbers live in
+[`src/interop/mn42_map.h`](../src/interop/mn42_map.h). Copy-paste the constants
+instead of retyping magic values.
+
+## CC map at a glance
+
+| CC | Constant | What it means | Value range |
+| --- | --- | --- | --- |
+| 14 | `cc::kHandshake` | Boot hello, ack, and keep-alives. | `0x01`, `0x11`, `0x7F` |
+| 15 | `cc::kMode` | Bit field describing clock + debug toggles. | Bit mask |
+| 16 | `cc::kSeedMorph` | Blend between seed snapshots. | `0–127` |
+| 17 | `cc::kTransportGate` | Momentary gate for transport control. | `0` off, `>0` on |
+
+### Mode bit breakdown (CC 15)
+
+| Bit | Constant | When it's set |
+| --- | --- | --- |
+| `0x01` | `mode::kFollowExternalClock` | MN42 supplies tempo, SeedBox listens. |
+| `0x02` | `mode::kExposeDebugMeters` | SeedBox streams raw meters back over SysEx/logs. |
+| `0x04` | `mode::kArpAccent` | MN42 accent lane punches harder. |
+| `0x08` | `mode::kLatchTransport` | Treat transport like a toggle instead of a momentary. |
+
+## Wiring it up on the SeedBox side
+
+```cpp
+#include "interop/mn42_map.h"
+#include "io/MidiRouter.h"
+
+void wireRouter(MidiRouter& router) {
+  router.setControlChangeHandler([](uint8_t ch, uint8_t cc, uint8_t value) {
+    if (ch != seedbox::interop::mn42::kDefaultChannel) return;
+    if (cc == seedbox::interop::mn42::cc::kHandshake &&
+        value == seedbox::interop::mn42::handshake::kHello) {
+      // Kick off your ack logic here.
+    }
+  });
+}
+```
+
+## Minimal SysEx handshake packet
+
+```
+F0 7D 4D 4E 42 01 F7
+```
+
+- `F0`/`F7`: SysEx start/end.
+- `7D`: Non-commercial manufacturer ID (agreed on both ends).
+- `4D 4E 42`: The `M N B` signature referenced in `handshake::kProduct*`.
+- `01`: Payload meaning “MN42 present.”
+
+Respond however you want — CC ack, flashing LEDs, or a triumphant glitch-pop.
+
+## Testing loop ideas
+
+- **Clock follow dry run:** Set `mode::kFollowExternalClock`, spin MN42's tempo,
+  and watch SeedBox's scheduler for drift.
+- **Debug voyeurism:** Flip `mode::kExposeDebugMeters` to force SeedBox into
+  spewing level meters back over whichever channel you're sniffing.
+- **Transport mayhem:** Toggle `mode::kLatchTransport` and spam CC 17 to ensure
+  your UI respects latch vs. momentary semantics.
+
+Keep tweaking and jotting discoveries. This page should evolve like a gig
+setlist — fast edits, honest notes, no preciousness.
