@@ -4,9 +4,16 @@
 #include <cstdint>
 
 #ifdef SEEDBOX_HW
-#include <Audio.h>
 #include <memory>
 #include <vector>
+
+class AudioMixer4;
+class AudioOutputI2S;
+class AudioConnection;
+class AudioPlayMemory;
+class AudioPlaySdWav;
+class AudioEffectEnvelope;
+class AudioFilterStateVariable;
 #endif
 
 // Sampler owns a deterministic voice pool shared between hardware and the
@@ -25,6 +32,7 @@
 class Sampler {
 public:
   Sampler();
+  ~Sampler();
   static constexpr uint8_t kMaxVoices = 4;
 
   struct VoiceState {
@@ -105,24 +113,13 @@ private:
   uint32_t nextHandle_{1};
 
 #ifdef SEEDBOX_HW
-  struct HardwareVoice {
-    HardwareVoice();
-    // RAM-resident sample player (Teensy Audio library).
-    AudioPlayMemory ramPlayer;
-    // SD-card streaming player. Both RAM + SD feed the same mixer with mute
-    // gains so we can swap sources per voice.
-    AudioPlaySdWav sdPlayer;
-    AudioMixer4 sourceMixer;
-    // Teensy ADSR envelope. We drive it with Seed-provided values.
-    AudioEffectEnvelope envelope;
-    // Simple tone control (tilt EQ stand-in).
-    AudioFilterStateVariable toneFilter;
-  };
+  struct HardwareVoice;
+  void ensureHardwareGraph();
 
-  std::array<HardwareVoice, kMaxVoices> hwVoices_;
-  AudioMixer4 voiceMixerLeft_;
-  AudioMixer4 voiceMixerRight_;
-  AudioOutputI2S output_;
+  std::vector<std::unique_ptr<HardwareVoice>> hwVoices_;
+  std::unique_ptr<AudioMixer4> voiceMixerLeft_;
+  std::unique_ptr<AudioMixer4> voiceMixerRight_;
+  std::unique_ptr<AudioOutputI2S> output_;
   std::vector<std::unique_ptr<AudioConnection>> patchCables_;
 #endif
 };

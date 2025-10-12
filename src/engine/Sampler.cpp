@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #ifdef SEEDBOX_HW
+#include <Audio.h>
 #include <memory>
 #endif
 
@@ -20,21 +21,29 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 
 Sampler::Sampler()
 #ifdef SEEDBOX_HW
-    : hwVoices_{}, voiceMixerLeft_(), voiceMixerRight_(), output_(), patchCables_()
+    : hwVoices_(),
+      voiceMixerLeft_(nullptr),
+      voiceMixerRight_(nullptr),
+      output_(nullptr),
+      patchCables_()
 #endif
 {
 #ifdef SEEDBOX_HW
+  hwVoices_.reserve(kMaxVoices);
   patchCables_.reserve(static_cast<size_t>(kMaxVoices) * 6 + 2);
 #endif
 }
 
+Sampler::~Sampler() = default;
+
 #ifdef SEEDBOX_HW
-Sampler::HardwareVoice::HardwareVoice()
-    : ramPlayer(),
-      sdPlayer(),
-      sourceMixer(),
-      envelope(),
-      toneFilter() {}
+struct Sampler::HardwareVoice {
+  AudioPlayMemory ramPlayer;
+  AudioPlaySdWav sdPlayer;
+  AudioMixer4 sourceMixer;
+  AudioEffectEnvelope envelope;
+  AudioFilterStateVariable toneFilter;
+};
 #endif
 
 void Sampler::init() {
@@ -47,6 +56,28 @@ void Sampler::init() {
   }
 
 #ifdef SEEDBOX_HW
+  ensureHardwareGraph();
+#else
+  // Native build keeps the data-path only. Audio nodes live exclusively in the
+  // hardware target to avoid dragging Teensy headers into tests.
+#endif
+}
+
+#ifdef SEEDBOX_HW
+void Sampler::ensureHardwareGraph() {
+  if (!voiceMixerLeft_) {
+    voiceMixerLeft_ = std::make_unique<AudioMixer4>();
+    voiceMixerRight_ = std::make_unique<AudioMixer4>();
+    output_ = std::make_unique<AudioOutputI2S>();
+  }
+
+  if (hwVoices_.size() != kMaxVoices) {
+    hwVoices_.clear();
+    for (uint8_t i = 0; i < kMaxVoices; ++i) {
+      hwVoices_.emplace_back(std::make_unique<HardwareVoice>());
+    }
+  }
+
   patchCables_.clear();
 
   // Reserve audio memory blocks for the voice pool. Teensy Audio needs to know
@@ -55,7 +86,7 @@ void Sampler::init() {
   AudioMemory(96);
 
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
-    auto& hw = hwVoices_[i];
+    auto& hw = *hwVoices_[i];
 
     // Default mixer gains balance the RAM + SD sources. Later, once actual
     // sample tables land, a trigger call toggles the appropriate source on/off.
@@ -80,20 +111,17 @@ void Sampler::init() {
     patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sdPlayer, 0, hw.sourceMixer, 1));
     patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sourceMixer, 0, hw.envelope, 0));
     patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.envelope, 0, hw.toneFilter, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, voiceMixerLeft_, i));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, voiceMixerRight_, i));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, *voiceMixerLeft_, i));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, *voiceMixerRight_, i));
 
-    voiceMixerLeft_.gain(i, 0.0f);
-    voiceMixerRight_.gain(i, 0.0f);
+    voiceMixerLeft_->gain(i, 0.0f);
+    voiceMixerRight_->gain(i, 0.0f);
   }
 
-  patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerLeft_, 0, output_, 0));
-  patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerRight_, 0, output_, 1));
-#else
-  // Native build keeps the data-path only. Audio nodes live exclusively in the
-  // hardware target to avoid dragging Teensy headers into tests.
-#endif
+  patchCables_.emplace_back(std::make_unique<AudioConnection>(*voiceMixerLeft_, 0, *output_, 0));
+  patchCables_.emplace_back(std::make_unique<AudioConnection>(*voiceMixerRight_, 0, *output_, 1));
 }
+#endif
 
 uint8_t Sampler::activeVoices() const {
   return static_cast<uint8_t>(std::count_if(voices_.begin(), voices_.end(), [](const VoiceInternal& v) {
@@ -178,7 +206,7 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   voice.rightGain = std::sin(angle);
 
 #ifdef SEEDBOX_HW
-  auto& hw = hwVoices_[index];
+  auto& hw = *hwVoices_[index];
   if (voice.usesSdStreaming) {
     hw.sourceMixer.gain(0, 0.0f);
     hw.sourceMixer.gain(1, 1.0f);
@@ -201,8 +229,8 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   hw.toneFilter.resonance(0.707f);
 
   // Stereo gains feed into a pair of mixers that eventually land on I²S out.
-  voiceMixerLeft_.gain(index, voice.leftGain);
-  voiceMixerRight_.gain(index, voice.rightGain);
+  voiceMixerLeft_->gain(index, voice.leftGain);
+  voiceMixerRight_->gain(index, voice.rightGain);
 
   // Placeholder scheduling: AudioPlayMemory/SdWav start calls will land here
   // once sample assets are wired. For now we rely on startSample to keep the
