@@ -8,6 +8,8 @@
 #    pragma GCC diagnostic push
 #    pragma GCC diagnostic ignored "-Wcast-function-type"
 #    pragma GCC diagnostic ignored "-Wdeprecated-copy"
+#    pragma GCC diagnostic ignored "-Wunused-parameter"
+#    pragma GCC diagnostic ignored "-Wunused-variable"
 #  endif
 #  include <Arduino.h>
 #  ifdef __GNUC__

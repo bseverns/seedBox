@@ -33,7 +33,8 @@ flowchart LR
 - `src/hal/hal_audio.h/.cpp` — audio device seam (Teensy vs. native mock).
 - `src/hal/hal_io.h/.cpp` — lightweight IO hooks (LEDs, inputs, sensors).
 - `include/hal/ArduinoGlue.h` — wraps `<Arduino.h>` and hushes
-  `-Wcast-function-type` / `-Wdeprecated-copy` noise from the core USB stack.
+  `-Wcast-function-type`, `-Wdeprecated-copy`, and the avalanche of
+  `-Wunused-*` chatter that PJRC's helpers emit.
 - `include/hal/UsbMidiGlue.h` — pulls in `<usb_midi.h>` with the same warning
   guard so Teensy's SysEx helpers stay friendly.
 
