@@ -39,10 +39,11 @@ Welcome to the noisy little corner where we keep the build stack honest. Below a
    ```
 5. Update `platformio.ini` with the versions you just observed. Keep `native` and `teensy40` sections explicit—no shared `[env]` blocks hiding defaults.
 6. While you are in there, make sure the Teensy identity macros stay wired up. The new `scripts/ensure_teensy_macros.py`
-   pre-hook inspects the `CPPDEFINES` list and quietly patches in `ARDUINO_TEENSY40`, `TEENSYDUINO`, `__ARM_ARCH_7EM__`, and
-   `__IMXRT1062__` if PlatformIO forgets them during CI. Without those flags the PJRC Audio classes stay abstract and the synth
-   graph face-plants—no mixers, no granular engine, just spectral dust. The hook only adds what is missing, so we dodge the
-   screaming "macro redefined" warnings you might have seen in earlier attempts.
+   pre-hook normalises whatever weird shape `CPPDEFINES` is in (strings like `FOO=BAR`, tuples, even empty slots) and quietly
+   patches in `ARDUINO_TEENSY40`, `TEENSYDUINO`, `__ARM_ARCH_7EM__`, and `__IMXRT1062__` if PlatformIO forgets them during CI.
+   Without those flags the PJRC Audio classes stay abstract and the synth graph face-plants—no mixers, no granular engine, just
+   spectral dust. Because the hook understands the `MACRO=value` string form PlatformIO loves, it only adds what is truly
+   missing, so we dodge the screaming "macro redefined" warnings you might have seen in earlier attempts.
 7. Refresh this document with the new versions and any weirdness you hit (403s, missing packages, etc.). Future-you will be grateful for the breadcrumbs.
 
 Stay curious, take notes, and don’t be afraid to scribble in the margins. That’s how this place stays half lab notebook, half zine.
