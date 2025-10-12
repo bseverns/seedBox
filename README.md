@@ -33,6 +33,8 @@ engines, reseed algorithms, or display sketches without needing a soldered rig.
   couch.
 - **Documentary mode?** Read the roadmaps in `docs/` and drop ideas directly in
   Markdown. We treat documentation as part of the jam session.
+- **Wiring SeedBox to an MN42?** Start with the
+  [interop cheat sheet](docs/interop_mn42.md) so your CC handshakes stay in tune.
 
 ## Friendly setup checklist
 
@@ -79,5 +81,14 @@ Curious where we log the weirdness? The
 [`CHANGELOG.md`](CHANGELOG.md) keeps a running diary of hardened edges and the
 audio fixtures still on deck. Read it like a zine: it's meant to teach future
 you what mattered, not just what files flipped.
+## Community contracts & fine print
+
+We keep the legalese light but visible so nobody trips over it later:
+
+- **Code & binaries:** [MIT License](LICENSE)
+- **Docs, zines, and sketches:** [Creative Commons BY 4.0](LICENSE-docs)
+- **How we treat each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
+- **How to join the build party:** [Contributing guide](CONTRIBUTING.md)
+- **What to do if you find a bug with teeth:** [Security policy](SECURITY.md)
 
 Bring your curiosity, your sense of play, and maybe some headphones.
