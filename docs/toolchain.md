@@ -27,11 +27,12 @@ adafruit/Adafruit BusIO@1.17.4
 ```
 
 Teensy's SD stack ships inside the framework, so we lean on the bundled
-`SdFat` fork rather than pulling `greiman/SdFat` from the registry. That keeps
-the custom hooks (`SdSpiConfig`, `SdFile`) aligned with PJRC's audio code. If a
-registry package ever vanishes or needs a hotfix, swap in a
-`https://github.com/...git#<commit>` spec and annotate it here so the next
-producer knows why.
+`SdFat` fork rather than pulling `greiman/SdFat` from the registry. CI enforces
+this via `lib_ignore = SdFat` in `platformio.ini`, which prevents PlatformIO
+from auto-installing the vanilla library. That keeps the custom hooks
+(`SdSpiConfig`, `SdFile`) aligned with PJRC's audio code. If a registry package
+ever vanishes or needs a hotfix, swap in a `https://github.com/...git#<commit>`
+spec and annotate it here so the next producer knows why.
 
 ## Reproducing the pin set
 

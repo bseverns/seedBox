@@ -4,19 +4,21 @@
 #include <cstddef>
 #include "Seed.h"
 
+using std::size_t;
+
 class PatternScheduler {
 public:
   void setBpm(float bpm);
   void onTick();                 // call at 24 PPQN
   void addSeed(const Seed& s);
-  bool updateSeed(std::size_t index, const Seed& s);
+  bool updateSeed(size_t index, const Seed& s);
   void setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t));
   uint64_t ticks() const { return tickCount_; }
 
-  const Seed* seedForDebug(std::size_t index) const;
+  const Seed* seedForDebug(size_t index) const;
 
 private:
-  bool densityGate(std::size_t seedIndex, float density);
+  bool densityGate(size_t seedIndex, float density);
   uint32_t nowSamples();
   uint32_t msToSamples(float ms);
 private:

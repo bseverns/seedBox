@@ -24,7 +24,7 @@ void PatternScheduler::addSeed(const Seed& s) {
 
 // Update the copy of the seed the scheduler owns. Returns false if the caller
 // fat-fingered the index so the tests can assert deterministic behaviour.
-bool PatternScheduler::updateSeed(std::size_t index, const Seed& s) {
+bool PatternScheduler::updateSeed(size_t index, const Seed& s) {
   if (index >= seeds_.size()) {
     return false;
   }
@@ -37,14 +37,14 @@ void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const See
   triggerFn_ = fn;
 }
 
-const Seed* PatternScheduler::seedForDebug(std::size_t index) const {
+const Seed* PatternScheduler::seedForDebug(size_t index) const {
   if (index >= seeds_.size()) {
     return nullptr;
   }
   return &seeds_[index];
 }
 
-bool PatternScheduler::densityGate(std::size_t seedIndex, float density) {
+bool PatternScheduler::densityGate(size_t seedIndex, float density) {
   if (density <= 0.f) return false;
   if (seedIndex >= densityAccumulators_.size()) return false;
 
@@ -91,7 +91,7 @@ void PatternScheduler::onTick() {
   //    keep it deterministic by reseeding RNG with s.prng so a hard reset drops
   //    us right back to the original voice. Mutate plumbing lands alongside the
   //    engine trigger call.
-  for (std::size_t i = 0; i < seeds_.size(); ++i) {
+  for (size_t i = 0; i < seeds_.size(); ++i) {
     Seed& s = seeds_[i];
     if (densityGate(i, s.density)) {
       // probability gate

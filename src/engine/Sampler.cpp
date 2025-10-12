@@ -248,6 +248,9 @@ float Sampler::clamp01(float value) {
 }
 
 void Sampler::trigger(const Seed& seed, uint32_t whenSamples) {
+#ifdef SEEDBOX_HW
+  ensureHardwareGraph();
+#endif
   const uint8_t index = allocateVoice(whenSamples);
   VoiceInternal& voice = voices_[index];
 

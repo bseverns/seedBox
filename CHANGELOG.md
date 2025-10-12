@@ -13,10 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stops choking on the Audio stack.
 - Fixed: Lock the Encoder driver to `PaulStoffregen/Encoder@1.4.2` from the
   registry so Teensy builds stop timing out on Git clones.
-- Fixed: Drop the registry `greiman/SdFat` dependency so Teensy's patched
-  storage stack is used during hardware builds.
-- Fixed: PatternScheduler now leans on `<cstddef>`/`std::size_t`, keeping
-  native and Teensy compilers aligned.
+- Fixed: Drop the registry `greiman/SdFat` dependency and ignore it in
+  PlatformIO so Teensy's patched storage stack stays in charge of SD IO.
+- Fixed: PatternScheduler now leans on `<cstddef>` and `size_t`, keeping native
+  and Teensy compilers aligned without mystery typedefs.
 
 ## [0.1.0] - 2025-02-14
 
