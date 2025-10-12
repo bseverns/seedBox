@@ -1,5 +1,11 @@
 # SeedBox — playground for seeds, sound, and experiments
 
+| Status board | Signal |
+| --- | --- |
+| CI (native + Teensy) | [![CI](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml) |
+
+> Tip: swap `YOUR-ORG` with your GitHub handle so the badge points at the right stage lights.
+
 SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
 companion project to the MOARkNOBS mythos: a Teensy 4.0 instrument that can
 also run a "pretend hardware" build on your laptop. You can poke at rhythm
