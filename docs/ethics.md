@@ -23,7 +23,7 @@ handle gently, log clearly, and erase when the jam is over. Here's the pact.
 - **Disposable seed banks.** Loading a seed bank is a deliberate action that
   stays in-memory. Rebooting or reseeding wipes the slate so classrooms can reset
   between sessions.
-- **Hardware boundaries.** USB MIDI, DIN MIDI, and SD card access are off when
+- **Hardware boundaries.** USB MIDI, TRS MIDI, and SD card access are off when
   quiet mode is on. That protects shared rigs in a lab from waking up speakers or
   scribbling to SD while someone is teaching.
 

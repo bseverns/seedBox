@@ -9,7 +9,7 @@
 // the firmware handles today.
 class MidiRouter {
 public:
-  // Call once during boot. Hardware builds could use this to prime DIN or USB
+  // Call once during boot. Hardware builds could use this to prime TRS or USB
   // state; the native target keeps it cheap so tests start instantly.
   void begin();
 

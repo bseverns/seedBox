@@ -68,19 +68,27 @@ pio pkg install
 - **MCU**: Teensy 4.0
 - **Audio interface**: PJRC Audio Shield (SGTL5000)
 - **Display**: SSD1306 OLED over I²C (default address `0x3C`)
-- **Input**: Two rotary encoders + push buttons, USB MIDI, optional DIN MIDI
+- **Input**: Two rotary encoders + push buttons, USB MIDI, plus dual 3.5 mm
+  Type-A MIDI jacks (DIN is dead; embrace the mini TRS future)
 
 ### Pin cheat sheet (Teensy 4.0)
 
 | Function | Pin(s) | Notes |
 |----------|--------|-------|
-| I²S Audio (SGTL5000) | 6 (MCLK), 7 (BCLK), 8 (LRCLK), 20 (TX), 21 (RX) | Keep these quiet; no encoders here. |
+| I²S Audio (SGTL5000) | 23 (MCLK), 21 (BCLK), 20 (LRCLK), 7 (TX), 8 (RX), 10 (SD_CS) | Keep these quiet; they belong to the audio shield stack. |
 | OLED I²C | 18 (SDA), 19 (SCL) | Add 4.7 kΩ pull-ups if the bus gets noisy. |
 | USB MIDI | Native USB port | Enumerates as `USB_MIDI_SERIAL`. |
-| DIN MIDI IN | 25 (Serial6 RX) | Route through 6N138 or similar opto-isolator. |
-| Encoders | 2/3 (Encoder A/B #1), 4/5 (Encoder A/B #2) | Debounce in software via `EncoderReader`. |
-| Buttons | 14, 15 | Active-low with 10 kΩ pull-ups. |
+| TRS MIDI IN | 28 (Serial7 RX) | Mirror the Type-A spec; route the opto output from the TRS jack straight here. |
+| TRS MIDI OUT | 29 (Serial7 TX) | Buffer with the usual 33 Ω resistors before hitting the jack. |
+| Encoders | Seed/Bank: 0/1 + switch on 2; Density/Prob: 3/4 + switch on 5; Tone/Tilt: 24/26 + switch on 27; FX/Mutate: 6/9 + switch on 30 | Debounce in software via `EncoderReader`. |
+| Buttons | Tap: 31, Shift: 32, Alt Seed: 33 | Active-low with 10 kΩ pull-ups. |
 | LEDs (debug) | 16, 17 | Optional heartbeat / tick lamps. |
+
+> **TRS wiring ritual:** Mirror the official Type-A pinout. Route the TRS IN jack
+> through the standard MIDI opto network and land its output on Serial7 RX. Fan
+> the TX leg through a pair of 33 Ω resistors before touching the OUT jack. With
+> DIN retired, the switched jacks simply mute the TRS path when nothing is
+> plugged in, leaving USB MIDI as the silent fallback.
 
 Print this table and tape it to your bench. Update the pin map when hardware
 assignments shift so firmware and CAD stay aligned.
@@ -117,7 +125,7 @@ to this table. Future students can replay your steps.
 ## Debugging playbook
 
 - **Clock drift**: If the scheduler feels laggy, log incoming MIDI clock rates
-  with `MidiRouter::debugDump()`. Compare USB vs. DIN feeds.
+  with `MidiRouter::debugDump()`. Compare USB vs. TRS feeds.
 - **Seed chaos**: When triggers look random, print the seed table via
   `SeedTable::debugDescribe()` to confirm reseed order.
 - **Audio silence**: The Sampler and Granular engines are still stubs. Confirm

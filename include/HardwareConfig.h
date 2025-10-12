@@ -16,14 +16,13 @@ struct EncoderPins {
 };
 
 // Encoder pins intentionally dodge the I2S + SPI busses so the SGTL5000 audio
-// shield can sit directly on the Teensy headers. Keep the DIN MIDI port on its
-// own serial RX (see kMidiDinInRxPin below) so clock/control can arrive from an
-// opto-isolated jack without fighting USB.
+// shield can sit directly on the Teensy headers. The legacy DIN jack is gone,
+// so the only cabled MIDI now rolls through the Type-A mini TRS pair.
 static constexpr EncoderPins kEncoders[] = {
   {0, 1, 2,   "Seed/Bank"},
   {3, 4, 5,   "Density/Prob"},
   {24, 26, 27, "Tone/Tilt"},
-  {28, 29, 30, "FX/Mutate"},
+  {6, 9, 30,   "FX/Mutate"},
 };
 
 static constexpr size_t kEncoderCount = sizeof(kEncoders) / sizeof(kEncoders[0]);
@@ -37,9 +36,10 @@ static constexpr uint8_t kAltSeedButtonPin = 33;
 static constexpr uint8_t kExpression1Pin = 15; // analog CV 0-3.3V
 static constexpr uint8_t kExpression2Pin = 16; // analog CV 0-3.3V
 
-// External DIN MIDI input (5-pin jack through an opto-isolator). We park it on
-// Serial6 RX so Serial1 stays free for debugging or future MIDI thru.
-static constexpr uint8_t kMidiDinInRxPin = 25; // Teensy 4.0 Serial6 RX
+// USB + Type-A TRS MIDI only: Serial7 handles both directions for the mini
+// jacks, USB rides over the native port, and life gets simpler.
+static constexpr uint8_t kMidiTrsTypeAInRxPin = 28;  // Teensy 4.0 Serial7 RX
+static constexpr uint8_t kMidiTrsTypeAOutTxPin = 29; // Teensy 4.0 Serial7 TX
 
 struct AudioShieldPins {
   uint8_t mclkPin;   // master clock into SGTL5000
