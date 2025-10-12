@@ -1,5 +1,11 @@
 # SeedBox — playground for seeds, sound, and experiments
 
+| Status board | Signal |
+| --- | --- |
+| CI (native + Teensy) | [![CI](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml) |
+
+> Tip: swap `YOUR-ORG` with your GitHub handle so the badge points at the right stage lights.
+
 SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
 companion project to the MOARkNOBS mythos: a Teensy 4.0 instrument that can
 also run a "pretend hardware" build on your laptop. You can poke at rhythm
@@ -27,7 +33,8 @@ engines, reseed algorithms, or display sketches without needing a soldered rig.
 ## Pick your adventure
 
 - **Just want to hear something?** Plug in a Teensy 4.0, follow the wiring in
-  `docs/`, then build the `teensy40_usbmidiserial` target in PlatformIO.
+  `docs/`, then build the `teensy40` target in PlatformIO (the older
+  `teensy40_usbmidiserial` alias still works if your muscle memory insists).
 - **No hardware handy?** Run the `native` environment. It uses the same logic as
   the hardware build and spits out logs/tests so you can tweak algorithms on the
   couch.
@@ -44,7 +51,8 @@ like a zine.
 3. Grab project dependencies: `pio pkg install`
 4. Run the fast tests (no hardware required): `pio test -e native`
 5. When you're ready for the real synth, build the Teensy target:
-   `pio run -e teensy40_usbmidiserial`
+   `pio run -e teensy40` *(or `-e teensy40_usbmidiserial` if you're running an
+   old script — we kept the alias on purpose).* 
 
 ## High-level flow (aka how seeds become sound)
 

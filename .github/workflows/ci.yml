@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ENABLE_GOLDEN: "0"
+    strategy:
+      matrix:
+        include:
+          - name: native
+            command: pio test -e native
+          - name: teensy40
+            command: pio run -e teensy40
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Execute ${{ matrix.name }} target
+        run: ${{ matrix.command }}
