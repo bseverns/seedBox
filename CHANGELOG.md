@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of `SdFat` resolves without missing-header fireworks.
 - Fixed: PatternScheduler now leans on `<cstddef>` and `size_t`, keeping native
   and Teensy compilers aligned without mystery typedefs.
+- Fixed: Added Teensy warning guards (`ArduinoGlue`, `UsbMidiGlue`, and
+  `-Wno-cast-function-type/-Wno-deprecated-copy`) so PJRC's usb_midi and DMA
+  helpers stop derailing CI builds.
 
 ## [0.1.0] - 2025-02-14
 

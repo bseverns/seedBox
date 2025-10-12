@@ -32,9 +32,10 @@ flowchart LR
 
 - `src/hal/hal_audio.h/.cpp` — audio device seam (Teensy vs. native mock).
 - `src/hal/hal_io.h/.cpp` — lightweight IO hooks (LEDs, inputs, sensors).
-- `include/hal/ArduinoGlue.h` — wraps `<Arduino.h>` so Teensy's usb_midi casts
-  do not spam CI with warnings. Include this helper instead of `<Arduino.h>` in
-  project code.
+- `include/hal/ArduinoGlue.h` — wraps `<Arduino.h>` and hushes
+  `-Wcast-function-type` / `-Wdeprecated-copy` noise from the core USB stack.
+- `include/hal/UsbMidiGlue.h` — pulls in `<usb_midi.h>` with the same warning
+  guard so Teensy's SysEx helpers stay friendly.
 
 When `SEEDBOX_HW` is defined the Teensy implementations compile in; otherwise
 native mocks provide stubbed timing and logging.
@@ -53,6 +54,9 @@ native mocks provide stubbed timing and logging.
 - `QUIET_MODE` — disables persistence, networking, and random seeds unless
   explicitly overridden.
 - `ENABLE_GOLDEN` — unlocks deterministic audio fixture checks (off by default).
+- Teensy builds tack on `-Wno-cast-function-type` and `-Wno-deprecated-copy` in
+  `platformio.ini` so PJRC's headers keep compiling cleanly without muting the
+  rest of the warnings.
 
 Write notes in [`docs/assumptions.md`](assumptions.md) whenever you steal from
 this timing budget. Future you will thank you.
