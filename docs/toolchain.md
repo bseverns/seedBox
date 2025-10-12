@@ -15,9 +15,9 @@ Welcome to the noisy little corner where we keep the build stack honest. Below a
 | `fortyseveneffects/MIDI Library` | `5.0.2` | Latest tagged release published upstream; update if PlatformIO resolves a newer major. |
 | `bblanchon/ArduinoJson` | `7.4.2` | Current JSON core release. |
 | `greiman/SdFat` | `2.3.1` | Matches upstream `library.properties`. |
-| `adafruit/Adafruit SSD1306` | `2.5.15` | OLED driver. |
-| `adafruit/Adafruit GFX Library` | `1.12.3` | Required by SSD1306. |
-| `adafruit/Adafruit BusIO` | `1.17.4` | GFX/SSD1306 dependency. |
+| `adafruit/Adafruit SH110X` | `2.1.14` | OLED driver for the Qwiic 1.3" panel. |
+| `adafruit/Adafruit GFX Library` | `1.12.3` | Graphics core used by the SH110X driver. |
+| `adafruit/Adafruit BusIO` | `1.17.4` | Shared I²C/SPI helpers for the SH110X + GFX stack. |
 
 > **Heads-up:** The PlatformIO public registry currently returns HTTP 403 from inside this sandbox. Those versions above were scraped directly from each project’s `library.properties`/`platform.json`. When you’re on a network that can reach `https://api.registry.platformio.org`, re-run the steps below and update the table + `platformio.ini` together.
 

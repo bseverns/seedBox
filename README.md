@@ -95,7 +95,7 @@ build_flags =
 ```
 
 Or, for a one-off build, tack on `--project-option "build_flags += -D QUIET_MODE=0"`
-to your `pio run` invocation. The OLED will remind you it's snoozing until you
+to your `pio run` invocation. The SparkFun Qwiic OLED will remind you it's snoozing until you
 do.
 
 ## High-level flow (aka how seeds become sound)

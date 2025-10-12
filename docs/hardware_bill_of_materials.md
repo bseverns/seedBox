@@ -13,7 +13,7 @@ alternatives without frying the groove.
 | Teensy 4.0 microcontroller | PJRC [DEV-15583](https://www.pjrc.com/store/teensy40.html); SparkFun, Adafruit resellers | Runs the audio engine at silly-fast speeds with floating-point DSP. | Order at least one spare if you plan to field-debug. |
 | PJRC Audio Shield (Rev D or later, SGTL5000) | PJRC [DEV-16829](https://www.pjrc.com/store/teensy3_audio.html) | Breaks out I²S, codec, and headphone amp so we can hear anything. | Works on Teensy 4.x with minor solder jumpers pre-made. |
 | 0.1" stacking headers for Teensy + audio shield | 14-pin & 24-pin stackable header kits | Physically mates the Teensy and audio shield without mangling test access. | Go for tall stackers if you plan to wire extra boards underneath. |
-| SSD1306 128×64 OLED (I²C) | 0.96" OLED modules (e.g. Adafruit PID 326, generic) | Debug + UI status display. | Needs 3.3 V logic; avoid 5 V-only breakout clones. |
+| SparkFun Qwiic OLED 1.3" 128×64 (I²C, SH1107) | [LCD-17153](https://www.sparkfun.com/products/17153) | Debug + UI status display with enough pixels for verbose seed gossip. | Qwiic connector + castellated pads, 3.3 V only, on-board pull-ups already present. |
 | Rotary encoders with integrated push buttons (x2) | PEC11R, Bourns, or Alps clones | Primary human input for parameter twiddling. | Choose detent style you enjoy; 24 PPR feels right. |
 | Momentary push buttons (x2) | Panel-mount SPST normally-open | Transport control / macros. | Grab low-profile caps if you’re building a handheld case. |
 | 10 kΩ resistors (through-hole or SMD, x4) | E12 series kit | Pull-ups for buttons and encoders. | Metal film is fine; 1/8 W or 1/4 W. |
@@ -24,7 +24,7 @@ alternatives without frying the groove.
 
 | Item | Suggested part numbers & sources | Why it matters | Notes |
 | --- | --- | --- | --- |
-| 4.7 kΩ resistors (x2) | For I²C pull-ups | Stabilizes the OLED bus when multiple peripherals hang out. | Skip if your OLED board includes on-board pull-ups. |
+| 4.7 kΩ resistors (x2) | For I²C pull-ups | Stabilizes the OLED bus when multiple peripherals hang out. | Skip them when the SparkFun Qwiic OLED is alone on the bus—the breakout already has them. |
 | 100 nF ceramic capacitors (assorted) | Bypass kit | Decouple encoder and button lines against switch bounce noise. | Solder between signal and ground right at the panel. |
 | Stereo 3.5 mm TRS jack | PJ-320D, Switchcraft 35RAPC2AV | Audio output to headphones/mixer. | Mount close to the audio shield to avoid hum loops. |
 | Panel-mount USB extension (optional) | USB micro-B panel adapter | Keeps the main USB port accessible in an enclosure. | Ensure it supports data, not just charging. |
@@ -77,6 +77,9 @@ alternatives without frying the groove.
 - **Group orders** with friends to dodge shipping gouges on PJRC parts. Teensy
   boards ship fast from the mothership, but mixing in Digikey/Mouser orders keeps
   everything on one invoice.
+- **Remember the Qwiic pigtails**. The SparkFun OLED speaks JST-SH and 3.3 V only;
+  if you're not chaining other Qwiic widgets, a short cable or hand-soldered
+  ribbon straight to SDA/SCL keeps the wiring tight and quiet.
 - **Document substitutions**. If you drop in a different OLED module or encode a
   bespoke panel PCB, leave a note (and ideally a photo) in this doc so the next
   builder inherits the lore.

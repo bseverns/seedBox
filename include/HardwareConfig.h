@@ -6,7 +6,7 @@ namespace HardwareConfig {
 static constexpr uint8_t kDisplayI2CAddress = 0x3C;
 static constexpr uint8_t kDisplaySclPin = 19; // Teensy 4.0 default SCL
 static constexpr uint8_t kDisplaySdaPin = 18; // Teensy 4.0 default SDA
-static constexpr uint8_t kDisplayResetPin = 255; // not wired (SSD1306 auto reset)
+static constexpr uint8_t kDisplayResetPin = 255; // SparkFun Qwiic OLED auto resets; no GPIO needed
 
 struct EncoderPins {
   uint8_t pinA;
