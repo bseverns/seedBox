@@ -2,12 +2,7 @@
 #include "Seed.h"
 #include <array>
 #include <cstdint>
-
-#ifdef SEEDBOX_HW
-#include <Audio.h>
-#include <memory>
-#include <vector>
-#endif
+#include "HardwarePrelude.h"
 
 // Sampler owns a deterministic voice pool shared between hardware and the
 // native simulator. The intent: **any seed rendered in rehearsal behaves the

@@ -1,9 +1,6 @@
 #include "engine/Sampler.h"
 #include <algorithm>
 #include <cmath>
-#ifdef SEEDBOX_HW
-#include <memory>
-#endif
 
 namespace {
 // How many samples we expect to have preloaded into flash/RAM. Once a seed asks

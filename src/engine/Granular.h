@@ -2,12 +2,7 @@
 #include <array>
 #include <cstdint>
 #include "Seed.h"
-
-#ifdef SEEDBOX_HW
-#include <Audio.h>
-#include <memory>
-#include <vector>
-#endif
+#include "HardwarePrelude.h"
 
 // Planning scaffold for Option B (granular engine). We now spin up the Teensy
 // Audio graph when running on hardware (and keep detailed stubs for the native
