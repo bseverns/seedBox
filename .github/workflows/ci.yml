@@ -20,6 +20,13 @@ jobs:
           python-version: '3.x'
       - name: Install PlatformIO
         run: pip install platformio
+      - name: Show PlatformIO envs
+        run: |
+          pio project data --json-output | python - <<'PY'
+          import json, sys
+          data = json.load(sys.stdin)
+          print("Envs:", [env["name"] for env in data.get("envs", [])])
+          PY
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
