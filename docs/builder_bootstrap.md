@@ -27,7 +27,7 @@ leave breadcrumbs here so the next person can ship faster.
   toolchain paths differ — document the quirks in this section if you go that
   route.
 
-### Core tooling
+### PlatformIO bring-up
 
 ```bash
 pip install --upgrade platformio
@@ -37,6 +37,8 @@ pio pkg install
 - The first command pulls in PlatformIO globally so `pio` is on your path.
 - `pio pkg install` reads `platformio.ini` and downloads all Teensy + Unity
   dependencies into `.pio/`. Re-run this after editing `platformio.ini`.
+- Stash any generated `.wav` renders in `out/` and log artifacts in `artifacts/`.
+  Both are ignored by git, so no one has to review binary blobs in PRs.
 
 ### Nice-to-have extras
 
@@ -101,6 +103,11 @@ assignments shift so firmware and CAD stay aligned.
 | Upload via CLI | `pio run -e teensy40_usbmidiserial --target upload` | Requires `teensy-loader-cli`. |
 | Open serial console | `pio device monitor -b 115200` | Shares the USB cable with MIDI clock. |
 | Regenerate build info | `python scripts/gen_version.py` | Only needed if the auto-hook fails. |
+
+> ⚠️ **Quiet mode reminder:** the shared `env` block sets `QUIET_MODE=1`. Hardware
+> uploads stay silent until you append `-D QUIET_MODE=0` to your `build_flags`
+> (per-env in `platformio.ini` or via `--project-option`). Native tests already
+> flip the flag off so simulations keep their deterministic seeds.
 
 When documenting lab sessions, jot down the exact command invocations and link
 to this table. Future students can replay your steps.

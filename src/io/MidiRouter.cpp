@@ -1,4 +1,7 @@
 #include "io/MidiRouter.h"
+#include "SeedBoxConfig.h"
+
+#include "interop/mn42_map.h"
 
 #ifdef SEEDBOX_HW
   #include <usb_midi.h>
@@ -17,6 +20,9 @@ void MidiRouter::begin() {
 
 void MidiRouter::onUsbEvent() {
 #ifdef SEEDBOX_HW
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    return;
+  }
   // usbMIDI.read() already pulled a fresh packet. Route it based on type so the
   // rest of the app only sees semantic callbacks instead of raw status bytes.
   if (usbMIDI.getType() == midi::Clock) onClockTick();
@@ -29,6 +35,9 @@ void MidiRouter::onUsbEvent() {
 }
 
 void MidiRouter::onControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
+  // No behavioral changes yet, but we deliberately touch the MN42 map so both
+  // firmware and docs track the same handshake CCs.
+  (void)seedbox::interop::mn42::cc::kHandshake;
   if (controlChangeHandler_) {
     controlChangeHandler_(ch, cc, val);
   }
