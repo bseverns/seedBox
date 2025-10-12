@@ -22,7 +22,7 @@ jobs:
         run: pip install platformio
       - name: Show PlatformIO envs
         run: |
-          pio project data --json-output | python - <<'PY'
+          pio project config --json-output | python - <<'PY'
           import json, sys
           data = json.load(sys.stdin)
           print("Envs:", [env["name"] for env in data.get("envs", [])])
