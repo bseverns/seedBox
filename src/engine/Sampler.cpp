@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #ifdef SEEDBOX_HW
+#include <Arduino.h>
 #include <Audio.h>
 #include <memory>
 #endif

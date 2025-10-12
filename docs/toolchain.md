@@ -30,7 +30,7 @@ Teensy's SD stack ships inside the framework, so we lean on the bundled
 `SdFat` fork rather than pulling `greiman/SdFat` from the registry. The
 `teensy40` environment simply nudges PlatformIO toward those headers by adding
 `$PROJECT_PACKAGES_DIR/framework-arduinoteensy/libraries` to `lib_extra_dirs`
-and injecting the `SdFat/src` include path. That keeps PJRC's patched sources
+and injecting the `SD/src` include path. That keeps PJRC's patched sources
 in charge without cloning extra libraries into the repo.
 
 If a registry package ever vanishes or needs a hotfix, swap in a

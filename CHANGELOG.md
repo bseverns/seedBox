@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed: Drop the registry `greiman/SdFat` dependency and point PlatformIO at
   the framework's bundled headers so Teensy's patched SdFat stays in charge of
   SD IO.
+- Fixed: Wire the Teensy include path to `libraries/SD/src` so the bundled fork
+  of `SdFat` resolves without missing-header fireworks.
 - Fixed: PatternScheduler now leans on `<cstddef>` and `size_t`, keeping native
   and Teensy compilers aligned without mystery typedefs.
 

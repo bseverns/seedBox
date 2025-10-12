@@ -1,8 +1,8 @@
 #include "hal/hal_audio.h"
 
 #ifdef SEEDBOX_HW
-  #include <Audio.h>
   #include <Arduino.h>
+  #include <Audio.h>
 #endif
 
 namespace seedbox::hal {
