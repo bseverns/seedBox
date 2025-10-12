@@ -82,10 +82,3 @@ void test_granular_clamps_zero_cap() {
   TEST_ASSERT_EQUAL_UINT16(0, state.sourceHandle);
   TEST_ASSERT_NOT_NULL(state.sourcePath);
 }
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_granular_voice_cap_and_steal);
-  RUN_TEST(test_granular_clamps_zero_cap);
-  return UNITY_END();
-}

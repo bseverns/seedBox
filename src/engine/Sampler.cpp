@@ -107,6 +107,7 @@ Sampler::VoiceState Sampler::voice(uint8_t index) const {
 }
 
 uint8_t Sampler::allocateVoice(uint32_t whenSamples) {
+  (void)whenSamples;
   // First pass: look for a free slot. Most of the time we will find one because
   // the pool is tiny and percussive.
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
@@ -186,6 +187,8 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   // once sample assets are wired. For now we rely on startSample to keep the
   // trigger deterministic for future DSP hookup.
   hw.envelope.noteOn();
+#else
+  (void)index;
 #endif
 }
 

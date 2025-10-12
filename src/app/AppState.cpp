@@ -1,6 +1,10 @@
 #include "app/AppState.h"
 #include <algorithm>
+#include <array>
 #include <cstdio>
+#include <cstring>
+#include <string_view>
+#include <utility>
 #include "SeedBoxConfig.h"
 #include "util/RNG.h"
 #ifdef SEEDBOX_HW
@@ -11,6 +15,29 @@
 namespace {
 constexpr uint8_t kEngineCount = 3;
 constexpr uint8_t kEngineCycleCc = 20;
+
+template <size_t N>
+void writeDisplayField(char (&dst)[N], std::string_view text) {
+  static_assert(N > 0, "Display field must have space for a terminator");
+  const size_t maxCopy = N - 1;
+  const size_t copyLen = std::min(text.size(), maxCopy);
+  std::memcpy(dst, text.data(), copyLen);
+  dst[copyLen] = '\0';
+  if (copyLen < maxCopy) {
+    std::fill(dst + copyLen + 1, dst + N, '\0');
+  }
+}
+
+template <typename... Args>
+std::string_view formatScratch(std::array<char, 64>& scratch, const char* fmt, Args&&... args) {
+  const int written = std::snprintf(scratch.data(), scratch.size(), fmt, std::forward<Args>(args)...);
+  if (written <= 0) {
+    scratch[0] = '\0';
+    return std::string_view{};
+  }
+  const size_t len = std::min(static_cast<size_t>(written), scratch.size() - 1);
+  return std::string_view(scratch.data(), len);
+}
 
 uint8_t sanitizeEngine(uint8_t engine) {
   if (kEngineCount == 0) {
@@ -263,24 +290,29 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   // OLED real estate is tiny, so we jam the master seed into the title and then
   // use status/metrics/nuance rows to narrate what's happening with the focus
   // seed. Think of it as a glorified logcat for the front panel.
-  std::snprintf(out.title, sizeof(out.title), "SeedBox %06X", masterSeed_ & 0xFFFFFFu);
+  std::array<char, 64> scratch{};
+  writeDisplayField(out.title, formatScratch(scratch, "SeedBox %06X", masterSeed_ & 0xFFFFFFu));
 
   if (seeds_.empty()) {
     if constexpr (SeedBoxConfig::kQuietMode) {
-      std::snprintf(out.status, sizeof(out.status), "quiet mode: snoozing");
-      std::snprintf(out.metrics, sizeof(out.metrics), "flip QUIET_MODE=0 to jam");
+      writeDisplayField(out.status, "quiet mode zzz");
+      writeDisplayField(out.metrics, "flip QUIET=0");
     } else {
-      std::snprintf(out.status, sizeof(out.status), "no seeds loaded");
-      std::snprintf(out.metrics, sizeof(out.metrics), "tap reseed to wake");
+      writeDisplayField(out.status, "no seeds loaded");
+      writeDisplayField(out.metrics, "tap reseed to wake");
     }
-    std::snprintf(out.nuance, sizeof(out.nuance), "frame %08lu", static_cast<unsigned long>(frame_));
+    writeDisplayField(out.nuance, formatScratch(scratch, "frame %08lu", static_cast<unsigned long>(frame_)));
     return;
   }
 
   const Seed& s = seeds_[std::min<size_t>(focusSeed_, seeds_.size() - 1)];
-  std::snprintf(out.status, sizeof(out.status), "#%02u %s %+0.1fst", s.id, engineLabel(s.engine), s.pitch);
-  std::snprintf(out.metrics, sizeof(out.metrics), "Den %.2f Prob %.2f", s.density, s.probability);
-  std::snprintf(out.nuance, sizeof(out.nuance), "Jit %.1fms Mu %.2f", s.jitterMs, s.mutateAmt);
+  writeDisplayField(out.status, formatScratch(scratch, "#%02u %s %+0.1fst", s.id, engineLabel(s.engine), s.pitch));
+  const float density = std::clamp(s.density, 0.0f, 99.99f);
+  const float probability = std::clamp(s.probability, 0.0f, 1.0f);
+  writeDisplayField(out.metrics, formatScratch(scratch, "D%.2f P%.2f", density, probability));
+  const float jitter = std::clamp(s.jitterMs, 0.0f, 999.9f);
+  const float mutate = std::clamp(s.mutateAmt, 0.0f, 1.0f);
+  writeDisplayField(out.nuance, formatScratch(scratch, "J%.1fms Mu%.2f", jitter, mutate));
 }
 
 const Seed* AppState::debugScheduledSeed(uint8_t index) const {

@@ -55,10 +55,3 @@ void test_engine_selection_persists_and_updates_scheduler() {
   TEST_ASSERT_NOT_NULL(scheduled);
   TEST_ASSERT_EQUAL_UINT8(2, scheduled->engine);
 }
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_cc_cycles_engine_and_snapshot_updates);
-  RUN_TEST(test_engine_selection_persists_and_updates_scheduler);
-  return UNITY_END();
-}

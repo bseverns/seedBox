@@ -25,9 +25,3 @@ void test_external_clock_priority() {
   app.tick();
   TEST_ASSERT_TRUE(app.schedulerTicks() > externalBaseline);
 }
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_external_clock_priority);
-  return UNITY_END();
-}
