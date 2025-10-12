@@ -14,8 +14,12 @@ jobs:
       matrix:
         include:
           - name: native
+            env: native
+            usb: ''
             command: pio test -e native
           - name: teensy40
+            env: teensy40
+            usb: USB_MIDI_SERIAL
             command: pio run -e teensy40
     steps:
       - name: Check out code
@@ -28,6 +32,49 @@ jobs:
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
+
+      - name: Confirm Teensy USB type
+        if: ${{ matrix.usb != '' }}
+        run: |
+          python - <<'PY'
+          from configparser import ConfigParser
+          from pathlib import Path
+          import sys
+
+          env = "${{ matrix.env }}"
+          expected = "${{ matrix.usb }}"
+
+          config = ConfigParser(allow_no_value=True, strict=False)
+          config.optionxform = str
+
+          ini_path = Path("platformio.ini")
+          if not ini_path.exists():
+              print("platformio.ini not found", file=sys.stderr)
+              sys.exit(1)
+
+          with ini_path.open() as ini_file:
+              config.read_file(ini_file)
+
+          section = f"env:{env}"
+          if section not in config:
+              print(f"Environment section {section} missing", file=sys.stderr)
+              sys.exit(1)
+
+          usb_value = config[section].get("board_build.usbtype")
+          if usb_value is None:
+              print(f"No USB type configured for {env}", file=sys.stderr)
+              sys.exit(1)
+
+          usb_value = usb_value.strip()
+          if usb_value != expected:
+              print(
+                  f"USB type mismatch for {env}: expected {expected}, found {usb_value}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print(f"USB type for {env}: {usb_value}")
+          PY
 
       - name: Execute ${{ matrix.name }} target
         run: ${{ matrix.command }}

@@ -1,6 +1,7 @@
 #include "engine/Granular.h"
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 #include <utility>
 #include "util/RNG.h"
 #include "util/Units.h"
@@ -23,6 +24,49 @@ static uint8_t clampVoices(uint8_t voices) {
   return voices;
 }
 }
+
+#ifdef SEEDBOX_HW
+namespace {
+
+template <typename T, typename = void>
+struct HasSetMix : std::false_type {};
+
+template <typename T>
+struct HasSetMix<T, std::void_t<decltype(std::declval<T&>().setMix(0.5f))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasSetGrainLength : std::false_type {};
+
+template <typename T>
+struct HasSetGrainLength<T, std::void_t<decltype(std::declval<T&>().setGrainLength(1))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasBeginPitchShift : std::false_type {};
+
+template <typename T>
+struct HasBeginPitchShift<T, std::void_t<decltype(std::declval<T&>().beginPitchShift(1.0f))>> : std::true_type {};
+
+template <typename Effect>
+void configureGranularWindow(Effect& effect, float windowSkew, float grainLengthMs, int grainLengthSamples) {
+  if constexpr (HasSetMix<Effect>::value) {
+    const float clampedWindow = std::max(-1.0f, std::min(1.0f, windowSkew));
+    const float mix = (clampedWindow + 1.0f) * 0.5f;
+    effect.setMix(mix);
+  } else {
+    (void)windowSkew;
+  }
+
+  if constexpr (HasSetGrainLength<Effect>::value) {
+    effect.setGrainLength(grainLengthSamples);
+  } else if constexpr (HasBeginPitchShift<Effect>::value) {
+    effect.beginPitchShift(grainLengthMs);
+  } else {
+    (void)grainLengthMs;
+  }
+}
+
+}  // namespace
+#endif  // SEEDBOX_HW
 
 void GranularEngine::init(Mode mode) {
   mode_ = mode;
@@ -234,11 +278,9 @@ void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
   }
 
   hw.granular.setSpeed(voice.playbackRate);
-
-  const float clampedWindow = std::max(-1.0f, std::min(1.0f, voice.windowSkew));
-  const float mix = (clampedWindow + 1.0f) * 0.5f;
-  hw.granular.setMix(mix);
-  hw.granular.setGrainLength(static_cast<int>(std::max(1.0f, voice.sizeMs)));
+  const float grainLengthMs = std::max(1.0f, voice.sizeMs);
+  const int grainLengthSamples = static_cast<int>(Units::msToSamples(grainLengthMs));
+  configureGranularWindow(hw.granular, voice.windowSkew, grainLengthMs, grainLengthSamples);
 
   const uint8_t group = static_cast<uint8_t>(index / kMixerFanIn);
   const uint8_t slot = static_cast<uint8_t>(index % kMixerFanIn);

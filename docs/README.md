@@ -35,7 +35,7 @@ Suggested starting points in `roadmaps/`:
 Our GitHub Actions workflow mirrors the quick-start loop:
 
 1. `pio test -e native` keeps the algorithms honest.
-2. `pio run -e teensy40_usbmidiserial` makes sure hardware builds stay tight.
+2. `pio run -e teensy40` makes sure hardware builds stay tight while the env's `board_build.usbtype=USB_MIDI_SERIAL` pin keeps the USB persona locked to the synth-friendly MIDI+serial combo.
 3. If `ENABLE_GOLDEN` is flipped on in a test run, CI publishes comparison data
    in `artifacts/` so we can review sound or log diffs without rerunning locally.
 

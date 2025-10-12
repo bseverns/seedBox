@@ -4,6 +4,7 @@
 #include "interop/mn42_map.h"
 
 #ifdef SEEDBOX_HW
+  #include <MIDI.h>
   #include <usb_midi.h>
 #endif
 
