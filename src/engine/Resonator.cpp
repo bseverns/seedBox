@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <memory>
 #include "util/RNG.h"
 #include "util/Units.h"
 

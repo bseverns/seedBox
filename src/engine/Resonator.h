@@ -2,13 +2,7 @@
 #include <array>
 #include <cstdint>
 #include "Seed.h"
-
-#ifdef SEEDBOX_HW
-#include <Arduino.h>
-#include <Audio.h>
-#include <memory>
-#include <vector>
-#endif
+#include "HardwarePrelude.h"
 
 // ResonatorBank sketches Option C (Karplus-Strong / modal ping engine). The
 // actual Teensy Audio graph will plug in later; for now we keep the scheduling

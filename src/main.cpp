@@ -2,8 +2,7 @@
 #include "app/AppState.h"
 
 #ifdef SEEDBOX_HW
-  #include <Arduino.h>
-  #include <Audio.h>
+  #include "HardwarePrelude.h"
   #include "io/MidiRouter.h"
   #include "engine/Sampler.h"
   AudioControlSGTL5000 sgtl5000;
