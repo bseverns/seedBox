@@ -36,6 +36,11 @@ current block. Fill them with samples in **[-1, 1]**. The call happens on:
 * Teensy: inside a custom `AudioStream::update()` callback. The stream grabs pre-allocated
   `audio_block_t`s, calls your function, and converts floats to signed 16-bit data. Timing
   matters — treat it like an ISR. Keep work bounded and avoid any blocking calls.
+  *Teensy trivia:* The upstream Audio library hides a bunch of DSP nodes (mixers,
+  granular effects, etc.) behind the `__ARM_ARCH_7EM__` macro. PlatformIO sometimes drops
+  that define when it spins up the IMXRT toolchain, so `HardwarePrelude.h` force-enables
+  it whenever we detect the 1062 silicon. If CI ever screams about abstract mixers, start
+  your debugging tour there.
 * Native: a deterministic mock. `hal::audio::mockPump(frames)` allocates scratch buffers
   *before* invoking your callback. This keeps callbacks free from dynamic allocation while
   letting tests drive arbitrary block sizes.
