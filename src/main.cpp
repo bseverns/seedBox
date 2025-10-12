@@ -2,6 +2,7 @@
 #include "app/AppState.h"
 
 #ifdef SEEDBOX_HW
+  #include <Arduino.h>
   #include <Audio.h>
   #include "io/MidiRouter.h"
   #include "engine/Sampler.h"

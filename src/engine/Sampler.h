@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #ifdef SEEDBOX_HW
+#include <Arduino.h>
 #include <Audio.h>
 #include <memory>
 #include <vector>
