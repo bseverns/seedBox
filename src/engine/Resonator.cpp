@@ -1,3 +1,7 @@
+#ifdef SEEDBOX_HW
+#  include <Arduino.h>
+#  include <Audio.h>
+#endif
 #include "engine/Resonator.h"
 #include <algorithm>
 #include <array>

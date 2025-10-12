@@ -1,3 +1,6 @@
+#ifdef SEEDBOX_HW
+#  include <Arduino.h>
+#endif
 #include "app/AppState.h"
 #include <algorithm>
 #include <cstdio>

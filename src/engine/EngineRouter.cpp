@@ -1,3 +1,6 @@
+#ifdef SEEDBOX_HW
+#  include <Arduino.h>
+#endif
 #include "engine/EngineRouter.h"
 
 void EngineRouter::init(Mode mode) {

@@ -1,3 +1,7 @@
+#ifdef SEEDBOX_HW
+#  include <Arduino.h>
+#  include <Audio.h>
+#endif
 #include "engine/Granular.h"
 #include <algorithm>
 #include <cmath>
