@@ -15,8 +15,8 @@ jobs:
         include:
           - name: native
             command: pio test -e native
-          - name: teensy40
-            command: pio run -e teensy40
+          - name: teensy40_usbmidiserial
+            command: pio run -e teensy40_usbmidiserial
     steps:
       - name: Check out code
         uses: actions/checkout@v4
