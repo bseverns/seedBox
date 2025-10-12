@@ -104,6 +104,11 @@ assignments shift so firmware and CAD stay aligned.
 | Open serial console | `pio device monitor -b 115200` | Shares the USB cable with MIDI clock. |
 | Regenerate build info | `python scripts/gen_version.py` | Only needed if the auto-hook fails. |
 
+> ⚠️ **Quiet mode reminder:** the shared `env` block sets `QUIET_MODE=1`. Hardware
+> uploads stay silent until you append `-D QUIET_MODE=0` to your `build_flags`
+> (per-env in `platformio.ini` or via `--project-option`). Native tests already
+> flip the flag off so simulations keep their deterministic seeds.
+
 When documenting lab sessions, jot down the exact command invocations and link
 to this table. Future students can replay your steps.
 
