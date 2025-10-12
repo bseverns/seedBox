@@ -21,16 +21,17 @@ PaulStoffregen/Audio@1.3
 PaulStoffregen/OctoWS2811@1.5
 PaulStoffregen/Encoder@1.4.2
 fortyseveneffects/MIDI Library@5.0.2
-greiman/SdFat@2.3.1
 adafruit/Adafruit SSD1306@2.5.15
 adafruit/Adafruit GFX Library@1.12.3
 adafruit/Adafruit BusIO@1.17.4
 ```
 
-All of Paul Stoffregen's drivers now ship via the PlatformIO registry, so CI
-no longer has to clone the encoder driver directly from GitHub. If a package
-ever vanishes or needs a hotfix, swap in a `https://github.com/...git#<commit>`
-spec and annotate it here so the next producer knows why.
+Teensy's SD stack ships inside the framework, so we lean on the bundled
+`SdFat` fork rather than pulling `greiman/SdFat` from the registry. That keeps
+the custom hooks (`SdSpiConfig`, `SdFile`) aligned with PJRC's audio code. If a
+registry package ever vanishes or needs a hotfix, swap in a
+`https://github.com/...git#<commit>` spec and annotate it here so the next
+producer knows why.
 
 ## Reproducing the pin set
 
