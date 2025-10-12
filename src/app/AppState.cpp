@@ -1,6 +1,7 @@
 #include "app/AppState.h"
 #include <algorithm>
 #include <cstdio>
+#include "SeedBoxConfig.h"
 #include "util/RNG.h"
 #ifdef SEEDBOX_HW
   #include "io/Storage.h"
@@ -35,14 +36,22 @@ const char* engineLabel(uint8_t engine) {
 // behaves the same.
 void AppState::initHardware() {
 #ifdef SEEDBOX_HW
-  midi.begin();
-  midi.setClockHandler([this]() { onExternalClockTick(); });
-  midi.setStartHandler([this]() { onExternalTransportStart(); });
-  midi.setStopHandler([this]() { onExternalTransportStop(); });
-  midi.setControlChangeHandler(
-      [this](uint8_t ch, uint8_t cc, uint8_t val) {
-        onExternalControlChange(ch, cc, val);
-      });
+  if constexpr (!SeedBoxConfig::kQuietMode) {
+    midi.begin();
+    midi.setClockHandler([this]() { onExternalClockTick(); });
+    midi.setStartHandler([this]() { onExternalTransportStart(); });
+    midi.setStopHandler([this]() { onExternalTransportStop(); });
+    midi.setControlChangeHandler(
+        [this](uint8_t ch, uint8_t cc, uint8_t val) {
+          onExternalControlChange(ch, cc, val);
+        });
+  } else {
+    midi.begin();
+    midi.setClockHandler(nullptr);
+    midi.setStartHandler(nullptr);
+    midi.setStopHandler(nullptr);
+    midi.setControlChangeHandler(nullptr);
+  }
 #endif
   engines_.init(EngineRouter::Mode::kHardware);
   engines_.granular().setMaxActiveVoices(36);
@@ -66,8 +75,10 @@ void AppState::initSim() {
 // internal scheduler drive things when we own the transport, or just counts
 // frames so the OLED can display a ticking counter.
 void AppState::tick() {
-  if (!seedsPrimed_) {
-    primeSeeds(masterSeed_);
+  if constexpr (!SeedBoxConfig::kQuietMode) {
+    if (!seedsPrimed_) {
+      primeSeeds(masterSeed_);
+    }
   }
   if (!externalClockDominant_) {
     scheduler_.onTick();
@@ -82,6 +93,19 @@ void AppState::tick() {
 // parameters fall out of simple pseudo-random math.
 void AppState::primeSeeds(uint32_t masterSeed) {
   masterSeed_ = masterSeed ? masterSeed : 0x5EEDB0B1u;
+
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    seeds_.clear();
+    scheduler_ = PatternScheduler{};
+    scheduler_.setBpm(0.f);
+    scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
+    seedEngineSelections_.clear();
+    focusSeed_ = 0;
+    seedsPrimed_ = false;
+    externalClockDominant_ = false;
+    return;
+  }
+
   const std::vector<uint8_t> previousSelections = seedEngineSelections_;
   seeds_.clear();
   scheduler_ = PatternScheduler{};
@@ -152,6 +176,10 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 }
 
 void AppState::onExternalClockTick() {
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    externalClockDominant_ = true;
+    return;
+  }
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
@@ -238,8 +266,13 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   std::snprintf(out.title, sizeof(out.title), "SeedBox %06X", masterSeed_ & 0xFFFFFFu);
 
   if (seeds_.empty()) {
-    std::snprintf(out.status, sizeof(out.status), "no seeds loaded");
-    std::snprintf(out.metrics, sizeof(out.metrics), "tap reseed to wake");
+    if constexpr (SeedBoxConfig::kQuietMode) {
+      std::snprintf(out.status, sizeof(out.status), "quiet mode: snoozing");
+      std::snprintf(out.metrics, sizeof(out.metrics), "flip QUIET_MODE=0 to jam");
+    } else {
+      std::snprintf(out.status, sizeof(out.status), "no seeds loaded");
+      std::snprintf(out.metrics, sizeof(out.metrics), "tap reseed to wake");
+    }
     std::snprintf(out.nuance, sizeof(out.nuance), "frame %08lu", static_cast<unsigned long>(frame_));
     return;
   }

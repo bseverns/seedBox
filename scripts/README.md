@@ -19,5 +19,9 @@ say so loudly.
 3. Drop a usage example either in the script header or this README. Future you
    will appreciate the reminder.
 
+If a script spits out renders or logs, aim them at `out/` for disposable jams or
+`artifacts/` for golden material. Both paths are already ignored by git, so the
+history stays focused on intent, not binaries.
+
 Treat these helpers like the band techs: not flashy, but the show can't start
 without them.
