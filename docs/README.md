@@ -16,6 +16,8 @@ not intimidate.
 Suggested starting points in `roadmaps/`:
 - [`roadmaps/granular.md`](roadmaps/granular.md)
 - [`roadmaps/resonator.md`](roadmaps/resonator.md)
+- Pair these with runnable demos in [`test/test_engine`](../test/test_engine)
+  when you want to see the math flexed in code.
 
 ## How we keep docs alive
 
@@ -25,6 +27,36 @@ Suggested starting points in `roadmaps/`:
   the dead ends as the successes.
 - Speak like a mentor, not a gatekeeper. Assume the reader is smart, curious,
   and maybe brand-new to embedded audio.
+
+## Keeping CI honest
+
+Our GitHub Actions workflow mirrors the quick-start loop:
+
+1. `pio test -e native` keeps the algorithms honest.
+2. `pio run -e teensy40_usbmidiserial` makes sure hardware builds stay tight.
+3. If `ENABLE_GOLDEN` is flipped on in a test run, CI publishes comparison data
+   in `artifacts/` so we can review sound or log diffs without rerunning locally.
+
+You can stash local experiment renders in `out/` and quick `.wav` sketches in
+either `out/` or `artifacts/`; both paths are ignored by git on purpose so
+playful jams never clutter the history.
+
+## License and credit
+
+SeedBox ships with an MIT License. That permissive vibe matches our studio
+ethos: remix freely, keep attribution, and feed discoveries back into the zine.
+If you sample external schematics, credit the original source right in the doc —
+we like our references punk and precise.
+
+## Flag crib notes
+
+Docs should mention the build flags whenever they matter:
+
+- `SEEDBOX_HW` toggles hardware glue in code samples.
+- `QUIET_MODE` is the polite switch for silencing logs during demos or capture
+  sessions (especially before saving `.wav` renders).
+- `ENABLE_GOLDEN` turns on snapshot emission for regression guides; jot down
+  where those files land so teammates can replay them.
 
 Clarity keeps the jams inclusive. Write like you're inviting someone to sit in
 on the next session.

@@ -5,3 +5,6 @@
 build/
 *.swp
 *.swo
+*.wav
+/out/
+/artifacts/

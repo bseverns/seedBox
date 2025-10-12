@@ -26,12 +26,18 @@ comment or mini README nearby so the next curious hacker can follow along.
   behavior, update the matching test so the intent stays obvious.
 - **Keep hardware flags gentle**: Wrap Teensy-only code in `#ifdef SEEDBOX_HW`
   so the `native` build stays a truthful simulator.
+- **Name your flags**: Reach for `QUIET_MODE` when a component wants to hush its
+  logs (great for capturing `.wav` proofs in `out/`) and `ENABLE_GOLDEN` when the
+  implementation feeds data into the regression harness.
 
 ## When you extend the story
 
 1. Sketch the idea in words first (README, doc comment, or a quick diagram).
 2. Build the behavior in code.
 3. Capture the lesson in a test or example so future readers see it in action.
+
+Need a compass? Check the [test engine cases](../test/test_engine) to watch a
+SeedBox idea move from header to implementation to golden snapshot.
 
 Think of `src/` as the main stage and everything else as the backstage crew. The
 show goes best when the set list is clear and the amps aren't humming.
