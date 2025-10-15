@@ -24,6 +24,7 @@ void setup() {
 void loop() {
 #ifdef SEEDBOX_HW
   while (usbMIDI.read()) { app.midi.onUsbEvent(); }
+  app.midi.poll();
 #endif
   app.tick();
 }
