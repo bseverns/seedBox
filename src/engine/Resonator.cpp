@@ -61,11 +61,6 @@ void ResonatorBank::init(Mode mode) {
 #ifdef SEEDBOX_HW
   patchCables_.clear();
 
-  // Allocate a generous slab of audio memory blocks for the burst envelopes,
-  // delay lines, and modal filters. We'll tune this once the DSP is live, but
-  // 96 blocks keeps development boards happy.
-  AudioMemory(96);
-
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
     auto &hw = hwVoices_[i];
 

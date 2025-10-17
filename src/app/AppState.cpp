@@ -9,6 +9,8 @@
 #include "interop/mn42_map.h"
 #include "util/RNG.h"
 #ifdef SEEDBOX_HW
+  #include "HardwarePrelude.h"
+  #include "AudioMemoryBudget.h"
   #include "io/Storage.h"
   #include "engine/Sampler.h"
 #endif
@@ -68,6 +70,11 @@ const char* engineLabel(uint8_t engine) {
 // behaves the same.
 void AppState::initHardware() {
 #ifdef SEEDBOX_HW
+  // Lock in the entire audio buffer pool before any engine spins up. We slam
+  // all four line items from AudioMemoryBudget into one call so individual
+  // init() routines can't accidentally stomp the global allocator mid-set.
+  AudioMemory(AudioMemoryBudget::kTotalBlocks);
+
   if constexpr (!SeedBoxConfig::kQuietMode) {
     midi.begin();
     midi.setClockHandler([this]() { onExternalClockTick(); });

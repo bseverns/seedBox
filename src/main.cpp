@@ -12,7 +12,6 @@ AppState app;
 
 void setup() {
 #ifdef SEEDBOX_HW
-  AudioMemory(64);
   sgtl5000.enable();
   sgtl5000.volume(0.6f);
   app.initHardware();

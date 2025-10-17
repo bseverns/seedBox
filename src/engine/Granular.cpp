@@ -88,10 +88,6 @@ void GranularEngine::init(Mode mode) {
 #ifdef SEEDBOX_HW
   patchCables_.clear();
 
-  // Plenty of buffers so the granular engine can overlap windows without
-  // choking. We'll revisit once the real DSP patch lands on Teensy silicon.
-  AudioMemory(160);
-
   for (uint8_t i = 0; i < kVoicePoolSize; ++i) {
     auto &hw = hwVoices_[i];
     hw.sourceMixer.gain(0, 0.0f);
