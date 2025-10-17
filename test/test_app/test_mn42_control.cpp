@@ -100,3 +100,26 @@ void test_mn42_transport_latch_behavior() {
   TEST_ASSERT_FALSE(app.externalTransportRunning());
   TEST_ASSERT_FALSE(app.transportLatchedRunning());
 }
+
+void test_mn42_usb_channel_normalization() {
+  AppState app;
+  app.initSim();
+
+  // Raw USB traffic reports channel 1 by default; confirm we ignore it until
+  // the router converts it to zero-based form.
+  app.onExternalControlChange(1, seedbox::interop::mn42::cc::kHandshake,
+                              seedbox::interop::mn42::handshake::kHello);
+  TEST_ASSERT_FALSE(app.mn42HelloSeen());
+
+  const uint8_t normalized =
+      seedbox::interop::mn42::NormalizeUsbChannel(1 /* usb-style channel */);
+  TEST_ASSERT_EQUAL_UINT8(seedbox::interop::mn42::kDefaultChannel, normalized);
+
+  app.onExternalControlChange(normalized, seedbox::interop::mn42::cc::kHandshake,
+                              seedbox::interop::mn42::handshake::kHello);
+  TEST_ASSERT_TRUE(app.mn42HelloSeen());
+
+  app.onExternalControlChange(normalized, seedbox::interop::mn42::cc::kMode,
+                              seedbox::interop::mn42::mode::kFollowExternalClock);
+  TEST_ASSERT_TRUE(app.followExternalClockEnabled());
+}

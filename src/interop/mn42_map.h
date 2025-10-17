@@ -9,8 +9,18 @@
 namespace seedbox::interop::mn42 {
 
 // MN42 ships its CC traffic on channel 1 by default.  We keep the constant
-// around so host-side tools can track future changes.
+// around so host-side tools can track future changes.  The firmware normalizes
+// everything to a zero-based channel number so USB (1-based) and TRS (0-based)
+// sources march in lockstep.
 constexpr uint8_t kDefaultChannel = 0;
+
+// Helper that translates the 1-16 channel numbering the Teensy USB stack uses
+// into the zero-based representation shared by the rest of the app.  Channel 0
+// is technically reserved in the MIDI spec, but usbMIDI defensively returns it
+// for malformed packets, so clamp here instead of underflowing.
+constexpr uint8_t NormalizeUsbChannel(uint8_t raw_channel) {
+  return raw_channel == 0 ? 0 : static_cast<uint8_t>(raw_channel - 1);
+}
 
 // Control change numbers mirrored from the MN42 firmware expectations.
 // The instrument exposes a tiny handshake and a few "mode" controls; anything
