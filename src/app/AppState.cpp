@@ -13,6 +13,10 @@
   #include "engine/Sampler.h"
 #endif
 
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+  #include <Arduino.h>
+#endif
+
 namespace {
 constexpr uint8_t kEngineCount = 3;
 constexpr uint8_t kEngineCycleCc = 20;
@@ -221,21 +225,34 @@ void AppState::onExternalClockTick() {
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
-  updateExternalDominance();
-  if (!transportLatched_) {
-    return;
+  const bool wasDominant = externalClockDominant_;
+  externalClockDominant_ = true;
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+  if (!wasDominant) {
+    Serial.println(F("external clock: TRS/USB seized transport"));
   }
+#endif
   scheduler_.onTick();
 }
 
 void AppState::onExternalTransportStart() {
-  transportLatched_ = true;
-  updateExternalDominance();
+  const bool wasDominant = externalClockDominant_;
+  externalClockDominant_ = true;
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+  if (!wasDominant) {
+    Serial.println(F("external clock: transport START"));
+  }
+#endif
 }
 
 void AppState::onExternalTransportStop() {
-  transportLatched_ = false;
-  updateExternalDominance();
+  const bool wasDominant = externalClockDominant_;
+  externalClockDominant_ = false;
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+  if (wasDominant) {
+    Serial.println(F("external clock: transport STOP"));
+  }
+#endif
 }
 
 void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {

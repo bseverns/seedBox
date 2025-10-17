@@ -7,6 +7,7 @@
   #include <Arduino.h>
   #include <MIDI.h>
   #include <usb_midi.h>
+  #include "hal/hal_midi_serial7.h"
 #endif
 
 namespace {
@@ -17,8 +18,23 @@ constexpr uint32_t kMn42KeepAliveMs = 2000;
 
 void MidiRouter::begin() {
 #ifdef SEEDBOX_HW
-  // Nothing to initialize today. Teensy USB stack already spun up by the
-  // framework before we enter here.
+  // Nothing to initialize on the USB side: the Teensy stack spins up before we
+  // hit firmware code. The TRS mini jacks ride Serial7, so hand that port the
+  // same callbacks we expose to the rest of the app.
+  hal::midi::serial7::Handlers trsHandlers{};
+  trsHandlers.clock = [](void* ctx) {
+    static_cast<MidiRouter*>(ctx)->onClockTick();
+  };
+  trsHandlers.start = [](void* ctx) {
+    static_cast<MidiRouter*>(ctx)->onStart();
+  };
+  trsHandlers.stop = [](void* ctx) {
+    static_cast<MidiRouter*>(ctx)->onStop();
+  };
+  trsHandlers.control_change = [](uint8_t ch, uint8_t cc, uint8_t val, void* ctx) {
+    static_cast<MidiRouter*>(ctx)->onControlChange(ch, cc, val);
+  };
+  hal::midi::serial7::begin(trsHandlers, this);
 #endif
   clockHandler_ = {};
   startHandler_ = {};
@@ -64,6 +80,16 @@ void MidiRouter::onUsbEvent() {
       mn42LastKeepAliveMs_ = now;
     }
   }
+  poll();
+#endif
+}
+
+void MidiRouter::poll() {
+#ifdef SEEDBOX_HW
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    return;
+  }
+  hal::midi::serial7::poll();
 #endif
 }
 

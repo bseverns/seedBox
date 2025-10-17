@@ -30,6 +30,12 @@ public:
   // anything.
   void onUsbEvent();
 
+  // Poll any non-USB links (currently the TRS Type-A Serial7 port) so they can
+  // share the same callback surface as usbMIDI. Hardware builds call this once
+  // per loop so a steady stream of UART bytes doesn't depend on USB traffic to
+  // stay alive.
+  void poll();
+
   // Stub for mapping CCs to parameters. The signature already exposes channel,
   // controller number, and value so higher layers can build a learn table.
   void onControlChange(uint8_t ch, uint8_t cc, uint8_t val);
