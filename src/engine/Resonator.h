@@ -20,6 +20,10 @@ public:
   uint8_t activeVoices() const;
   const char* presetName(uint8_t bank) const;
 
+#ifdef SEEDBOX_HW
+  float fanoutProbeLevel();
+#endif
+
   struct VoiceState {
     bool active{false};
     uint32_t handle{0};
@@ -97,9 +101,18 @@ private:
     AudioMixer4 mix;
   };
 
+  static constexpr uint8_t kMixerFanIn = 4;
+  static constexpr uint8_t kMixerGroups = (kMaxVoices + kMixerFanIn - 1) / kMixerFanIn;
+  static constexpr uint8_t kSubmixCount = (kMixerGroups + kMixerFanIn - 1) / kMixerFanIn;
+
   std::array<HardwareVoice, kMaxVoices> hwVoices_{};
-  AudioMixer4 voiceMixerLeft_{};
-  AudioMixer4 voiceMixerRight_{};
+  std::array<AudioMixer4, kMixerGroups> voiceMixerLeft_{};
+  std::array<AudioMixer4, kMixerGroups> voiceMixerRight_{};
+  std::array<AudioMixer4, kSubmixCount> submixLeft_{};
+  std::array<AudioMixer4, kSubmixCount> submixRight_{};
+  AudioMixer4 finalMixLeft_{};
+  AudioMixer4 finalMixRight_{};
+  AudioAnalyzePeak voiceFanoutProbe_{};
   AudioOutputI2S output_{};
   std::vector<std::unique_ptr<AudioConnection>> patchCables_{};
 #endif

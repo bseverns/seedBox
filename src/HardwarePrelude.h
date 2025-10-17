@@ -44,6 +44,7 @@
 
 #include <AudioStream.h>
 #include <control_sgtl5000.h>
+#include <analyze_peak.h>
 #include <effect_delay.h>
 #include <effect_envelope.h>
 #include <effect_granular.h>
