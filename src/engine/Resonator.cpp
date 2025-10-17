@@ -1,3 +1,9 @@
+//
+// Resonator.cpp
+// -------------
+// Modal synthesis playground.  We're still sketching but the comments aim to
+// demystify how a Karplus-Strong style engine might look once the DSP comes on
+// line.  Think of this as a guided tour from seed genome to modal voice plan.
 #include "engine/Resonator.h"
 #include <algorithm>
 #include <array>
@@ -234,6 +240,8 @@ void ResonatorBank::trigger(const Seed& seed, uint32_t whenSamples) {
   VoiceInternal& voice = voices_[index];
 
   planExcitation(voice, seed, whenSamples);
+  // Once the plan is ready, map it onto either the Teensy audio nodes or the
+  // simulator mirrors so downstream tests can inspect state.
   mapVoiceToGraph(index, voice);
 }
 

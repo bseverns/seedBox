@@ -1,4 +1,14 @@
 #pragma once
+
+//
+// EngineRouter
+// ------------
+// This class is the switchboard between the transport layer and the DSP toys.
+// When PatternScheduler decides a seed should fire, it calls back into
+// EngineRouter with a timestamp.  EngineRouter then picks the right audio engine
+// (sampler, granular, resonator) and forwards the seed along.  No hidden state,
+// no secret sauce — we want students to trace the signal path without getting
+// lost.
 #include <cstdint>
 #include "Seed.h"
 #include "engine/Sampler.h"
@@ -13,7 +23,14 @@ class EngineRouter {
 public:
   enum class Mode : uint8_t { kSim, kHardware };
 
+  // Point the router at hardware or simulator backends.  Each engine exposes a
+  // matching Mode enum so we can keep the control surfaces identical even when
+  // the DSP graph changes.
   void init(Mode mode);
+
+  // Fan a seed out to whichever engine it currently owns.  The scheduler hands
+  // over a sample-accurate timestamp (`whenSamples`) so downstream code can stay
+  // tight with the transport.
   void triggerSeed(const Seed& seed, uint32_t whenSamples);
 
   static void dispatchThunk(void* ctx, const Seed& seed, uint32_t whenSamples);

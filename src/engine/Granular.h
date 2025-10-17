@@ -57,6 +57,10 @@ private:
     uint16_t handle{0};
   };
 
+  // Helpers that break down the trigger path into teachable chunks:
+  //   allocateVoice -> pick a slot,
+  //   planGrain     -> translate seed genome into a GrainVoice record,
+  //   mapGrainToGraph -> wire that plan into the Teensy graph (or simulator).
   uint8_t allocateVoice();
   void planGrain(GrainVoice& voice, const Seed& seed, uint32_t whenSamples);
   void mapGrainToGraph(uint8_t index, GrainVoice& voice);

@@ -75,6 +75,8 @@ private:
     const ModalPreset* preset{nullptr};
   };
 
+  // Helper trio: choose a voice slot, translate the seed into modal parameters,
+  // and then map that plan onto either hardware nodes or simulator state.
   uint8_t allocateVoice();
   void planExcitation(VoiceInternal& v, const Seed& seed, uint32_t whenSamples);
   void mapVoiceToGraph(uint8_t index, VoiceInternal& voice);

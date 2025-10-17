@@ -1,3 +1,10 @@
+//
+// Granular.cpp
+// -------------
+// The granular engine planner.  Still very much a scaffolding layer, but packed
+// with commentary so the eventual DSP hookup has a roadmap.  Students can follow
+// this file end-to-end to see how a seed mutates into a grain plan and how that
+// plan would patch into the Teensy audio graph.
 #include "engine/Granular.h"
 #include <algorithm>
 #include <cmath>
@@ -184,6 +191,8 @@ const GranularEngine::SourceSlot* GranularEngine::resolveSourceSlot(Source sourc
       return &slot;
     }
   }
+  // Fall back to the first populated SD slot so a missing sample reference
+  // doesn't result in silence.
   for (uint8_t i = 1; i < kSdClipSlots; ++i) {
     const SourceSlot& slot = sdClips_[i];
     if (slot.inUse && slot.type == Source::kSdClip) {
@@ -294,5 +303,7 @@ void GranularEngine::trigger(const Seed& seed, uint32_t whenSamples) {
   uint8_t voiceIndex = allocateVoice();
   planGrain(voices_[voiceIndex], seed, whenSamples);
   voices_[voiceIndex].dspHandle = voiceIndex;
+  // Whether we're on hardware or in the simulator, this final step ties the
+  // planned grain into something that will eventually make sound.
   mapGrainToGraph(voiceIndex, voices_[voiceIndex]);
 }

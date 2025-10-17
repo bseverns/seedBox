@@ -1,3 +1,6 @@
+// The implementation side of EngineRouter is intentionally dead simple — it is
+// the glue, not the headliner.  Keeping things transparent here makes future
+// engine swaps approachable for students.
 #include "engine/EngineRouter.h"
 
 void EngineRouter::init(Mode mode) {
@@ -21,6 +24,9 @@ void EngineRouter::triggerSeed(const Seed& seed, uint32_t whenSamples) {
       resonator_.trigger(seed, whenSamples);
       break;
     default:
+      // Unknown engine IDs fall back to the sampler so we never silently drop a
+      // trigger.  That graceful failure makes it easier to prototype new engine
+      // IDs without bricking the show.
       sampler_.trigger(seed, whenSamples);
       break;
   }
@@ -28,5 +34,7 @@ void EngineRouter::triggerSeed(const Seed& seed, uint32_t whenSamples) {
 
 void EngineRouter::dispatchThunk(void* ctx, const Seed& seed, uint32_t whenSamples) {
   if (!ctx) return;
+  // Plain C callback entry point so PatternScheduler can stay ignorant of
+  // EngineRouter's concrete type.
   static_cast<EngineRouter*>(ctx)->triggerSeed(seed, whenSamples);
 }

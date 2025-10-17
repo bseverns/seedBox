@@ -1,4 +1,8 @@
 #pragma once
+
+// Quick lookup for the MN42 controller's CC layout.  Having the numbers named
+// makes it way easier to narrate "twist this knob, watch that parameter" in a
+// workshop.
 #include <stdint.h>
 namespace MN42CC {
   constexpr uint8_t SEED_INDEX = 20;

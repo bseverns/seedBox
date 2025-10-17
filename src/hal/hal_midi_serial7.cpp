@@ -1,3 +1,5 @@
+// Serial7 MIDI bridge.  We unroll the running-status state machine in C++ so we
+// can explain exactly how 1980s MIDI bytes become clean callbacks in 2024.
 #include "hal/hal_midi_serial7.h"
 
 #include <cstdint>
@@ -46,6 +48,8 @@ inline void dispatchControlChange(std::uint8_t channel, std::uint8_t controller,
 }
 
 std::uint8_t expectedDataBytes(std::uint8_t status) {
+  // Every MIDI status byte implies how many payload bytes follow.  We reproduce
+  // that truth table here so the parser can stay stateless and debuggable.
   const std::uint8_t high = status & 0xF0u;
   if (status >= 0xF0u) {
     switch (status) {
@@ -99,6 +103,8 @@ void handleDataByte(std::uint8_t byte) {
   const std::uint8_t status_high = g_running_status & 0xF0u;
   const std::uint8_t channel = g_running_status & 0x0Fu;
   if (status_high == 0xB0u && g_expected_bytes == 2) {
+    // Only CC messages matter for now.  Note-on/off plumbing can join later
+    // without rewriting the parser.
     dispatchControlChange(channel, g_data_bytes[0], g_data_bytes[1]);
   }
 
@@ -113,6 +119,7 @@ void handleDataByte(std::uint8_t byte) {
 
 void begin(const Handlers& handlers, void* user_data) {
 #ifdef SEEDBOX_HW
+  // Hang onto the callbacks and prime Serial7 at the canonical 31.25 kbaud.
   g_handlers = handlers;
   g_user_data = user_data;
   resetParser();
@@ -127,6 +134,9 @@ void begin(const Handlers& handlers, void* user_data) {
 
 void poll() {
 #ifdef SEEDBOX_HW
+  // Byte-by-byte state machine lifted straight from the MIDI spec.  We watch for
+  // realtime messages (0xF8+) first since they can interleave anywhere, then
+  // feed the running-status parser with the rest.
   while (Serial7.available() > 0) {
     const int raw = Serial7.read();
     if (raw < 0) {

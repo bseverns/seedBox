@@ -1,3 +1,5 @@
+// GPIO helper for both the Teensy target and the simulator.  We keep it noisy so
+// students can see how polling, callbacks, and test doubles line up.
 #include "hal_io.h"
 
 #include <algorithm>
@@ -49,6 +51,7 @@ PinState *findPin(PinNumber pin) {
 }  // namespace
 
 void init(const DigitalConfig *configs, std::size_t count) {
+  // Stash pin metadata so later `poll` calls know which GPIOs to watch.
   g_pins.clear();
   g_pins.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
@@ -77,6 +80,9 @@ void setDigitalCallback(DigitalCallback callback, void *user_data) {
 
 void poll() {
 #ifdef SEEDBOX_HW
+  // On hardware we sample each configured input and fire the callback whenever
+  // the level flips.  Polling once per main loop keeps things deterministic and
+  // easy to explain.
   const std::uint32_t now = micros();
   for (auto &state : g_pins) {
     if (!state.is_input) {
@@ -91,6 +97,8 @@ void poll() {
     }
   }
 #else
+  // The simulator pushes synthetic edge events into a queue.  Tests can feed it
+  // timestamps to mimic bouncing buttons or frantic encoder spins.
   while (!g_events.empty()) {
     const PendingEvent evt = g_events.front();
     g_events.pop();
@@ -109,6 +117,7 @@ void writeDigital(PinNumber pin, bool level) {
     state->last_level = level;
   }
 #ifdef SEEDBOX_HW
+  // Mirror the cached state out to the actual GPIO line.
   digitalWrite(pin, level ? HIGH : LOW);
 #endif
 }
@@ -118,6 +127,7 @@ bool readDigital(PinNumber pin) {
   return digitalRead(pin) == HIGH;
 #else
   if (PinState *state = findPin(pin)) {
+    // Simulator path simply echoes whatever the tests last wrote.
     return state->last_level;
   }
   return false;
@@ -131,6 +141,8 @@ void mockSetDigitalInput(PinNumber pin, bool level, std::uint32_t timestamp_us) 
       return;
     }
   }
+  // Queue the event so `poll()` processes it in order, just like a hardware
+  // edge would arrive asynchronously.
   g_events.push(PendingEvent{pin, level, timestamp_us});
 }
 #endif

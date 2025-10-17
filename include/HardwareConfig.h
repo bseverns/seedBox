@@ -1,4 +1,11 @@
 #pragma once
+
+//
+// Wiring cheat sheet.
+// --------------------
+// Everything hardware-specific lands here so the rest of the firmware can stay
+// agnostic.  Bring this file to the workbench and you have a literal map of
+// which Teensy pins feed which controls.
 #include <stdint.h>
 #include <stddef.h>
 
