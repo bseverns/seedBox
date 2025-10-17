@@ -27,11 +27,6 @@ void Sampler::init() {
 #ifdef SEEDBOX_HW
   patchCables_.clear();
 
-  // Reserve audio memory blocks for the voice pool. Teensy Audio needs to know
-  // upfront how many 128-sample buffers it can juggle. This is the knob to
-  // reach for if notes start crackling once we stream from SD.
-  AudioMemory(96);
-
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
     auto& hw = hwVoices_[i];
 
