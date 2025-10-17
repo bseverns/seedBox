@@ -6,6 +6,7 @@
 #include <string_view>
 #include <utility>
 #include "SeedBoxConfig.h"
+#include "interop/mn42_map.h"
 #include "util/RNG.h"
 #ifdef SEEDBOX_HW
   #include "io/Storage.h"
@@ -89,6 +90,9 @@ void AppState::initHardware() {
   engines_.granular().armLiveInput(true);
   engines_.resonator().setMaxVoices(10);
   primeSeeds(masterSeed_);
+#ifdef SEEDBOX_HW
+  midi.markAppReady();
+#endif
 }
 
 // initSim is the lab-friendly twin of initHardware. No MIDI bootstrap, but the
@@ -133,7 +137,14 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     seedEngineSelections_.clear();
     focusSeed_ = 0;
     seedsPrimed_ = false;
-    externalClockDominant_ = false;
+    externalTransportRunning_ = false;
+    transportLatchedRunning_ = false;
+    transportGateHeld_ = false;
+    followExternalClockEnabled_ = false;
+    debugMetersEnabled_ = false;
+    transportLatchEnabled_ = false;
+    mn42HelloSeen_ = false;
+    updateClockDominance();
     return;
   }
 
@@ -203,19 +214,24 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 
   focusSeed_ = 0;
   seedsPrimed_ = true;
-  externalClockDominant_ = false;
+  externalTransportRunning_ = false;
+  transportLatchedRunning_ = false;
+  transportGateHeld_ = false;
+  updateClockDominance();
 }
 
 void AppState::onExternalClockTick() {
   if constexpr (SeedBoxConfig::kQuietMode) {
-    externalClockDominant_ = true;
+    externalTransportRunning_ = true;
+    updateClockDominance();
     return;
   }
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
   const bool wasDominant = externalClockDominant_;
-  externalClockDominant_ = true;
+  externalTransportRunning_ = true;
+  updateClockDominance();
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   if (!wasDominant) {
     Serial.println(F("external clock: TRS/USB seized transport"));
@@ -226,7 +242,11 @@ void AppState::onExternalClockTick() {
 
 void AppState::onExternalTransportStart() {
   const bool wasDominant = externalClockDominant_;
-  externalClockDominant_ = true;
+  externalTransportRunning_ = true;
+  updateClockDominance();
+  if (transportLatchEnabled_) {
+    transportLatchedRunning_ = true;
+  }
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   if (!wasDominant) {
     Serial.println(F("external clock: transport START"));
@@ -236,7 +256,11 @@ void AppState::onExternalTransportStart() {
 
 void AppState::onExternalTransportStop() {
   const bool wasDominant = externalClockDominant_;
-  externalClockDominant_ = false;
+  externalTransportRunning_ = false;
+  updateClockDominance();
+  if (transportLatchEnabled_) {
+    transportLatchedRunning_ = false;
+  }
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   if (wasDominant) {
     Serial.println(F("external clock: transport STOP"));
@@ -244,7 +268,24 @@ void AppState::onExternalTransportStop() {
 #endif
 }
 
-void AppState::onExternalControlChange(uint8_t, uint8_t cc, uint8_t val) {
+void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
+  using namespace seedbox::interop::mn42;
+  if (ch == kDefaultChannel) {
+    if (cc == cc::kHandshake) {
+      if (val == handshake::kHello) {
+        mn42HelloSeen_ = true;
+      }
+      return;
+    }
+    if (cc == cc::kMode) {
+      applyMn42ModeBits(val);
+      return;
+    }
+    if (cc == cc::kTransportGate) {
+      handleTransportGate(val);
+      return;
+    }
+  }
   if (cc == kEngineCycleCc) {
     if (kEngineCount == 0) {
       return;
@@ -269,6 +310,56 @@ void AppState::onExternalControlChange(uint8_t, uint8_t cc, uint8_t val) {
   }
 
   // Future CC maps will route through here once the macro table lands.
+}
+
+void AppState::updateClockDominance() {
+  externalClockDominant_ = followExternalClockEnabled_ || externalTransportRunning_;
+}
+
+void AppState::applyMn42ModeBits(uint8_t value) {
+  const bool follow = (value & seedbox::interop::mn42::mode::kFollowExternalClock) != 0;
+  if (followExternalClockEnabled_ != follow) {
+    followExternalClockEnabled_ = follow;
+    updateClockDominance();
+  }
+
+  debugMetersEnabled_ = (value & seedbox::interop::mn42::mode::kExposeDebugMeters) != 0;
+
+  const bool latch = (value & seedbox::interop::mn42::mode::kLatchTransport) != 0;
+  if (transportLatchEnabled_ != latch) {
+    transportLatchEnabled_ = latch;
+    if (transportLatchEnabled_) {
+      transportLatchedRunning_ = externalTransportRunning_;
+    } else {
+      transportLatchedRunning_ = false;
+      transportGateHeld_ = false;
+    }
+  } else if (transportLatchEnabled_) {
+    transportLatchedRunning_ = externalTransportRunning_;
+  }
+}
+
+void AppState::handleTransportGate(uint8_t value) {
+  const bool gateHigh = value > 0;
+  if (transportLatchEnabled_) {
+    if (gateHigh && !transportGateHeld_) {
+      transportGateHeld_ = true;
+      if (transportLatchedRunning_) {
+        onExternalTransportStop();
+      } else {
+        onExternalTransportStart();
+      }
+    } else if (!gateHigh) {
+      transportGateHeld_ = false;
+    }
+    return;
+  }
+
+  if (gateHigh) {
+    onExternalTransportStart();
+  } else {
+    onExternalTransportStop();
+  }
 }
 
 void AppState::reseed(uint32_t masterSeed) {

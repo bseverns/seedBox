@@ -39,14 +39,29 @@ public:
   // controller number, and value so higher layers can build a learn table.
   void onControlChange(uint8_t ch, uint8_t cc, uint8_t val);
 
+  // Mark that the application stack finished booting. Once this flag flips we
+  // reply to any MN42 hello traffic and keep the controller convinced we're
+  // alive by streaming periodic handshake pulses.
+  void markAppReady();
+
   // Clock and transport hooks that the scheduler / transport layer wire into.
   void onClockTick();
   void onStart();
   void onStop();
 
 private:
+  void handleMn42ControlChange(uint8_t ch, uint8_t cc, uint8_t val);
+  void sendMn42Handshake(uint8_t value);
+  void maybeSendMn42KeepAlive();
+  uint32_t nowMs() const;
+
   ClockHandler clockHandler_{};
   TransportHandler startHandler_{};
   TransportHandler stopHandler_{};
   ControlChangeHandler controlChangeHandler_{};
+
+  bool mn42HelloSeen_{false};
+  bool mn42AppReady_{false};
+  bool mn42AckSent_{false};
+  uint32_t mn42LastKeepAliveMs_{0};
 };

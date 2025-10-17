@@ -68,6 +68,14 @@ public:
   void onExternalTransportStop();
   void onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val);
 
+  bool externalClockDominant() const { return externalClockDominant_; }
+  bool followExternalClockEnabled() const { return followExternalClockEnabled_; }
+  bool debugMetersEnabled() const { return debugMetersEnabled_; }
+  bool transportLatchEnabled() const { return transportLatchEnabled_; }
+  bool transportLatchedRunning() const { return transportLatchedRunning_; }
+  bool externalTransportRunning() const { return externalTransportRunning_; }
+  bool mn42HelloSeen() const { return mn42HelloSeen_; }
+
 #ifdef SEEDBOX_HW
   MidiRouter midi;
 #endif
@@ -86,4 +94,15 @@ private:
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
   bool externalClockDominant_{false};
+  bool followExternalClockEnabled_{false};
+  bool debugMetersEnabled_{false};
+  bool transportLatchEnabled_{false};
+  bool transportLatchedRunning_{false};
+  bool externalTransportRunning_{false};
+  bool transportGateHeld_{false};
+  bool mn42HelloSeen_{false};
+
+  void updateClockDominance();
+  void applyMn42ModeBits(uint8_t value);
+  void handleTransportGate(uint8_t value);
 };
