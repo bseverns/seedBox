@@ -58,6 +58,12 @@ public:
   uint32_t masterSeed() const { return masterSeed_; }
   uint8_t focusSeed() const { return focusSeed_; }
   uint64_t schedulerTicks() const { return scheduler_.ticks(); }
+  bool followExternalClockEnabled() const { return followExternalClock_; }
+  bool debugMetersExposed() const { return debugMetersExposed_; }
+  bool transportLatchEnabled() const { return transportLatchEnabled_; }
+  bool transportLatched() const { return transportLatched_; }
+  uint8_t mn42HandshakeValue() const { return mn42HandshakeValue_; }
+  uint8_t mn42ModeBits() const { return mn42ModeBits_; }
 
   const Seed* debugScheduledSeed(uint8_t index) const;
 
@@ -77,6 +83,10 @@ private:
   // The implementation leans heavily on comments so students can watch the RNG
   // state machine do its thing.
   void primeSeeds(uint32_t masterSeed);
+  void handleMn42Handshake(uint8_t value);
+  void applyMn42ModeBits(uint8_t bits);
+  void handleMn42TransportGate(uint8_t value);
+  void updateExternalDominance();
   uint32_t frame_{0};
   std::vector<Seed> seeds_{};
   PatternScheduler scheduler_{};
@@ -86,4 +96,10 @@ private:
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
   bool externalClockDominant_{false};
+  bool followExternalClock_{false};
+  bool debugMetersExposed_{false};
+  bool transportLatchEnabled_{false};
+  bool transportLatched_{false};
+  uint8_t mn42HandshakeValue_{0};
+  uint8_t mn42ModeBits_{0};
 };

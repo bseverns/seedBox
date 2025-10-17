@@ -7,6 +7,7 @@
 #include <utility>
 #include "SeedBoxConfig.h"
 #include "util/RNG.h"
+#include "interop/mn42_map.h"
 #ifdef SEEDBOX_HW
   #include "io/Storage.h"
   #include "engine/Sampler.h"
@@ -199,30 +200,62 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 
   focusSeed_ = 0;
   seedsPrimed_ = true;
+  transportLatched_ = false;
   externalClockDominant_ = false;
+  updateExternalDominance();
 }
 
 void AppState::onExternalClockTick() {
   if constexpr (SeedBoxConfig::kQuietMode) {
-    externalClockDominant_ = true;
+    updateExternalDominance();
+    if (!followExternalClock_ || !transportLatched_) {
+      return;
+    }
+    scheduler_.onTick();
+    return;
+  }
+  if (!followExternalClock_) {
+    updateExternalDominance();
     return;
   }
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
-  externalClockDominant_ = true;
+  updateExternalDominance();
+  if (!transportLatched_) {
+    return;
+  }
   scheduler_.onTick();
 }
 
 void AppState::onExternalTransportStart() {
-  externalClockDominant_ = true;
+  transportLatched_ = true;
+  updateExternalDominance();
 }
 
 void AppState::onExternalTransportStop() {
-  externalClockDominant_ = false;
+  transportLatched_ = false;
+  updateExternalDominance();
 }
 
-void AppState::onExternalControlChange(uint8_t, uint8_t cc, uint8_t val) {
+void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
+  using namespace seedbox::interop::mn42;
+  const bool matchesMn42Channel = (ch == mn42::kDefaultChannel) ||
+                                  (ch == static_cast<uint8_t>(mn42::kDefaultChannel + 1));
+  if (matchesMn42Channel) {
+    if (cc == mn42::cc::kHandshake) {
+      handleMn42Handshake(val);
+      return;
+    }
+    if (cc == mn42::cc::kMode) {
+      applyMn42ModeBits(val);
+      return;
+    }
+    if (cc == mn42::cc::kTransportGate) {
+      handleMn42TransportGate(val);
+      return;
+    }
+  }
   if (cc == kEngineCycleCc) {
     if (kEngineCount == 0) {
       return;
@@ -317,4 +350,44 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
 
 const Seed* AppState::debugScheduledSeed(uint8_t index) const {
   return scheduler_.seedForDebug(static_cast<size_t>(index));
+}
+
+void AppState::handleMn42Handshake(uint8_t value) {
+  mn42HandshakeValue_ = value;
+}
+
+void AppState::applyMn42ModeBits(uint8_t bits) {
+  using namespace seedbox::interop::mn42;
+  mn42ModeBits_ = bits;
+  followExternalClock_ = (bits & mode::kFollowExternalClock) != 0;
+  debugMetersExposed_ = (bits & mode::kExposeDebugMeters) != 0;
+  transportLatchEnabled_ = (bits & mode::kLatchTransport) != 0;
+  if (!followExternalClock_ || !transportLatchEnabled_) {
+    transportLatched_ = false;
+  }
+  updateExternalDominance();
+}
+
+void AppState::handleMn42TransportGate(uint8_t value) {
+  const bool gateActive = value > 0;
+  if (transportLatchEnabled_) {
+    if (gateActive) {
+      if (transportLatched_) {
+        onExternalTransportStop();
+      } else {
+        onExternalTransportStart();
+      }
+    }
+    return;
+  }
+
+  if (gateActive) {
+    onExternalTransportStart();
+  } else {
+    onExternalTransportStop();
+  }
+}
+
+void AppState::updateExternalDominance() {
+  externalClockDominant_ = followExternalClock_;
 }

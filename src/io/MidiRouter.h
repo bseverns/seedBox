@@ -22,6 +22,7 @@ public:
   void setStopHandler(TransportHandler cb) { stopHandler_ = std::move(cb); }
   void setControlChangeHandler(ControlChangeHandler cb) {
     controlChangeHandler_ = std::move(cb);
+    maybeSendMn42Ack();
   }
 
   // Pump this from the main loop while usbMIDI.read() returns events. It will
@@ -39,8 +40,12 @@ public:
   void onStop();
 
 private:
+  void maybeSendMn42Ack();
   ClockHandler clockHandler_{};
   TransportHandler startHandler_{};
   TransportHandler stopHandler_{};
   ControlChangeHandler controlChangeHandler_{};
+  bool mn42HelloSeen_{false};
+  bool mn42AckSent_{false};
+  uint32_t mn42LastKeepAliveMs_{0};
 };
