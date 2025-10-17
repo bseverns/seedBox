@@ -1,4 +1,12 @@
 #pragma once
+
+//
+// Seed genome.
+// ------------
+// One struct to rule them all — every engine reads its marching orders from a
+// Seed.  That means we get to teach procedural music systems by poking at this
+// file and watching how parameters ripple through the sampler/granular/resonator
+// code.
 #include <cstdint>
 
 struct Seed {

@@ -1,3 +1,7 @@
+// MidiRouter.cpp is where we translate low-level MIDI plumbing into the tidy
+// callbacks that AppState consumes.  The verbosity is intentional — USB, TRS,
+// and MN42 quirks all get spelled out so debugging a classroom rig doesn't
+// require diving into Teensy core code.
 #include "io/MidiRouter.h"
 #include "SeedBoxConfig.h"
 
@@ -59,6 +63,8 @@ void MidiRouter::onUsbEvent() {
     const uint8_t ch = seedbox::interop::mn42::NormalizeUsbChannel(raw_channel);
     const uint8_t cc = usbMIDI.getData1();
     const uint8_t val = usbMIDI.getData2();
+    // MN42 handshake CCs get intercepted here so we can maintain the keep-alive
+    // dance before passing the message on to AppState.
     handleMn42ControlChange(ch, cc, val);
     onControlChange(ch, cc, val);
   }
@@ -71,6 +77,7 @@ void MidiRouter::poll() {
   if constexpr (SeedBoxConfig::kQuietMode) {
     return;
   }
+  // Keep the MN42 heartbeat alive and slurp any UART bytes waiting on Serial7.
   maybeSendMn42KeepAlive();
   hal::midi::serial7::poll();
 #endif
@@ -93,6 +100,8 @@ void MidiRouter::markAppReady() {
   }
   mn42LastKeepAliveMs_ = nowMs();
   if (mn42HelloSeen_ && !mn42AckSent_) {
+    // Don't leave the controller hanging — once we finish booting we answer the
+    // handshake immediately so its LEDs light up in sync.
     sendMn42Handshake(seedbox::interop::mn42::handshake::kAck);
   }
 #endif
@@ -164,6 +173,8 @@ void MidiRouter::maybeSendMn42KeepAlive() {
   }
   const uint32_t now = nowMs();
   if (now - mn42LastKeepAliveMs_ >= kMn42KeepAliveIntervalMs) {
+    // Send a friendly "yup, still here" every few seconds so the MN42 display
+    // never assumes we've crashed mid-gig.
     sendMn42Handshake(seedbox::interop::mn42::handshake::kKeepAlive);
   }
 #endif

@@ -1,4 +1,11 @@
 #pragma once
+
+//
+// USB + TRS MIDI concierge.
+// -------------------------
+// This header advertises the friendly, callback-driven surface that the rest of
+// the firmware uses.  It deliberately reads like documentation so wiring up new
+// controllers or debugging a rogue clock feels approachable.
 #include <stdint.h>
 #include <functional>
 #include <utility>

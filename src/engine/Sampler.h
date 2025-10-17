@@ -89,6 +89,9 @@ private:
     float rightGain{0.0f};
   };
 
+  // Voice bookkeeping helpers.  `allocateVoice` picks a slot, `configureVoice`
+  // bakes the seed genome into it, and the static math helpers keep the float
+  // conversions centralized.
   uint8_t allocateVoice(uint32_t whenSamples);
   void configureVoice(VoiceInternal& voice, uint8_t index, const Seed& seed, uint32_t whenSamples);
   static float pitchToPlaybackRate(float semitones);

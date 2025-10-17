@@ -1,4 +1,12 @@
 #pragma once
+
+//
+// AppState.h
+// -----------
+// Everything publicly visible about the firmware's state machine lives here.
+// Treat it like a field guide for the rest of the codebase: the UI, tests, and
+// documentation all poke through this interface.  That means generous comments
+// are fair game — we're not hiding cleverness, we're teaching it.
 #include <stdint.h>
 #include <vector>
 #include "Seed.h"
@@ -85,6 +93,8 @@ private:
   // The implementation leans heavily on comments so students can watch the RNG
   // state machine do its thing.
   void primeSeeds(uint32_t masterSeed);
+  // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
+  // the performance is running.
   uint32_t frame_{0};
   std::vector<Seed> seeds_{};
   PatternScheduler scheduler_{};
@@ -102,6 +112,7 @@ private:
   bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
 
+  // Tiny helper trio for the transport + MN42 handshake logic.
   void updateClockDominance();
   void applyMn42ModeBits(uint8_t value);
   void handleTransportGate(uint8_t value);

@@ -1,3 +1,10 @@
+//
+// Sampler.cpp
+// -----------
+// Implementation notes that compliment the header.  We keep the DSP placeholders
+// lightweight but loud — students can read through this file and understand how
+// a voice allocator, envelope setup, and constant-power panning behave before we
+// ever hook up real sample data.
 #include "engine/Sampler.h"
 #include <algorithm>
 #include <cmath>

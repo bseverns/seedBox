@@ -33,6 +33,10 @@ bool PatternScheduler::updateSeed(std::size_t index, const Seed& s) {
 }
 
 void PatternScheduler::setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t)) {
+  // The callback gets called inside `onTick` whenever a seed survives density +
+  // probability filtering.  Keeping both the context pointer and function
+  // pointer explicit (instead of `std::function`) makes this trivial to bridge
+  // into C-style APIs like the Teensy Audio library.
   triggerCtx_ = ctx;
   triggerFn_ = fn;
 }

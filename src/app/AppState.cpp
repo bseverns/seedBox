@@ -1,3 +1,11 @@
+//
+// AppState.cpp
+// -------------
+// The operational heart of SeedBox.  Everything the performer can touch rolls
+// through here eventually: seeds get primed, transport sources compete for
+// authority, and the audio engines receive their marching orders.  The comments
+// are intentionally loud so you can walk a classroom through the firmware
+// without needing a separate slide deck.
 #include "app/AppState.h"
 #include <algorithm>
 #include <array>
@@ -37,6 +45,8 @@ void writeDisplayField(char (&dst)[N], std::string_view text) {
 
 template <typename... Args>
 std::string_view formatScratch(std::array<char, 64>& scratch, const char* fmt, Args&&... args) {
+  // Minimal printf wrapper that clamps its output so we never scribble beyond
+  // the OLED text buffers.
   const int written = std::snprintf(scratch.data(), scratch.size(), fmt, std::forward<Args>(args)...);
   if (written <= 0) {
     scratch[0] = '\0';
@@ -47,6 +57,8 @@ std::string_view formatScratch(std::array<char, 64>& scratch, const char* fmt, A
 }
 
 uint8_t sanitizeEngine(uint8_t engine) {
+  // Engine IDs arrive from MIDI CCs and debug tools, so we modulo them into the
+  // valid range to avoid out-of-bounds dispatches.
   if (kEngineCount == 0) {
     return 0;
   }
@@ -54,6 +66,8 @@ uint8_t sanitizeEngine(uint8_t engine) {
 }
 
 const char* engineLabel(uint8_t engine) {
+  // Compact three-letter labels fit the OLED.  Handy when teaching folks how to
+  // read the status line without squinting.
   switch (engine) {
     case 0: return "SMP";
     case 1: return "GRA";
@@ -320,10 +334,15 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
 }
 
 void AppState::updateClockDominance() {
+  // External clock wins if either the follow bit is set or the transport is
+  // actively running.  This line is the truth table behind the entire sync
+  // story, so yeah, spell it out.
   externalClockDominant_ = followExternalClockEnabled_ || externalTransportRunning_;
 }
 
 void AppState::applyMn42ModeBits(uint8_t value) {
+  // MN42 packs several toggle bits into one CC.  Unpack them and update the
+  // flags that control our sync + debug behaviours.
   const bool follow = (value & seedbox::interop::mn42::mode::kFollowExternalClock) != 0;
   if (followExternalClockEnabled_ != follow) {
     followExternalClockEnabled_ = follow;
@@ -347,6 +366,9 @@ void AppState::applyMn42ModeBits(uint8_t value) {
 }
 
 void AppState::handleTransportGate(uint8_t value) {
+  // Mode bit decides whether the gate is momentary (direct transport control)
+  // or latched (each press toggles state).  Both flows live here so it's easy
+  // to demo the difference.
   const bool gateHigh = value > 0;
   if (transportLatchEnabled_) {
     if (gateHigh && !transportGateHeld_) {
@@ -436,5 +458,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
 }
 
 const Seed* AppState::debugScheduledSeed(uint8_t index) const {
+  // Straight-through view into the scheduler's copy of a seed.  Gives us a
+  // stable reference for debugging displays + tests.
   return scheduler_.seedForDebug(static_cast<size_t>(index));
 }

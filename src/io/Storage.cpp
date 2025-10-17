@@ -1,3 +1,6 @@
+// Storage.cpp stays intentionally skeletal right now — the SD card story is a
+// future lab.  Still, we document the intended control flow so the TODOs read
+// like a roadmap rather than a shrug.
 #include "io/Storage.h"
 #include "SeedBoxConfig.h"
 
@@ -15,10 +18,14 @@ bool Storage::loadSeedBank(const char* path, std::vector<Seed>& out) {
     return false;
   }
 #ifdef SEEDBOX_HW
-  // TODO: parse JSON from SD
+  // Eventually this block will crack open `path`, parse JSON, and pour seed
+  // genomes into `out`.  For now we acknowledge the call and return true so the
+  // UI flow can be rehearsed without a card inserted.
   (void)path; (void)out;
   return true;
 #else
+  // Simulator builds lean on baked-in seed tables, so loading is a no-op.  We
+  // still return true to keep call sites simple.
   (void)path; (void)out;
   return true;
 #endif
@@ -31,7 +38,7 @@ bool Storage::saveScene(const char* path) {
   }
 #ifdef SEEDBOX_HW
   (void)path;
-  // TODO: write scene JSON
+  // Placeholder for future JSON writer that mirrors loadSeedBank.
   return true;
 #else
   (void)path;
