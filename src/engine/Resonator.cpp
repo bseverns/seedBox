@@ -99,15 +99,49 @@ void ResonatorBank::init(Mode mode) {
 
     patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.modalMix, 0, hw.mix, 1));
 
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.mix, 0, voiceMixerLeft_, i));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.mix, 0, voiceMixerRight_, i));
+    const uint8_t group = static_cast<uint8_t>(i / kMixerFanIn);
+    const uint8_t slot = static_cast<uint8_t>(i % kMixerFanIn);
 
-    voiceMixerLeft_.gain(i, 0.0f);
-    voiceMixerRight_.gain(i, 0.0f);
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.mix, 0, voiceMixerLeft_[group], slot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.mix, 0, voiceMixerRight_[group], slot));
+
+    voiceMixerLeft_[group].gain(slot, 0.0f);
+    voiceMixerRight_[group].gain(slot, 0.0f);
   }
 
-  patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerLeft_, 0, output_, 0));
-  patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerRight_, 0, output_, 1));
+  // Mixer topology sketch (because lab notes are half the fun):
+  //   - Each resonator voice lands on a personal `hw.mix` node.
+  //   - Four voices feed a group mixer block on each stereo side.
+  //   - Up to four of those group sums fold into a submix.
+  //   - The submix pair finally pours into the output codec.
+  // This fan-out mirrors the granular engine's cascade so we can light up all
+  // 16 hardware voices without overdriving a single AudioMixer4.
+  for (uint8_t group = 0; group < kMixerGroups; ++group) {
+    const uint8_t submixIndex = static_cast<uint8_t>(group / kMixerFanIn);
+    const uint8_t submixSlot = static_cast<uint8_t>(group % kMixerFanIn);
+    submixLeft_[submixIndex].gain(submixSlot, 1.0f);
+    submixRight_[submixIndex].gain(submixSlot, 1.0f);
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerLeft_[group], 0, submixLeft_[submixIndex], submixSlot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerRight_[group], 0, submixRight_[submixIndex], submixSlot));
+  }
+
+  for (uint8_t submix = 0; submix < kSubmixCount; ++submix) {
+    finalMixLeft_.gain(submix, 1.0f);
+    finalMixRight_.gain(submix, 1.0f);
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(submixLeft_[submix], 0, finalMixLeft_, submix));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(submixRight_[submix], 0, finalMixRight_, submix));
+  }
+
+  patchCables_.emplace_back(std::make_unique<AudioConnection>(finalMixLeft_, 0, output_, 0));
+  patchCables_.emplace_back(std::make_unique<AudioConnection>(finalMixRight_, 0, output_, 1));
+
+  if (kMixerGroups > 1) {
+    // Hardware smoke test hook: tap the second voice group so firmware can
+    // assert that voices 4-7 actually swing needles once we slam more than four
+    // notes at a time. Platform bring-up code reads `fanoutProbeLevel()` and
+    // howls if the peak never budges.
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerLeft_[1], 0, voiceFanoutProbe_, 0));
+  }
 #endif
 }
 
@@ -269,8 +303,10 @@ void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voice) {
 
   const float left = std::sqrt(0.5f);
   const float right = std::sqrt(0.5f);
-  voiceMixerLeft_.gain(index, left * voice.burstGain);
-  voiceMixerRight_.gain(index, right * voice.burstGain);
+  const uint8_t group = static_cast<uint8_t>(index / kMixerFanIn);
+  const uint8_t slot = static_cast<uint8_t>(index % kMixerFanIn);
+  voiceMixerLeft_[group].gain(slot, left * voice.burstGain);
+  voiceMixerRight_[group].gain(slot, right * voice.burstGain);
 
   hw.burstNoise.amplitude(voice.burstGain);
   hw.burstEnv.noteOn();
@@ -279,6 +315,15 @@ void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voice) {
   (void)voice;
 #endif
 }
+
+#ifdef SEEDBOX_HW
+float ResonatorBank::fanoutProbeLevel() {
+  if (voiceFanoutProbe_.available()) {
+    return voiceFanoutProbe_.read();
+  }
+  return 0.0f;
+}
+#endif
 
 const ResonatorBank::ModalPreset& ResonatorBank::resolvePreset(uint8_t bank) const {
   if (bank >= presets_.size()) {
