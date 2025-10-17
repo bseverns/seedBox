@@ -55,7 +55,8 @@ void MidiRouter::onUsbEvent() {
   else if (usbMIDI.getType() == midi::Start) onStart();
   else if (usbMIDI.getType() == midi::Stop) onStop();
   else if (usbMIDI.getType() == midi::ControlChange) {
-    const uint8_t ch = usbMIDI.getChannel();
+    const uint8_t raw_channel = usbMIDI.getChannel();
+    const uint8_t ch = seedbox::interop::mn42::NormalizeUsbChannel(raw_channel);
     const uint8_t cc = usbMIDI.getData1();
     const uint8_t val = usbMIDI.getData2();
     handleMn42ControlChange(ch, cc, val);

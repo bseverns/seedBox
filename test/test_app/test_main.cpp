@@ -6,6 +6,7 @@ void test_engine_selection_persists_and_updates_scheduler();
 void test_mn42_follow_clock_mode();
 void test_mn42_debug_meter_toggle();
 void test_mn42_transport_latch_behavior();
+void test_mn42_usb_channel_normalization();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -15,5 +16,6 @@ int main(int, char**) {
   RUN_TEST(test_mn42_follow_clock_mode);
   RUN_TEST(test_mn42_debug_meter_toggle);
   RUN_TEST(test_mn42_transport_latch_behavior);
+  RUN_TEST(test_mn42_usb_channel_normalization);
   return UNITY_END();
 }
