@@ -2,6 +2,10 @@
 #include "app/AppState.h"
 #include "interop/mn42_map.h"
 
+#define private public
+#include "io/MidiRouter.h"
+#undef private
+
 void test_mn42_follow_clock_mode() {
   AppState app;
   app.initSim();
@@ -122,4 +126,31 @@ void test_mn42_usb_channel_normalization() {
   app.onExternalControlChange(normalized, seedbox::interop::mn42::cc::kMode,
                               seedbox::interop::mn42::mode::kFollowExternalClock);
   TEST_ASSERT_TRUE(app.followExternalClockEnabled());
+}
+
+void test_mn42_hello_resends_ack() {
+  MidiRouter router;
+  router.begin();
+
+  // App is ready, so the first HELLO should emit an ACK and set the flag.
+  router.mn42AppReady_ = true;
+  router.handleMn42ControlChange(seedbox::interop::mn42::kDefaultChannel,
+                                 seedbox::interop::mn42::cc::kHandshake,
+                                 seedbox::interop::mn42::handshake::kHello);
+  TEST_ASSERT_TRUE(router.mn42AckSent_);
+
+  // A new HELLO arriving before the app is ready must drop the sent flag so the
+  // controller will hear the ACK once we're back online.
+  router.mn42AppReady_ = false;
+  router.handleMn42ControlChange(seedbox::interop::mn42::kDefaultChannel,
+                                 seedbox::interop::mn42::cc::kHandshake,
+                                 seedbox::interop::mn42::handshake::kHello);
+  TEST_ASSERT_FALSE(router.mn42AckSent_);
+
+  // Flip readiness back on and confirm we immediately fire a fresh ACK.
+  router.mn42AppReady_ = true;
+  router.handleMn42ControlChange(seedbox::interop::mn42::kDefaultChannel,
+                                 seedbox::interop::mn42::cc::kHandshake,
+                                 seedbox::interop::mn42::handshake::kHello);
+  TEST_ASSERT_TRUE(router.mn42AckSent_);
 }
