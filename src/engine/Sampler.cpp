@@ -6,8 +6,11 @@
 // a voice allocator, envelope setup, and constant-power panning behave before we
 // ever hook up real sample data.
 #include "engine/Sampler.h"
+
 #include <algorithm>
 #include <cmath>
+
+#include "engine/Stereo.h"
 
 namespace {
 // How many samples we expect to have preloaded into flash/RAM. Once a seed asks
@@ -15,8 +18,6 @@ namespace {
 // streaming. Right now we just match the voice count so the tests can exercise
 // both paths.
 constexpr uint8_t kRamPreloadCount = Sampler::kMaxVoices;
-constexpr float kHalfPi = 1.57079637f;
-
 #ifdef SEEDBOX_HW
 constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
@@ -148,12 +149,12 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   voice.spread = clamp01(seed.spread);
   voice.usesSdStreaming = (seed.sampleIdx >= kRamPreloadCount);
 
-  // Constant-power pan law: treat spread as a normalized left/right pan, map it
-  // onto a quarter circle so the combined power stays roughly constant.
-  const float pan = (voice.spread * 2.0f) - 1.0f;
-  const float angle = (pan + 1.0f) * 0.5f * kHalfPi;
-  voice.leftGain = std::cos(angle);
-  voice.rightGain = std::sin(angle);
+  // Constant-power width law: `spread` 0 => centered, 1 => hard pan. Future
+  // versions can feed a polarity flag to swing left; for now we focus on the
+  // "mono to wide" journey students can hear immediately.
+  const auto gains = stereo::constantPowerWidth(voice.spread);
+  voice.leftGain = gains.left;
+  voice.rightGain = gains.right;
 
 #ifdef SEEDBOX_HW
   auto& hw = hwVoices_[index];

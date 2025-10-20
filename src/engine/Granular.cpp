@@ -10,19 +10,9 @@
 #include <cmath>
 #include <type_traits>
 #include <utility>
+#include "engine/Stereo.h"
 #include "util/RNG.h"
 #include "util/Units.h"
-
-namespace {
-constexpr float kHalfPi = 1.57079637f;
-
-std::pair<float, float> constantPowerPan(float spread) {
-  const float clamped = std::max(0.0f, std::min(1.0f, spread));
-  const float pan = (clamped * 2.0f) - 1.0f;  // -1 = left, +1 = right
-  const float angle = (pan + 1.0f) * 0.5f * kHalfPi;
-  return {std::cos(angle), std::sin(angle)};
-}
-}  // namespace
 
 namespace {
 static uint8_t clampVoices(uint8_t voices) {
@@ -268,9 +258,9 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
 }
 
 void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
-  const auto [left, right] = constantPowerPan(voice.stereoSpread);
-  voice.leftGain = left;
-  voice.rightGain = right;
+  const auto gains = stereo::constantPowerWidth(voice.stereoSpread);
+  voice.leftGain = gains.left;
+  voice.rightGain = gains.right;
 
 #ifdef SEEDBOX_HW
   auto& hw = hwVoices_[index];

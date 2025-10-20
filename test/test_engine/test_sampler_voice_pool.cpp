@@ -103,3 +103,24 @@ void test_sampler_voice_stealing_is_oldest_first() {
   TEST_ASSERT_NOT_EQUAL(Sampler::kMaxVoices, foundIndex);
   TEST_ASSERT_EQUAL_UINT8(expectedSteal, foundIndex);
 }
+
+void test_sampler_spread_width_maps_constant_power_curve() {
+  Sampler sampler;
+  sampler.init();
+
+  const Seed centered = makeSeed(11, 0, 0.0f, 0.3f, 0.0f);
+  sampler.trigger(centered, 0u);
+  auto state = sampler.voice(0);
+  TEST_ASSERT_TRUE(state.active);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, state.leftGain, state.rightGain);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.70710677f, state.leftGain);
+
+  sampler.init();
+  const Seed wide = makeSeed(12, 1, 0.0f, 0.3f, 1.0f);
+  sampler.trigger(wide, 0u);
+  state = sampler.voice(0);
+  TEST_ASSERT_TRUE(state.active);
+  TEST_ASSERT_TRUE(state.rightGain > state.leftGain);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.0f, state.leftGain);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 1.0f, state.rightGain);
+}

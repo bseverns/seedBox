@@ -18,7 +18,7 @@ struct Seed {
   float probability{0.85f};
   float jitterMs{7.5f};
   float tone{0.35f};
-  float spread{0.2f};
+  float spread{0.2f};       // 0 = mono center, 1 = hard-pan width (right biased for now)
   uint8_t engine{0};        // 0=sampler,1=granular,2=resonator
   uint8_t sampleIdx{0};
   float mutateAmt{0.1f};    // bounded drift 0..1
@@ -28,7 +28,7 @@ struct Seed {
     float sprayMs{18.f};         // random offset per grain
     float transpose{0.f};        // semitone shift relative to seed pitch
     float windowSkew{0.f};       // -1 saw, 0 hann, +1 exponential-ish
-    float stereoSpread{0.5f};    // 0 mono .. 1 hard L/R wobble
+    float stereoSpread{0.5f};    // 0 = mono center .. 1 = wide/right-lean
     uint8_t source{0};           // 0=live input,1=sd clip table
     uint8_t sdSlot{0};           // SD clip slot when source==1
   } granular;

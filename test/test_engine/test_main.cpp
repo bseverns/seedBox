@@ -7,6 +7,7 @@ void test_resonator_voice_stealing_by_start_then_handle();
 void test_resonator_preset_lookup_guards_index();
 void test_sampler_stores_seed_state();
 void test_sampler_voice_stealing_is_oldest_first();
+void test_sampler_spread_width_maps_constant_power_curve();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -17,5 +18,6 @@ int main(int, char**) {
   RUN_TEST(test_resonator_preset_lookup_guards_index);
   RUN_TEST(test_sampler_stores_seed_state);
   RUN_TEST(test_sampler_voice_stealing_is_oldest_first);
+  RUN_TEST(test_sampler_spread_width_maps_constant_power_curve);
   return UNITY_END();
 }

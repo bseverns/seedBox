@@ -40,3 +40,21 @@ void test_plan_grain_sprays_and_mutates_prng() {
   TEST_ASSERT_EQUAL_UINT32(expectedStart, voice.startSample);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(seed.id), voice.seedId);
 }
+
+void test_map_grain_honors_stereo_spread_width_curve() {
+  GranularEngine engine;
+  engine.init(GranularEngine::Mode::kSim);
+
+  GranularEngine::GrainVoice mono{};
+  mono.stereoSpread = 0.0f;
+  engine.mapGrainToGraph(0, mono);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, mono.leftGain, mono.rightGain);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.70710677f, mono.leftGain);
+
+  GranularEngine::GrainVoice wide{};
+  wide.stereoSpread = 1.0f;
+  engine.mapGrainToGraph(0, wide);
+  TEST_ASSERT_TRUE(wide.rightGain > wide.leftGain);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.0f, wide.leftGain);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 1.0f, wide.rightGain);
+}
