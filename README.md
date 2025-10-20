@@ -40,6 +40,7 @@ flowchart LR
 | `include/` | Header contracts the rest of the world relies on. | [Interface notes](include/README.md) |
 | `test/` | Native tests that keep the grooves deterministic. | [Test guide](test/README.md) + [golden recipe](test/README.md#toggle-able-test-flags) |
 | `scripts/` | Helper tools (version stamping, etc.). | [Script cheat sheet](scripts/README.md) |
+| `examples/` | Runnable lesson sketches for when you want noise with narration. | [Sprout lab notes](examples/01_sprout/README.md) |
 
 Head straight to [`docs/roadmaps/`](docs/roadmaps) for narrative design notes or
 into [`test/test_engine/`](test/test_engine) for executable examples that double
@@ -151,6 +152,10 @@ strong.
   and calls out how `ENABLE_GOLDEN` captures new expectations.
 - **Scripts:** [`scripts/README.md`](scripts/README.md) keeps the automation
   gentle and hackable.
+- **Examples as lab walks:** Crack open [`examples/`](examples) like a lab tour —
+  each subfolder is a guided walkthrough tied to quiet-mode flips, reseeding
+  experiments, or headless workflows, so you can feel the repo’s pulse before
+  the tests and docs lock it down.
 
 ## Audio postcard (TODO)
 

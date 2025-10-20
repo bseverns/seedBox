@@ -1,3 +1,9 @@
+/*
+ * USB clock duking it out with TRS sync? This little duel makes sure the
+ * firmware lets the 3.5mm jack call the tempo shots once it's plugged in.
+ * Pair it with the bench choreography in docs/hardware/trs_clock_sync/README.md
+ * and try your own riffs to see how the scheduler reacts when transports spar.
+ */
 #include <unity.h>
 #include "app/AppState.h"
 

@@ -1,6 +1,16 @@
-// Each call to PatternScheduler::onTick() stands in for one of the 24 MIDI clock
-// pulses that slice up a beat; these tests are a notebook of how density piles up
-// over those pulses and how the sample-accurate timestamps land.
+/* Each call to PatternScheduler::onTick() stands in for one of the 24 MIDI clock
+ * pulses that slice up a beat; these tests are a notebook of how density piles up
+ * over those pulses and how the sample-accurate timestamps land.
+ *
+ * These tests are our density gauntlet: first a sanity check that the density gate even fires,
+ * then a fractional-accumulation reality check, and finally a sample-timeline alignment test so
+ * future hackers can prove the groove math is honest. If you want the full narrative arc, cruise
+ * over to docs/roadmaps/granular.md for the broader design story.
+ *
+ * The helper structs here are intentionally scrappy mirrors of the PatternScheduler internals, so
+ * students can map each assertion back to the scheduler flow in src/engine/Patterns.cpp without
+ * needing a decoder ring.
+ */
 #include <unity.h>
 #include <cmath>
 #include <vector>
