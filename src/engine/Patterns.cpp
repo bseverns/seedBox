@@ -9,10 +9,26 @@
 // of the groove machine it's touching. Students can trace the timeline by
 // following the call sites in AppState.
 
+PatternScheduler::PatternScheduler()
+    : samplesPerTick_(samplesPerTickForBpm(bpm_)), sampleCursor_(0.0) {}
+
 // Set the global tempo. We leave the unit intentionally boring (BPM) so the
 // teaching demo can focus on density/probability instead of fancy transport
 // math.
-void PatternScheduler::setBpm(float bpm) { bpm_ = bpm; }
+void PatternScheduler::setBpm(float bpm) {
+  bpm_ = bpm;
+  samplesPerTick_ = samplesPerTickForBpm(bpm_);
+}
+
+double PatternScheduler::samplesPerTickForBpm(float bpm) {
+  if (bpm <= 0.f) {
+    return 0.0;
+  }
+  constexpr double kTicksPerBeat = 24.0;
+  const double sanitizedBpm = static_cast<double>(bpm);
+  const double secondsPerTick = 60.0 / (sanitizedBpm * kTicksPerBeat);
+  return secondsPerTick * static_cast<double>(Units::kSampleRate);
+}
 
 // Add a seed to the scheduling roster and make sure it has a matching density
 // accumulator slot. The accumulator tracks fractional hits until densityGate
@@ -67,11 +83,14 @@ bool PatternScheduler::densityGate(std::size_t seedIndex, float density) {
 }
 
 // Utility conversions keep the scheduling math agnostic from whether we're in
-// sim or hardware land. Units::simNowSamples and Units::msToSamples hide the
-// platform specifics so lectures can focus on timing concepts instead of
-// transport glue.
+// sim or hardware land. On native builds we advance our own BPM-aware sample
+// cursor; hardware builds keep deferring to the real audio clock via Units.
 uint32_t PatternScheduler::nowSamples() {
+#ifdef SEEDBOX_HW
   return Units::simNowSamples();
+#else
+  return static_cast<uint32_t>(std::llround(sampleCursor_));
+#endif
 }
 
 uint32_t PatternScheduler::msToSamples(float ms) {
@@ -83,10 +102,11 @@ void PatternScheduler::onTick() {
   // 1) PICK: this scheduler is the authority — we march through seeds_ in
   //    their programmed order every 24 PPQN tick and let densityGate decide if
   //    the seed is even allowed to wake up on this tick.
-  // 2) SCHEDULE: once a seed earns a hit we grab the current clock, smear it by
-  //    the seed's jitter, and book the trigger time in samples (see nowSamples
-  //    and msToSamples) so the render engine can fire with sample-accurate
-  //    timing.
+  // 2) SCHEDULE: once a seed earns a hit we grab the current clock (either the
+  //    BPM-driven sample cursor or a hardware-provided audio timestamp), smear
+  //    it by the seed's jitter, and book the trigger time in samples (see
+  //    nowSamples and msToSamples) so the render engine can fire with sample-
+  //    accurate timing.
   // 3) RENDER: the actual audio engine (sampler / granular / resonator) will
   //    instantiate a voice using the seed's genome when we call into it with
   //    trigger time `t`. That hook lives where the placeholder `(void)t` sits.
@@ -122,4 +142,7 @@ void PatternScheduler::onTick() {
     }
   }
   ++tickCount_;
+#ifndef SEEDBOX_HW
+  sampleCursor_ += samplesPerTick_;
+#endif
 }

@@ -24,11 +24,10 @@ inline uint32_t msToSamples(float ms) {
 //
 // Simulated transport clock.
 // -------------------------
-// On real hardware we ask the PatternScheduler for "now" by peeking at the
-// Teensy audio callback.  The simulator does not have that luxury, so we keep a
-// monotonic counter that advances by a fixed amount every tick.  200 samples at
-// 48 kHz is roughly 4.16 ms — close enough to drive tests while remaining easy
-// to reason about on a whiteboard.
+// PatternScheduler now owns a BPM-aware sample cursor on native builds, but the
+// old deterministic counter is still handy for tools that want a quick-and-dirty
+// "now" without booting the full scheduler.  Hardware builds can also swap this
+// stub for a true audio callback timestamp when the integration lands.
 #ifndef SEEDBOX_HW
 inline uint32_t simNowSamples() {
   static uint32_t acc = 0;

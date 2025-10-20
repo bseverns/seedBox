@@ -11,11 +11,12 @@
 #include <vector>
 #include <cstddef>
 #include <cstdint>
-#include <cstddef>
+#include "util/Units.h"
 #include "Seed.h"
 
 class PatternScheduler {
 public:
+  PatternScheduler();
   // Define the global tempo.  We keep the unit in BPM because it lines up with
   // the incoming MIDI clock rate.
   void setBpm(float bpm);
@@ -45,11 +46,14 @@ private:
   bool densityGate(std::size_t seedIndex, float density);
   uint32_t nowSamples();
   uint32_t msToSamples(float ms);
+  static double samplesPerTickForBpm(float bpm);
 private:
   std::vector<Seed> seeds_;
   std::vector<float> densityAccumulators_;
   uint64_t tickCount_{0};
   float bpm_{120.f};
+  double samplesPerTick_{0.0};
+  double sampleCursor_{0.0};
   void* triggerCtx_{nullptr};
   void (*triggerFn_)(void*, const Seed&, uint32_t){nullptr};
 };
