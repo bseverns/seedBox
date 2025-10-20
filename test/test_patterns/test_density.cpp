@@ -1,4 +1,7 @@
-/*
+/* Each call to PatternScheduler::onTick() stands in for one of the 24 MIDI clock
+ * pulses that slice up a beat; these tests are a notebook of how density piles up
+ * over those pulses and how the sample-accurate timestamps land.
+ *
  * These tests are our density gauntlet: first a sanity check that the density gate even fires,
  * then a fractional-accumulation reality check, and finally a sample-timeline alignment test so
  * future hackers can prove the groove math is honest. If you want the full narrative arc, cruise
@@ -54,7 +57,8 @@ void test_density_gate_runs() {
   ps.setTriggerCallback(&counter, triggerCounter);
   Seed s{}; s.density = 2.0f; s.probability = 1.0f; s.jitterMs = 0.f;
   ps.addSeed(s);
-  // Just simulate a few ticks to ensure no crashes
+  // 24 ticks per beat means ~5.33 beats for 128 ticks; we're just smashing
+  // through enough clock edges to make sure nothing explodes.
   for (int i=0;i<128;++i) ps.onTick();
   TEST_ASSERT_TRUE(ps.ticks() == 128);
   TEST_ASSERT_TRUE(counter.calls > 0);
@@ -71,7 +75,7 @@ void test_density_fractional_counts() {
   s.jitterMs = 0.f;
   ps.addSeed(s);
 
-  const int ticksToSimulate = 24 * 16; // 16 beats
+  const int ticksToSimulate = 24 * 16; // 24 ticks/beat * 16 beats = 384 onTick() calls
   for (int i = 0; i < ticksToSimulate; ++i) {
     ps.onTick();
   }
@@ -103,6 +107,8 @@ void test_scheduler_counts_silent_ticks() {
   const float bpm = 120.f;
   const double samplesPerBeat = (60.0 / bpm) * static_cast<double>(Units::kSampleRate);
   const uint32_t expectedSamples = static_cast<uint32_t>(std::llround(samplesPerBeat));
+  // Units::kSimTickSamples advances the virtual transport every tick, even
+  // when no seed fires, so the first hit sits exactly one beat of samples in.
   TEST_ASSERT_EQUAL_UINT32(expectedSamples, capture.lastStart);
 }
 
