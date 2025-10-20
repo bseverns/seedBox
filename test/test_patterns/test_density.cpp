@@ -1,4 +1,6 @@
 #include <unity.h>
+#include <cmath>
+#include <vector>
 #include "engine/Patterns.h"
 #include "Seed.h"
 #include "util/Units.h"
@@ -23,6 +25,16 @@ void captureStartSample(void* ctx, const Seed&, uint32_t startSample) {
   auto* capture = reinterpret_cast<TriggerCapture*>(ctx);
   capture->calls++;
   capture->lastStart = startSample;
+}
+
+struct TimelineCapture {
+  std::vector<uint32_t> starts;
+};
+
+void recordStartSamples(void* ctx, const Seed&, uint32_t startSample) {
+  if (!ctx) return;
+  auto* capture = reinterpret_cast<TimelineCapture*>(ctx);
+  capture->starts.push_back(startSample);
 }
 }
 
@@ -59,8 +71,6 @@ void test_density_fractional_counts() {
 }
 
 void test_scheduler_counts_silent_ticks() {
-  Units::simResetSamples();
-
   PatternScheduler ps;
   TriggerCapture capture;
   ps.setTriggerCallback(&capture, captureStartSample);
@@ -80,6 +90,47 @@ void test_scheduler_counts_silent_ticks() {
   ps.onTick();
   TEST_ASSERT_EQUAL_INT(1, capture.calls);
 
-  const uint32_t expectedSamples = static_cast<uint32_t>(ticksPerBeat * Units::kSimTickSamples);
+  const float bpm = 120.f;
+  const double samplesPerBeat = (60.0 / bpm) * static_cast<double>(Units::kSampleRate);
+  const uint32_t expectedSamples = static_cast<uint32_t>(std::llround(samplesPerBeat));
   TEST_ASSERT_EQUAL_UINT32(expectedSamples, capture.lastStart);
+}
+
+void test_scheduler_bpm_modulates_when_samples() {
+  auto runScenario = [](float bpm) {
+    PatternScheduler ps;
+    ps.setBpm(bpm);
+    TimelineCapture capture;
+    ps.setTriggerCallback(&capture, recordStartSamples);
+
+    Seed s{};
+    s.density = 1.f;
+    s.probability = 0.5f;
+    s.jitterMs = 0.f;
+    s.prng = 0xCAFEBABEu;
+    ps.addSeed(s);
+
+    const int ticksToSimulate = 24 * 32; // 32 beats keeps the RNG story stable.
+    for (int i = 0; i < ticksToSimulate; ++i) {
+      ps.onTick();
+    }
+    return capture;
+  };
+
+  const float slowBpm = 90.f;
+  const float fastBpm = 180.f;
+  const TimelineCapture slow = runScenario(slowBpm);
+  const TimelineCapture fast = runScenario(fastBpm);
+
+  TEST_ASSERT_EQUAL(slow.starts.size(), fast.starts.size());
+  TEST_ASSERT_TRUE(slow.starts.size() > 1);
+
+  const auto slowDelta = slow.starts[1] - slow.starts[0];
+  const auto fastDelta = fast.starts[1] - fast.starts[0];
+  TEST_ASSERT_NOT_EQUAL(slowDelta, fastDelta);
+
+  const double slowBeatSamples = (60.0 / slowBpm) * static_cast<double>(Units::kSampleRate);
+  const double fastBeatSamples = (60.0 / fastBpm) * static_cast<double>(Units::kSampleRate);
+  TEST_ASSERT_EQUAL_UINT32(static_cast<uint32_t>(std::llround(slowBeatSamples)), slowDelta);
+  TEST_ASSERT_EQUAL_UINT32(static_cast<uint32_t>(std::llround(fastBeatSamples)), fastDelta);
 }

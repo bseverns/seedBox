@@ -7,7 +7,8 @@
 // of the firmware needs: set a tempo, feed it seeds, and call `onTick()` once
 // per MIDI clock (24 pulses per quarter note).  The dense commentary makes it a
 // perfect whiteboard companion for explaining probability gates, density, and
-// jitter to curious students.
+// jitter to curious students.  Native builds now advance an internal
+// samples-per-tick cursor so BPM finally dictates the simulated transport math.
 #include <vector>
 #include <cstddef>
 #include <cstdint>
@@ -16,9 +17,15 @@
 
 class PatternScheduler {
 public:
+  PatternScheduler();
   // Define the global tempo.  We keep the unit in BPM because it lines up with
   // the incoming MIDI clock rate.
   void setBpm(float bpm);
+
+  // Hardware builds can feed us a real sample clock so the scheduler stays in
+  // sync with the audio ISR.  Native builds leave this null and lean on the
+  // internal cursor.
+  void setSampleClockFn(uint32_t (*fn)());
 
   // Pulse this once per 24 PPQN tick.  Internally `onTick` checks density,
   // probability, jitter, and schedules engine triggers.
@@ -43,7 +50,9 @@ private:
   // Implementation helpers documented in Patterns.cpp.  We keep declarations
   // clustered here so readers know what machinery hides behind `onTick`.
   bool densityGate(std::size_t seedIndex, float density);
-  uint32_t nowSamples();
+  void recalcSamplesPerTick();
+  uint32_t latchTickSample();
+  uint32_t nowSamples() const;
   uint32_t msToSamples(float ms);
 private:
   std::vector<Seed> seeds_;
@@ -52,4 +61,8 @@ private:
   float bpm_{120.f};
   void* triggerCtx_{nullptr};
   void (*triggerFn_)(void*, const Seed&, uint32_t){nullptr};
+  uint32_t (*sampleClockFn_)() = nullptr;
+  double sampleCursor_{0.0};
+  double samplesPerTick_{0.0};
+  uint32_t latchedTickSample_{0};
 };

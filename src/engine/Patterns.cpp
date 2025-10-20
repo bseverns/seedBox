@@ -9,10 +9,18 @@
 // of the groove machine it's touching. Students can trace the timeline by
 // following the call sites in AppState.
 
+PatternScheduler::PatternScheduler() { recalcSamplesPerTick(); }
+
 // Set the global tempo. We leave the unit intentionally boring (BPM) so the
 // teaching demo can focus on density/probability instead of fancy transport
-// math.
-void PatternScheduler::setBpm(float bpm) { bpm_ = bpm; }
+// math.  Native builds immediately fold BPM into the samples-per-tick cursor so
+// the simulator walks in lockstep with tempo changes.
+void PatternScheduler::setBpm(float bpm) {
+  bpm_ = bpm;
+  recalcSamplesPerTick();
+}
+
+void PatternScheduler::setSampleClockFn(uint32_t (*fn)()) { sampleClockFn_ = fn; }
 
 // Add a seed to the scheduling roster and make sure it has a matching density
 // accumulator slot. The accumulator tracks fractional hits until densityGate
@@ -66,13 +74,31 @@ bool PatternScheduler::densityGate(std::size_t seedIndex, float density) {
   return false;
 }
 
-// Utility conversions keep the scheduling math agnostic from whether we're in
-// sim or hardware land. Units::simAdvanceTickSamples and Units::msToSamples hide
-// the platform specifics so lectures can focus on timing concepts instead of
-// transport glue.
-uint32_t PatternScheduler::nowSamples() {
-  return Units::simAdvanceTickSamples();
+void PatternScheduler::recalcSamplesPerTick() {
+#ifndef SEEDBOX_HW
+  const float safeBpm = bpm_ > 0.f ? bpm_ : 1.f;
+  const double beatsPerSecond = static_cast<double>(safeBpm) / 60.0;
+  const double ticksPerSecond = beatsPerSecond * 24.0;
+  samplesPerTick_ = static_cast<double>(Units::kSampleRate) / ticksPerSecond;
+#endif
 }
+
+// Native builds fake the transport clock by walking a floating-point cursor.
+// Hardware builds can bypass that shim and feed the scheduler the real audio
+// sample count via `setSampleClockFn`.
+uint32_t PatternScheduler::latchTickSample() {
+#ifdef SEEDBOX_HW
+  if (sampleClockFn_) {
+    latchedTickSample_ = sampleClockFn_();
+  }
+#else
+  sampleCursor_ += samplesPerTick_;
+  latchedTickSample_ = static_cast<uint32_t>(std::llround(sampleCursor_));
+#endif
+  return latchedTickSample_;
+}
+
+uint32_t PatternScheduler::nowSamples() const { return latchedTickSample_; }
 
 uint32_t PatternScheduler::msToSamples(float ms) {
   return Units::msToSamples(ms);
@@ -82,7 +108,7 @@ void PatternScheduler::onTick() {
   // Grab the transport timestamp once per scheduler tick so our simulated clock
   // advances even if every seed stays quiet. Future seeds that trigger on this
   // tick share the same anchor before jitter nudges them around.
-  const uint32_t tickSample = nowSamples();
+  const uint32_t tickSample = latchTickSample();
 
   // Seed lifecycle doctrine, MOARkNOBS style:
   // 1) PICK: this scheduler is the authority — we march through seeds_ in
