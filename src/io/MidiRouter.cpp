@@ -120,20 +120,28 @@ void MidiRouter::onStop() {
 }
 
 void MidiRouter::handleMn42ControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
-  (void)ch;
-  (void)cc;
-  (void)val;
+  const bool isMn42Handshake =
+      (ch == seedbox::interop::mn42::kDefaultChannel &&
+       cc == seedbox::interop::mn42::cc::kHandshake);
+
+  if (isMn42Handshake && val == seedbox::interop::mn42::handshake::kHello) {
+    // A fresh HELLO means the controller wants to restart the handshake.
+    // Drop the ACK flag so the next branch re-sends a greeting instead of
+    // assuming the previous session is still alive.
+    mn42AckSent_ = false;
+  }
+
 #ifdef SEEDBOX_HW
   if constexpr (SeedBoxConfig::kQuietMode) {
     return;
   }
+#endif
+
+  if (!isMn42Handshake) {
+    return;
+  }
+
   using namespace seedbox::interop::mn42;
-  if (ch != kDefaultChannel) {
-    return;
-  }
-  if (cc != cc::kHandshake) {
-    return;
-  }
   if (val == handshake::kHello) {
     mn42HelloSeen_ = true;
     mn42LastKeepAliveMs_ = nowMs();
@@ -143,7 +151,6 @@ void MidiRouter::handleMn42ControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
   } else if (val == handshake::kKeepAlive) {
     mn42LastKeepAliveMs_ = nowMs();
   }
-#endif
 }
 
 void MidiRouter::sendMn42Handshake(uint8_t value) {
@@ -153,12 +160,13 @@ void MidiRouter::sendMn42Handshake(uint8_t value) {
   }
   usbMIDI.sendControlChange(seedbox::interop::mn42::cc::kHandshake, value,
                             seedbox::interop::mn42::kDefaultChannel + 1);
+#endif
   if (value == seedbox::interop::mn42::handshake::kAck ||
       value == seedbox::interop::mn42::handshake::kKeepAlive) {
     mn42AckSent_ = true;
     mn42LastKeepAliveMs_ = nowMs();
   }
-#else
+#ifndef SEEDBOX_HW
   (void)value;
 #endif
 }
