@@ -25,12 +25,10 @@ inline uint32_t msToSamples(float ms) {
 // Simulated transport clock.
 // -------------------------
 // On real hardware we ask the PatternScheduler for "now" by peeking at the
-// Teensy audio callback.  The simulator does not have that luxury, so we keep a
-// monotonic counter that advances by a fixed amount every tick.  200 samples at
-// 48 kHz is roughly 4.16 ms — close enough to drive tests while remaining easy
-// to reason about on a whiteboard. `simAdvanceTickSamples` bumps the counter
-// while `simNowSamples` lets callers peek at the latched value. Tests can call
-// `simResetSamples` to keep scenarios deterministic.
+// Teensy audio callback.  The simulator previously faked this with a fixed
+// 200-sample step, but the scheduler now owns a BPM-aware cursor.  These helpers
+// stick around for older tests that still want direct control over the mock
+// clock.
 #ifndef SEEDBOX_HW
   inline constexpr uint32_t kSimTickSamples = 200; // ~4 ms at 48k per scheduler tick
 
