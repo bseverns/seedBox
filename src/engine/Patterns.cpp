@@ -9,8 +9,13 @@
 // of the groove machine it's touching. Students can trace the timeline by
 // following the call sites in AppState.
 
-PatternScheduler::PatternScheduler()
-    : samplesPerTick_(samplesPerTickForBpm(bpm_)), sampleCursor_(0.0) {}
+PatternScheduler::PatternScheduler() {
+  samplesPerTick_ = samplesPerTickForBpm(bpm_);
+#ifndef SEEDBOX_HW
+  sampleCursorSamples_ = 0;
+  sampleCursorRemainder_ = 0.0;
+#endif
+}
 
 // Set the global tempo. We leave the unit intentionally boring (BPM) so the
 // teaching demo can focus on density/probability instead of fancy transport
@@ -89,7 +94,11 @@ uint32_t PatternScheduler::nowSamples() {
 #ifdef SEEDBOX_HW
   return Units::simNowSamples();
 #else
-  return static_cast<uint32_t>(std::llround(sampleCursor_));
+  // Compose the integer cursor with the fractional remainder so callers see
+  // the same sub-sample aware timeline the tests reason about.
+  const double totalSamples =
+      static_cast<double>(sampleCursorSamples_) + sampleCursorRemainder_;
+  return static_cast<uint32_t>(std::llround(totalSamples));
 #endif
 }
 
@@ -143,6 +152,9 @@ void PatternScheduler::onTick() {
   }
   ++tickCount_;
 #ifndef SEEDBOX_HW
-  sampleCursor_ += samplesPerTick_;
+  double integral = 0.0;
+  sampleCursorRemainder_ =
+      std::modf(sampleCursorRemainder_ + samplesPerTick_, &integral);
+  sampleCursorSamples_ += static_cast<uint64_t>(integral);
 #endif
 }

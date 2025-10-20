@@ -133,3 +133,34 @@ void test_bpm_drives_sample_cursor() {
   TEST_ASSERT_EQUAL_UINT32(0u, static_cast<uint32_t>(silentHits120.size()));
   TEST_ASSERT_EQUAL_UINT32(0u, static_cast<uint32_t>(silentHits60.size()));
 }
+
+void test_fractional_bpm_carries_fractional_samples() {
+  constexpr float kBpm = 127.5f;
+  constexpr int kBeatsToSimulate = 12;
+  const std::vector<Hit> hits = runSchedulerForBpm(kBpm, kBeatsToSimulate);
+
+  const std::vector<uint32_t> onBeat = hitsForSeed(hits, 1u);
+  TEST_ASSERT_EQUAL_UINT32(kBeatsToSimulate,
+                           static_cast<uint32_t>(onBeat.size()));
+
+  TEST_ASSERT_TRUE(onBeat.size() > 2u);
+
+  const double expectedDelta =
+      (60.0 / static_cast<double>(kBpm)) * static_cast<double>(Units::kSampleRate);
+
+  bool sawVariation = false;
+  uint32_t previousDelta = 0u;
+  for (std::size_t i = 1; i < onBeat.size(); ++i) {
+    const uint32_t delta = onBeat[i] - onBeat[i - 1];
+    const double diff = std::fabs(static_cast<double>(delta) - expectedDelta);
+    TEST_ASSERT_TRUE(diff <= 1.0);
+    if (i == 1) {
+      previousDelta = delta;
+    } else if (delta != previousDelta) {
+      sawVariation = true;
+    }
+  }
+
+  TEST_ASSERT_TRUE_MESSAGE(sawVariation,
+                           "Fractional BPM should distribute rounding jitter");
+}

@@ -149,7 +149,10 @@ or fixes for flaky USB hubs.
    different BPM values. Record how the scheduler's tick counter behaves *and*
    confirm the `whenSamples` delta lines up with `60 / bpm * sampleRate`. Drop
    the plots (and any timing notes) into the repo's `/docs/labs/` folder (create
-   it when you have data).
+   it when you have data). Fractional tempos will deliberately bounce between
+   adjacent sample counts because the scheduler keeps a sub-sample remainder —
+   note the rounding pattern in your lab log so classmates don't assume it's
+   drift.
 2. **Reseed rituals**: Modify the test suite to reseed mid-pattern and track the
    deterministic output. Teach classmates how to prove the system is stable.
 3. **Hardware smoke test**: Build a checklist that walks through power-up,

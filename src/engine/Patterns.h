@@ -53,7 +53,14 @@ private:
   uint64_t tickCount_{0};
   float bpm_{120.f};
   double samplesPerTick_{0.0};
-  double sampleCursor_{0.0};
+#ifndef SEEDBOX_HW
+  // Native builds own a running sample cursor so tests can poke tempo math
+  // without wiring up the audio backend. We keep the integer portion separate
+  // from the sub-sample remainder so fractional BPM values distribute rounding
+  // jitter deterministically instead of accumulating drift.
+  uint64_t sampleCursorSamples_{0};
+  double sampleCursorRemainder_{0.0};
+#endif
   void* triggerCtx_{nullptr};
   void (*triggerFn_)(void*, const Seed&, uint32_t){nullptr};
 };
