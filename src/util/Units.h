@@ -28,15 +28,36 @@ inline uint32_t msToSamples(float ms) {
 // Teensy audio callback.  The simulator does not have that luxury, so we keep a
 // monotonic counter that advances by a fixed amount every tick.  200 samples at
 // 48 kHz is roughly 4.16 ms — close enough to drive tests while remaining easy
-// to reason about on a whiteboard.
+// to reason about on a whiteboard. `simAdvanceTickSamples` bumps the counter
+// while `simNowSamples` lets callers peek at the latched value. Tests can call
+// `simResetSamples` to keep scenarios deterministic.
 #ifndef SEEDBOX_HW
-inline uint32_t simNowSamples() {
-  static uint32_t acc = 0;
-  acc += 200; // ~200 samples per tick placeholder (~4 ms at 48k)
-  return acc;
-}
+  inline constexpr uint32_t kSimTickSamples = 200; // ~4 ms at 48k per scheduler tick
+
+  namespace detail {
+    inline uint32_t& simSampleCounter() {
+      static uint32_t acc = 0;
+      return acc;
+    }
+  }  // namespace detail
+
+  inline uint32_t simNowSamples() {
+    return detail::simSampleCounter();
+  }
+
+  inline uint32_t simAdvanceTickSamples() {
+    uint32_t& acc = detail::simSampleCounter();
+    acc += kSimTickSamples;
+    return acc;
+  }
+
+  inline void simResetSamples(uint32_t value = 0) {
+    detail::simSampleCounter() = value;
+  }
 #else
-inline uint32_t simNowSamples() { return 0; }
+  inline uint32_t simNowSamples() { return 0; }
+  inline uint32_t simAdvanceTickSamples() { return 0; }
+  inline void simResetSamples(uint32_t = 0) {}
 #endif
 
 } // namespace Units

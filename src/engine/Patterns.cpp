@@ -67,11 +67,11 @@ bool PatternScheduler::densityGate(std::size_t seedIndex, float density) {
 }
 
 // Utility conversions keep the scheduling math agnostic from whether we're in
-// sim or hardware land. Units::simNowSamples and Units::msToSamples hide the
-// platform specifics so lectures can focus on timing concepts instead of
+// sim or hardware land. Units::simAdvanceTickSamples and Units::msToSamples hide
+// the platform specifics so lectures can focus on timing concepts instead of
 // transport glue.
 uint32_t PatternScheduler::nowSamples() {
-  return Units::simNowSamples();
+  return Units::simAdvanceTickSamples();
 }
 
 uint32_t PatternScheduler::msToSamples(float ms) {
@@ -79,6 +79,11 @@ uint32_t PatternScheduler::msToSamples(float ms) {
 }
 
 void PatternScheduler::onTick() {
+  // Grab the transport timestamp once per scheduler tick so our simulated clock
+  // advances even if every seed stays quiet. Future seeds that trigger on this
+  // tick share the same anchor before jitter nudges them around.
+  const uint32_t tickSample = nowSamples();
+
   // Seed lifecycle doctrine, MOARkNOBS style:
   // 1) PICK: this scheduler is the authority — we march through seeds_ in
   //    their programmed order every 24 PPQN tick and let densityGate decide if
@@ -100,7 +105,7 @@ void PatternScheduler::onTick() {
     if (densityGate(i, s.density)) {
       // probability gate
       if (RNG::uniform01(s.prng) < s.probability) {
-        const uint32_t baseSamples = nowSamples();
+        const uint32_t baseSamples = tickSample;
         int32_t jitterSamples = 0;
         if (s.jitterMs != 0.f) {
           const float jitterMs = RNG::uniformSigned(s.prng) * s.jitterMs;
