@@ -1,3 +1,17 @@
+//
+// Resonator voice pool smoke tests — a mini field trip through the roadmap notes.
+//  * test_resonator_maps_seed_into_voice_plan shows how a seed gets translated into
+//    a full voice recipe, so you can cross-check every formula against docs/roadmaps/resonator.md.
+//  * test_resonator_voice_stealing_by_start_then_handle flexes the deterministic
+//    voice-stealing strategy, making sure our scheduling logic behaves exactly as
+//    described in the design doc.
+//  * test_resonator_preset_lookup_guards_index keeps the preset guard rails up so
+//    we never crash the party by indexing past the curated modes.
+//
+// The helper makeSeed deliberately mirrors the fields charted in the roadmap so
+// students tweaking parameters have an obvious breadcrumb trail between the code
+// and the theory — punk-rock pedagogy with a safety net.
+//
 #include <algorithm>
 #include <array>
 #include <cmath>
