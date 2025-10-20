@@ -133,7 +133,7 @@ to this table. Future students can replay your steps.
   with `MidiRouter::debugDump()`. Compare USB vs. TRS feeds.
 - **Seed chaos**: When triggers look random, print the seed table via
   `SeedTable::debugDescribe()` to confirm reseed order.
-- **Audio silence**: The Sampler and Granular engines are still stubs. Confirm
+- **Audio silence**: The Sampler and Granular engines are works in progress. Confirm
   the scheduler is firing by watching the OLED snapshots before hunting in DSP
   code.
 - **Native vs. hardware mismatches**: Wrap hardware-only includes with
