@@ -92,6 +92,10 @@ void GranularEngine::init(Mode mode) {
   sdClips_[0].path = "live-in";
   sdClips_[0].handle = 0;
 
+#ifndef SEEDBOX_HW
+  simHwVoices_.fill(SimHardwareVoice{});
+#endif
+
 #ifdef SEEDBOX_HW
   patchCables_.clear();
 
@@ -274,11 +278,11 @@ void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
 
 #ifdef SEEDBOX_HW
   auto& hw = hwVoices_[index];
+  hw.sdPlayer.stop();
   hw.sourceMixer.gain(0, voice.source == Source::kLiveInput ? 1.0f : 0.0f);
   hw.sourceMixer.gain(1, voice.source == Source::kSdClip ? 1.0f : 0.0f);
 
   if (voice.source == Source::kSdClip && voice.sourcePath != nullptr) {
-    hw.sdPlayer.stop();
     hw.sdPlayer.play(voice.sourcePath);
   }
 
@@ -292,7 +296,17 @@ void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
   voiceMixerLeft_[group].gain(slot, voice.leftGain);
   voiceMixerRight_[group].gain(slot, voice.rightGain);
 #else
-  (void)index;
+  auto& sim = simHwVoices_[index];
+  sim.sdPlayerStopCalled = true;
+  sim.sdPlayerPlayCalled = false;
+  sim.sdPlayerPlaying = false;
+  sim.lastPlayPath = nullptr;
+
+  if (voice.source == Source::kSdClip && voice.sourcePath != nullptr) {
+    sim.sdPlayerPlayCalled = true;
+    sim.sdPlayerPlaying = true;
+    sim.lastPlayPath = voice.sourcePath;
+  }
 #endif
 }
 
@@ -307,3 +321,12 @@ void GranularEngine::trigger(const Seed& seed, uint32_t whenSamples) {
   // planned grain into something that will eventually make sound.
   mapGrainToGraph(voiceIndex, voices_[voiceIndex]);
 }
+
+#ifndef SEEDBOX_HW
+GranularEngine::SimHardwareVoice GranularEngine::simHardwareVoice(uint8_t index) const {
+  if (index >= simHwVoices_.size()) {
+    return SimHardwareVoice{};
+  }
+  return simHwVoices_[index];
+}
+#endif
