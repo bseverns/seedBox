@@ -135,10 +135,13 @@ void MidiRouter::handleMn42ControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
   if constexpr (SeedBoxConfig::kQuietMode) {
     return;
   }
-  using namespace seedbox::interop::mn42;
+#endif
+
   if (!isMn42Handshake) {
     return;
   }
+
+  using namespace seedbox::interop::mn42;
   if (val == handshake::kHello) {
     mn42HelloSeen_ = true;
     mn42LastKeepAliveMs_ = nowMs();
@@ -148,7 +151,6 @@ void MidiRouter::handleMn42ControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
   } else if (val == handshake::kKeepAlive) {
     mn42LastKeepAliveMs_ = nowMs();
   }
-#endif
 }
 
 void MidiRouter::sendMn42Handshake(uint8_t value) {
