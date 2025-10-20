@@ -82,3 +82,22 @@ void test_granular_clamps_zero_cap() {
   TEST_ASSERT_EQUAL_UINT16(0, state.sourceHandle);
   TEST_ASSERT_NOT_NULL(state.sourcePath);
 }
+
+void test_granular_stops_sd_player_when_slot_missing() {
+#ifdef SEEDBOX_HW
+  TEST_IGNORE_MESSAGE("Simulated hardware helpers only exist in the native build");
+#else
+  GranularEngine engine;
+  engine.init(GranularEngine::Mode::kSim);
+
+  const uint32_t when = 1024u;
+  const Seed seed = makeSeed(42, 0.0f, 0.0f, 0.1f, GranularEngine::Source::kSdClip, 7);
+  engine.trigger(seed, when);
+
+  const auto simState = engine.simHardwareVoice(0);
+  TEST_ASSERT_TRUE_MESSAGE(simState.sdPlayerStopCalled, "Hardware sim should always stop the SD player before mapping a grain");
+  TEST_ASSERT_FALSE(simState.sdPlayerPlaying);
+  TEST_ASSERT_FALSE(simState.sdPlayerPlayCalled);
+  TEST_ASSERT_NULL(simState.lastPlayPath);
+#endif
+}

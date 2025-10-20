@@ -46,6 +46,17 @@ public:
   GrainVoice voice(uint8_t index) const;
   Mode mode() const { return mode_; }
 
+#ifndef SEEDBOX_HW
+  struct SimHardwareVoice {
+    bool sdPlayerStopCalled{false};
+    bool sdPlayerPlayCalled{false};
+    bool sdPlayerPlaying{false};
+    const char* lastPlayPath{nullptr};
+  };
+
+  SimHardwareVoice simHardwareVoice(uint8_t index) const;
+#endif
+
   static constexpr uint8_t kVoicePoolSize = 40;
   static constexpr uint8_t kSdClipSlots = 8;
 
@@ -96,5 +107,7 @@ private:
   AudioMixer4 finalMixRight_{};
   AudioOutputI2S output_{};
   std::vector<std::unique_ptr<AudioConnection>> patchCables_{};
+#else
+  std::array<SimHardwareVoice, kVoicePoolSize> simHwVoices_{};
 #endif
 };
