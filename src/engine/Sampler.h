@@ -45,8 +45,9 @@ public:
     } envelope;
     // "Tilt" tone control — 0.0f is dark, 1.0f is bright.
     float tone{0.5f};
-    // 0.0f = mono, 1.0f = hard left/right pan. We store the raw 0-1 and the
-    // derived gains for clarity when inspecting state dumps.
+    // 0.0f = mono center, 1.0f = hard-pan width (right-lean until pan polarity
+    // modulators show up). We store the raw 0-1 and the derived gains for
+    // clarity when inspecting state dumps.
     float spread{0.0f};
     // true => voice is streaming from SD instead of the RAM preload bucket.
     bool usesSdStreaming{false};

@@ -31,7 +31,7 @@ without juggling table indices.
 | `Seed::granular.grainSizeMs` | Envelope length target for each grain. |
 | `Seed::granular.sprayMs` | Random offset per grain. RNG stays deterministic via the seed PRNG. |
 | `Seed::granular.windowSkew` | Morphs between saw / Hann / exponential windows. Stored for the future DSP nodes. |
-| `Seed::granular.stereoSpread` | Mid/side balance per grain. |
+| `Seed::granular.stereoSpread` | Stereo width per grain (0 = mono center, 1 = hard-pan lean until we wire a polarity mod). |
 | `Seed::granular.source` & `sdSlot` | Pick live input vs SD clip. |
 
 Mutate logic will eventually perturb these fields with bounded random walks
