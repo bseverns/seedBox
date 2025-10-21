@@ -32,6 +32,12 @@ reshaping the app.
 - Each voice stores frequency, damping, brightness, feedback, and bank/mode so
   we can swap DSP topologies later without touching the scheduler.
 
+Want receipts? `test/test_engine/test_resonator_voice_pool.cpp` is our gritty
+tour guide. Those assertions cross-check the seed→voice handoff, make sure the
+modal frequency ratios land exactly where the atlas promises, and confirm we
+steal voices FIFO-style when the pool gets slammed. Crack it open while you read
+this section and you can watch the pool choreography line up point-for-point.
+
 ## Seed genome mapping
 
 | Seed field | How it's used |
@@ -66,6 +72,12 @@ can hear material changes the moment they wire in DSP assets:
 4. Teensy Audio graph already exists: the trigger call writes those plans into
    the burst envelope, delay line, and modal bank so hardware + sim share the
    exact same control story.
+
+Double-dip on the signal flow by pairing this map with
+`test/test_engine/test_resonator_voice_pool.cpp`. The test walks the same event
+path, flagging any mismatch between seeded modal ratios, FIFO voice steals, and
+what the pool actually emits. It's basically an oscilloscope made out of
+asserts.
 
 ## Remaining homework
 
