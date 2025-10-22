@@ -1,3 +1,9 @@
+// This suite mirrors the MN42 handshake/mode contract so we can spot drift the
+// moment someone bumps the CC map.  For the full table (and bigger-picture
+// narrative), hit docs/interop_mn42.md.  Headline constants: cc::kHandshake
+// (14), cc::kMode (15), and cc::kTransportGate (17) should line up with the
+// firmware's story.
+
 #include <unity.h>
 #include "app/AppState.h"
 #include "interop/mn42_map.h"
