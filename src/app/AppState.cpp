@@ -250,11 +250,13 @@ void AppState::onExternalClockTick() {
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   const bool wasDominant = externalClockDominant_;
+#endif
   externalTransportRunning_ = true;
   updateClockDominance();
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
-  if (!wasDominant) {
+  if (!wasDominant && externalClockDominant_) {
     Serial.println(F("external clock: TRS/USB seized transport"));
   }
 #endif
@@ -262,28 +264,32 @@ void AppState::onExternalClockTick() {
 }
 
 void AppState::onExternalTransportStart() {
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   const bool wasDominant = externalClockDominant_;
+#endif
   externalTransportRunning_ = true;
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = true;
   }
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
-  if (!wasDominant) {
+  if (!wasDominant && externalClockDominant_) {
     Serial.println(F("external clock: transport START"));
   }
 #endif
 }
 
 void AppState::onExternalTransportStop() {
+#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   const bool wasDominant = externalClockDominant_;
+#endif
   externalTransportRunning_ = false;
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = false;
   }
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
-  if (wasDominant) {
+  if (wasDominant && !externalClockDominant_) {
     Serial.println(F("external clock: transport STOP"));
   }
 #endif
