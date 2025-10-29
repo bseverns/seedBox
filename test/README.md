@@ -12,7 +12,7 @@ flowchart TD
   Cases --> Golden{ENABLE_GOLDEN?}
   Patterns --> Golden
   Engines --> Golden
-  Golden -->|yes| Artifacts[/artifacts/ (gitignored)/]
+  Golden -->|yes| Artifacts["/artifacts/ (gitignored)/"]
   Golden -->|no| Console["Logs + assertions"]
 ```
 
