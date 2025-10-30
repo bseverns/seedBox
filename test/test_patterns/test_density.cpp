@@ -11,10 +11,15 @@
  * students can map each assertion back to the scheduler flow in src/engine/Patterns.cpp without
  * needing a decoder ring.
  */
+#ifndef ENABLE_GOLDEN
+#define ENABLE_GOLDEN 1
+#endif
+
 #include <unity.h>
 #include <cmath>
 #include <vector>
 #include "engine/Patterns.h"
+#include "app/Clock.h"
 #include "Seed.h"
 #include "util/Units.h"
 
@@ -114,7 +119,8 @@ void test_scheduler_counts_silent_ticks() {
 
 void test_scheduler_bpm_modulates_when_samples() {
   auto runScenario = [](float bpm) {
-    PatternScheduler ps;
+    InternalClock clock;
+    PatternScheduler ps(&clock);
     ps.setBpm(bpm);
     TimelineCapture capture;
     ps.setTriggerCallback(&capture, recordStartSamples);
@@ -128,7 +134,7 @@ void test_scheduler_bpm_modulates_when_samples() {
 
     const int ticksToSimulate = 24 * 32; // 32 beats keeps the RNG story stable.
     for (int i = 0; i < ticksToSimulate; ++i) {
-      ps.onTick();
+      clock.onTick();
     }
     return capture;
   };
@@ -149,4 +155,42 @@ void test_scheduler_bpm_modulates_when_samples() {
   const double fastBeatSamples = (60.0 / fastBpm) * static_cast<double>(Units::kSampleRate);
   TEST_ASSERT_EQUAL_UINT32(static_cast<uint32_t>(std::llround(slowBeatSamples)), slowDelta);
   TEST_ASSERT_EQUAL_UINT32(static_cast<uint32_t>(std::llround(fastBeatSamples)), fastDelta);
+}
+
+void test_clock_tick_log_tracks_swing() {
+  {
+    InternalClock clock;
+    PatternScheduler straight(&clock);
+    straight.clearTickLog();
+    const int ticks = 4;
+    for (int i = 0; i < ticks; ++i) {
+      clock.onTick();
+    }
+    const auto& log = straight.tickLog();
+    TEST_ASSERT_EQUAL_UINT32(ticks, log.size());
+    TEST_ASSERT_EQUAL_UINT32(1000u, log[0]);
+    for (std::size_t i = 1; i < log.size(); ++i) {
+      TEST_ASSERT_EQUAL_UINT32(1000u, log[i] - log[i - 1]);
+    }
+  }
+
+  {
+    InternalClock clock;
+    clock.setSwing(0.3f);
+    PatternScheduler swung(&clock);
+    swung.clearTickLog();
+    const int ticks = 24;
+    for (int i = 0; i < ticks; ++i) {
+      clock.onTick();
+    }
+    const auto& log = swung.tickLog();
+    TEST_ASSERT_EQUAL_UINT32(ticks, log.size());
+    TEST_ASSERT_EQUAL_UINT32(1100u, log[0]);
+    for (std::size_t i = 1; i < 12 && i < log.size(); ++i) {
+      TEST_ASSERT_EQUAL_UINT32(1100u, log[i] - log[i - 1]);
+    }
+    for (std::size_t i = 12; i < log.size(); ++i) {
+      TEST_ASSERT_EQUAL_UINT32(900u, log[i] - log[i - 1]);
+    }
+  }
 }
