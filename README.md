@@ -24,11 +24,11 @@ engines, reseed algorithms, or display sketches without needing a soldered rig.
 
 ```mermaid
 flowchart LR
-  Repo[(Repo root)] --> Docs["docs/\nstoryboards"]
-  Repo --> Source["src/\nengines"]
-  Repo --> Include["include/\ncontracts"]
-  Repo --> Tests["test/\ntruth serum"]
-  Repo --> Scripts["scripts/\npit crew"]
+  Repo[(Repo root)] --> Docs["docs/ \n storyboards"]
+  Repo --> Source["src/ \n engines"]
+  Repo --> Include["include/ \n contracts"]
+  Repo --> Tests["test/ \n truth serum"]
+  Repo --> Scripts["scripts/ \n pit crew"]
   Tests -->|golden logs| Artifacts["artifacts/ (ignored)"]
   Source -->|renders| Out["out/ (ignored)"]
 ```
