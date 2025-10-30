@@ -232,7 +232,11 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
     seedEngineSelections_.clear();
     setFocusSeed(0);
-    seedsPrimed_ = false;
+    // Quiet mode is a one-shot reset: once the mute scaffold is built we want
+    // tick() to stop cycling back through primeSeeds().  Mark the table as
+    // primed so followExternalClockEnabled() and friends keep whatever state
+    // the tests (or a teacher) dial in afterwards.
+    seedsPrimed_ = true;
     externalTransportRunning_ = false;
     transportLatchedRunning_ = false;
     transportGateHeld_ = false;
