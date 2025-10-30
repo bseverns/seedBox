@@ -234,13 +234,13 @@ void ResonatorBank::trigger(const Seed& seed, uint32_t whenSamples) {
   if (maxVoices_ == 0) {
     return;
   }
-  const uint8_t index = allocateVoice();
-  VoiceInternal& voiceSlot = voices_[index];
+  const uint8_t voiceIndex = allocateVoice();
+  VoiceInternal& voiceSlot = voices_[voiceIndex];
 
   planExcitation(voiceSlot, seed, whenSamples);
   // Once the plan is ready, map it onto either the Teensy audio nodes or the
   // simulator mirrors so downstream tests can inspect state.
-  mapVoiceToGraph(index, voiceSlot);
+  mapVoiceToGraph(voiceIndex, voiceSlot);
 }
 
 const char* ResonatorBank::presetName(uint8_t bank) const {
@@ -276,9 +276,9 @@ ResonatorBank::VoiceState ResonatorBank::voice(uint8_t index) const {
   return out;
 }
 
-void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voicePlan) {
+void ResonatorBank::mapVoiceToGraph(uint8_t voiceIndex, VoiceInternal& voicePlan) {
 #ifdef SEEDBOX_HW
-  auto &hwVoice = hwVoices_[index];
+  auto &hwVoice = hwVoices_[voiceIndex];
 
   hwVoice.burstEnv.attack(voicePlan.burstMs);
   hwVoice.burstEnv.decay(std::max(1.0f, voicePlan.burstMs * 0.5f));
@@ -304,15 +304,15 @@ void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voicePlan) {
 
   const float left = std::sqrt(0.5f);
   const float right = std::sqrt(0.5f);
-  const uint8_t group = static_cast<uint8_t>(index / kMixerFanIn);
-  const uint8_t slot = static_cast<uint8_t>(index % kMixerFanIn);
+  const uint8_t group = static_cast<uint8_t>(voiceIndex / kMixerFanIn);
+  const uint8_t slot = static_cast<uint8_t>(voiceIndex % kMixerFanIn);
   voiceMixerLeft_[group].gain(slot, left * voicePlan.burstGain);
   voiceMixerRight_[group].gain(slot, right * voicePlan.burstGain);
 
   hwVoice.burstNoise.amplitude(voicePlan.burstGain);
   hwVoice.burstEnv.noteOn();
 #else
-  (void)index;
+  (void)voiceIndex;
   (void)voicePlan;
 #endif
 }
