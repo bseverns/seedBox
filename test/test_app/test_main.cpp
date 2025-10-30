@@ -8,6 +8,7 @@ void test_mn42_debug_meter_toggle();
 void test_mn42_transport_latch_behavior();
 void test_mn42_usb_channel_normalization();
 void test_mn42_hello_resends_ack();
+void test_simulator_audio_reports_48k();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -19,5 +20,6 @@ int main(int, char**) {
   RUN_TEST(test_mn42_transport_latch_behavior);
   RUN_TEST(test_mn42_usb_channel_normalization);
   RUN_TEST(test_mn42_hello_resends_ack);
+  RUN_TEST(test_simulator_audio_reports_48k);
   return UNITY_END();
 }

@@ -51,7 +51,7 @@ current block. Fill them with samples in **[-1, 1]**. The call happens on:
 | Build        | Sample rate             | Frames per block                           | Notes |
 | ------------ | ----------------------- | ------------------------------------------ | ----- |
 | Teensy (`SEEDBOX_HW`) | `AUDIO_SAMPLE_RATE_EXACT` (44.1-ish kHz) | `AUDIO_BLOCK_SAMPLES` (128 frames) | Update fires from the audio interrupt. Budget microseconds, not milliseconds. |
-| Native       | Defaults to 44.1 kHz (tweak with `mockSetSampleRate`) | Defaults to 128 (override per pump call) | Invoke `mockPump` manually in tests to simulate time advancing. |
+| Native       | Defaults to 48 kHz (tweak with `mockSetSampleRate`) | Defaults to 128 (override per pump call) | Invoke `mockPump` manually in tests to simulate time advancing. |
 
 **Rule of thumb:** Do your DSP math and bail. Any heavy lifting or allocation should be
 moved out of the callback and fed through lock-free queues if needed.

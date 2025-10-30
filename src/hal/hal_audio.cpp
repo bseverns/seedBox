@@ -8,6 +8,8 @@
 #include <atomic>
 #include <vector>
 
+#include "util/Units.h"
+
 #ifdef SEEDBOX_HW
 #include <Arduino.h>
 #include <AudioStream.h>
@@ -20,7 +22,7 @@ namespace {
 Callback g_callback = nullptr;
 void *g_user_data = nullptr;
 bool g_running = false;
-float g_sample_rate = 44100.0f;
+float g_sample_rate = Units::kSampleRate;
 std::size_t g_frames_per_block = 64;
 std::atomic<uint32_t> g_sample_clock{0};
 
@@ -93,6 +95,9 @@ void init(Callback callback, void *user_data) {
   g_frames_per_block = AUDIO_BLOCK_SAMPLES;
   (void)streamInstance();
 #else
+  // Simulator: lock the default sample rate to our canonical 48 kHz so tempo
+  // math stays clean and matches the Units helpers used across the codebase.
+  g_sample_rate = Units::kSampleRate;
   g_frames_per_block = 128;
 #endif
 }

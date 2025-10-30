@@ -8,7 +8,7 @@ namespace golden {
 
 struct WavWriteRequest {
     std::string path;
-    uint32_t sample_rate_hz = 44100;
+    uint32_t sample_rate_hz = 48000;
     std::vector<int16_t> samples;
 };
 
