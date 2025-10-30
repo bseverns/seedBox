@@ -60,51 +60,49 @@ void ResonatorBank::init(Mode mode) {
   nextHandle_ = 1;
   presets_ = kDefaultPresets;
 
-  for (auto &v : voices_) {
-    v = VoiceInternal{};
-  }
+  voices_.fill(VoiceInternal{});
 
 #ifdef SEEDBOX_HW
   patchCables_.clear();
 
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
-    auto &hw = hwVoices_[i];
+    auto &hwVoice = hwVoices_[i];
 
-    hw.burstEnv.attack(0.25f);
-    hw.burstEnv.decay(3.0f);
-    hw.burstEnv.sustain(0.0f);
-    hw.burstEnv.release(2.0f);
+    hwVoice.burstEnv.attack(0.25f);
+    hwVoice.burstEnv.decay(3.0f);
+    hwVoice.burstEnv.sustain(0.0f);
+    hwVoice.burstEnv.release(2.0f);
 
-    hw.brightnessFilter.frequency(4000.0f);
-    hw.brightnessFilter.resonance(0.7f);
+    hwVoice.brightnessFilter.frequency(4000.0f);
+    hwVoice.brightnessFilter.resonance(0.7f);
 
-    hw.stringDelay.delay(0, 10.0f);
+    hwVoice.stringDelay.delay(0, 10.0f);
 
-    for (uint8_t m = 0; m < hw.modalFilters.size(); ++m) {
-      hw.modalFilters[m].setBandpass(0, 800.0f + 200.0f * m, 1.4f);
-      hw.modalMix.gain(m, 0.0f);
+    for (uint8_t m = 0; m < hwVoice.modalFilters.size(); ++m) {
+      hwVoice.modalFilters[m].setBandpass(0, 800.0f + 200.0f * m, 1.4f);
+      hwVoice.modalMix.gain(m, 0.0f);
     }
 
-    hw.mix.gain(0, 0.0f);
-    hw.mix.gain(1, 0.0f);
+    hwVoice.mix.gain(0, 0.0f);
+    hwVoice.mix.gain(1, 0.0f);
 
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.burstNoise, 0, hw.burstEnv, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.burstEnv, 0, hw.brightnessFilter, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.brightnessFilter, 0, hw.stringDelay, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.stringDelay, 0, hw.mix, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.burstNoise, 0, hwVoice.burstEnv, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.burstEnv, 0, hwVoice.brightnessFilter, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.brightnessFilter, 0, hwVoice.stringDelay, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.stringDelay, 0, hwVoice.mix, 0));
 
-    for (uint8_t m = 0; m < hw.modalFilters.size(); ++m) {
-      patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.brightnessFilter, 0, hw.modalFilters[m], 0));
-      patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.modalFilters[m], 0, hw.modalMix, m));
+    for (uint8_t m = 0; m < hwVoice.modalFilters.size(); ++m) {
+      patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.brightnessFilter, 0, hwVoice.modalFilters[m], 0));
+      patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.modalFilters[m], 0, hwVoice.modalMix, m));
     }
 
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.modalMix, 0, hw.mix, 1));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.modalMix, 0, hwVoice.mix, 1));
 
     const uint8_t group = static_cast<uint8_t>(i / kMixerFanIn);
     const uint8_t slot = static_cast<uint8_t>(i % kMixerFanIn);
 
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.mix, 0, voiceMixerLeft_[group], slot));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.mix, 0, voiceMixerRight_[group], slot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.mix, 0, voiceMixerLeft_[group], slot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.mix, 0, voiceMixerRight_[group], slot));
 
     voiceMixerLeft_[group].gain(slot, 0.0f);
     voiceMixerRight_[group].gain(slot, 0.0f);
@@ -237,12 +235,12 @@ void ResonatorBank::trigger(const Seed& seed, uint32_t whenSamples) {
     return;
   }
   const uint8_t index = allocateVoice();
-  VoiceInternal& voice = voices_[index];
+  VoiceInternal& voiceSlot = voices_[index];
 
-  planExcitation(voice, seed, whenSamples);
+  planExcitation(voiceSlot, seed, whenSamples);
   // Once the plan is ready, map it onto either the Teensy audio nodes or the
   // simulator mirrors so downstream tests can inspect state.
-  mapVoiceToGraph(index, voice);
+  mapVoiceToGraph(index, voiceSlot);
 }
 
 const char* ResonatorBank::presetName(uint8_t bank) const {
@@ -278,44 +276,44 @@ ResonatorBank::VoiceState ResonatorBank::voice(uint8_t index) const {
   return out;
 }
 
-void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voice) {
+void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voicePlan) {
 #ifdef SEEDBOX_HW
-  auto &hw = hwVoices_[index];
+  auto &hwVoice = hwVoices_[index];
 
-  hw.burstEnv.attack(voice.burstMs);
-  hw.burstEnv.decay(std::max(1.0f, voice.burstMs * 0.5f));
-  hw.burstEnv.sustain(0.0f);
-  hw.burstEnv.release(std::max(1.0f, voice.burstMs));
+  hwVoice.burstEnv.attack(voicePlan.burstMs);
+  hwVoice.burstEnv.decay(std::max(1.0f, voicePlan.burstMs * 0.5f));
+  hwVoice.burstEnv.sustain(0.0f);
+  hwVoice.burstEnv.release(std::max(1.0f, voicePlan.burstMs));
 
-  const float tiltHz = lerp(700.0f, 6000.0f, voice.brightness);
-  hw.brightnessFilter.frequency(tiltHz);
-  hw.brightnessFilter.resonance(0.7f + 0.2f * (1.0f - voice.damping));
+  const float tiltHz = lerp(700.0f, 6000.0f, voicePlan.brightness);
+  hwVoice.brightnessFilter.frequency(tiltHz);
+  hwVoice.brightnessFilter.resonance(0.7f + 0.2f * (1.0f - voicePlan.damping));
 
-  const float delayMs = (voice.delaySamples / Units::kSampleRate) * 1000.0f;
-  hw.stringDelay.delay(0, std::max(0.1f, delayMs));
+  const float delayMs = (voicePlan.delaySamples / Units::kSampleRate) * 1000.0f;
+  hwVoice.stringDelay.delay(0, std::max(0.1f, delayMs));
 
-  for (uint8_t m = 0; m < hw.modalFilters.size(); ++m) {
-    const float freq = std::max(40.0f, voice.modalFrequencies[m]);
-    hw.modalFilters[m].setBandpass(0, freq, 1.2f);
-    hw.modalMix.gain(m, voice.modalGains[m]);
+  for (uint8_t m = 0; m < hwVoice.modalFilters.size(); ++m) {
+    const float freq = std::max(40.0f, voicePlan.modalFrequencies[m]);
+    hwVoice.modalFilters[m].setBandpass(0, freq, 1.2f);
+    hwVoice.modalMix.gain(m, voicePlan.modalGains[m]);
   }
 
-  const float sustainGain = lerp(0.1f, 0.95f, voice.feedback);
-  hw.mix.gain(0, sustainGain);
-  hw.mix.gain(1, lerp(0.4f, 1.0f, voice.brightness));
+  const float sustainGain = lerp(0.1f, 0.95f, voicePlan.feedback);
+  hwVoice.mix.gain(0, sustainGain);
+  hwVoice.mix.gain(1, lerp(0.4f, 1.0f, voicePlan.brightness));
 
   const float left = std::sqrt(0.5f);
   const float right = std::sqrt(0.5f);
   const uint8_t group = static_cast<uint8_t>(index / kMixerFanIn);
   const uint8_t slot = static_cast<uint8_t>(index % kMixerFanIn);
-  voiceMixerLeft_[group].gain(slot, left * voice.burstGain);
-  voiceMixerRight_[group].gain(slot, right * voice.burstGain);
+  voiceMixerLeft_[group].gain(slot, left * voicePlan.burstGain);
+  voiceMixerRight_[group].gain(slot, right * voicePlan.burstGain);
 
-  hw.burstNoise.amplitude(voice.burstGain);
-  hw.burstEnv.noteOn();
+  hwVoice.burstNoise.amplitude(voicePlan.burstGain);
+  hwVoice.burstEnv.noteOn();
 #else
   (void)index;
-  (void)voice;
+  (void)voicePlan;
 #endif
 }
 

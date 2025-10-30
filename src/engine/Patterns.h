@@ -14,37 +14,38 @@
 #include <cstdint>
 #include <cstddef>
 #include "Seed.h"
+#include "util/Annotations.h"
 
 class PatternScheduler {
 public:
   PatternScheduler();
   // Define the global tempo.  We keep the unit in BPM because it lines up with
   // the incoming MIDI clock rate.
-  void setBpm(float bpm);
+  SEEDBOX_MAYBE_UNUSED void setBpm(float bpm);
 
   // Hardware builds can feed us a real sample clock so the scheduler stays in
   // sync with the audio ISR.  Native builds leave this null and lean on the
   // internal cursor.
-  void setSampleClockFn(uint32_t (*fn)());
+  SEEDBOX_MAYBE_UNUSED void setSampleClockFn(uint32_t (*fn)());
 
   // Pulse this once per 24 PPQN tick.  Internally `onTick` checks density,
   // probability, jitter, and schedules engine triggers.
-  void onTick();
+  SEEDBOX_MAYBE_UNUSED void onTick();
 
   // Manage the scheduler's seed roster.  Seeds are stored by value so the
   // scheduler can mutate its own copies without racing callers.
-  void addSeed(const Seed& s);
-  bool updateSeed(std::size_t index, const Seed& s);
+  SEEDBOX_MAYBE_UNUSED void addSeed(const Seed& s);
+  SEEDBOX_MAYBE_UNUSED bool updateSeed(std::size_t index, const Seed& s);
 
   // Register a callback that will fire whenever a seed earns a trigger.  The
   // callback receives the sample timestamp so downstream code can render in
   // lockstep with the audio device.
-  void setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t));
+  SEEDBOX_MAYBE_UNUSED void setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t));
   uint64_t ticks() const { return tickCount_; }
 
   // Peek at the scheduler's internal copy of a seed for debugging / teaching.
   // Returns nullptr if you wander off the end of the list.
-  const Seed* seedForDebug(std::size_t index) const;
+  SEEDBOX_MAYBE_UNUSED const Seed* seedForDebug(std::size_t index) const;
 
 private:
   // Implementation helpers documented in Patterns.cpp.  We keep declarations
@@ -52,7 +53,7 @@ private:
   bool densityGate(std::size_t seedIndex, float density);
   void recalcSamplesPerTick();
   uint32_t latchTickSample();
-  uint32_t nowSamples() const;
+  SEEDBOX_MAYBE_UNUSED uint32_t nowSamples() const;
   uint32_t msToSamples(float ms);
 private:
   std::vector<Seed> seeds_;

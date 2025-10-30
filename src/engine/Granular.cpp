@@ -69,12 +69,8 @@ void GranularEngine::init(Mode mode) {
   mode_ = mode;
   maxActiveVoices_ = (mode == Mode::kHardware) ? 32 : 12;
   liveInputArmed_ = true;
-  for (auto &voice : voices_) {
-    voice = GrainVoice{};
-  }
-  for (auto &slot : sdClips_) {
-    slot = SourceSlot{};
-  }
+  voices_.fill(GrainVoice{});
+  sdClips_.fill(SourceSlot{});
   // Slot zero is a reserved label for "live input" so deterministic seeds can
   // reference it even though it never appears in the SD clip registry.
   sdClips_[0].inUse = true;
@@ -90,10 +86,10 @@ void GranularEngine::init(Mode mode) {
   patchCables_.clear();
 
   for (uint8_t i = 0; i < kVoicePoolSize; ++i) {
-    auto &hw = hwVoices_[i];
-    hw.sourceMixer.gain(0, 0.0f);
-    hw.sourceMixer.gain(1, 0.0f);
-    hw.granular.begin(hw.grainMemory, static_cast<int>(sizeof(hw.grainMemory) / sizeof(hw.grainMemory[0])));
+    auto &hwVoice = hwVoices_[i];
+    hwVoice.sourceMixer.gain(0, 0.0f);
+    hwVoice.sourceMixer.gain(1, 0.0f);
+    hwVoice.granular.begin(hwVoice.grainMemory, static_cast<int>(sizeof(hwVoice.grainMemory) / sizeof(hwVoice.grainMemory[0])));
 
     const uint8_t group = static_cast<uint8_t>(i / kMixerFanIn);
     const uint8_t slot = static_cast<uint8_t>(i % kMixerFanIn);
@@ -101,11 +97,11 @@ void GranularEngine::init(Mode mode) {
     voiceMixerLeft_[group].gain(slot, 0.0f);
     voiceMixerRight_[group].gain(slot, 0.0f);
 
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(liveInput_, 0, hw.sourceMixer, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sdPlayer, 0, hw.sourceMixer, 1));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sourceMixer, 0, hw.granular, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.granular, 0, voiceMixerLeft_[group], slot));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.granular, 0, voiceMixerRight_[group], slot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(liveInput_, 0, hwVoice.sourceMixer, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.sdPlayer, 0, hwVoice.sourceMixer, 1));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.sourceMixer, 0, hwVoice.granular, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.granular, 0, voiceMixerLeft_[group], slot));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.granular, 0, voiceMixerRight_[group], slot));
 
     voices_[i].dspHandle = i;
   }
@@ -261,30 +257,30 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
   voice.seedPrng = prng;
 }
 
-void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
-  const auto gains = stereo::constantPowerWidth(voice.stereoSpread);
-  voice.leftGain = gains.left;
-  voice.rightGain = gains.right;
+void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& grain) {
+  const auto gains = stereo::constantPowerWidth(grain.stereoSpread);
+  grain.leftGain = gains.left;
+  grain.rightGain = gains.right;
 
 #ifdef SEEDBOX_HW
-  auto& hw = hwVoices_[index];
-  hw.sdPlayer.stop();
-  hw.sourceMixer.gain(0, voice.source == Source::kLiveInput ? 1.0f : 0.0f);
-  hw.sourceMixer.gain(1, voice.source == Source::kSdClip ? 1.0f : 0.0f);
+  auto& hwVoice = hwVoices_[index];
+  hwVoice.sdPlayer.stop();
+  hwVoice.sourceMixer.gain(0, grain.source == Source::kLiveInput ? 1.0f : 0.0f);
+  hwVoice.sourceMixer.gain(1, grain.source == Source::kSdClip ? 1.0f : 0.0f);
 
-  if (voice.source == Source::kSdClip && voice.sourcePath != nullptr) {
-    hw.sdPlayer.play(voice.sourcePath);
+  if (grain.source == Source::kSdClip && grain.sourcePath != nullptr) {
+    hwVoice.sdPlayer.play(grain.sourcePath);
   }
 
-  hw.granular.setSpeed(voice.playbackRate);
-  const float grainLengthMs = std::max(1.0f, voice.sizeMs);
+  hwVoice.granular.setSpeed(grain.playbackRate);
+  const float grainLengthMs = std::max(1.0f, grain.sizeMs);
   const int grainLengthSamples = static_cast<int>(Units::msToSamples(grainLengthMs));
-  configureGranularWindow(hw.granular, voice.windowSkew, grainLengthMs, grainLengthSamples);
+  configureGranularWindow(hwVoice.granular, grain.windowSkew, grainLengthMs, grainLengthSamples);
 
   const uint8_t group = static_cast<uint8_t>(index / kMixerFanIn);
   const uint8_t slot = static_cast<uint8_t>(index % kMixerFanIn);
-  voiceMixerLeft_[group].gain(slot, voice.leftGain);
-  voiceMixerRight_[group].gain(slot, voice.rightGain);
+  voiceMixerLeft_[group].gain(slot, grain.leftGain);
+  voiceMixerRight_[group].gain(slot, grain.rightGain);
 #else
   auto& sim = simHwVoices_[index];
   sim.sdPlayerStopCalled = true;
@@ -292,10 +288,10 @@ void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& voice) {
   sim.sdPlayerPlaying = false;
   sim.lastPlayPath = nullptr;
 
-  if (voice.source == Source::kSdClip && voice.sourcePath != nullptr) {
+  if (grain.source == Source::kSdClip && grain.sourcePath != nullptr) {
     sim.sdPlayerPlayCalled = true;
     sim.sdPlayerPlaying = true;
-    sim.lastPlayPath = voice.sourcePath;
+    sim.lastPlayPath = grain.sourcePath;
   }
 #endif
 }

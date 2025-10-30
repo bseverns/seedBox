@@ -8,6 +8,7 @@
 // treat it like yet another callback-driven transport source.
 
 #include <cstdint>
+#include "util/Annotations.h"
 
 namespace hal {
 namespace midi {
@@ -22,9 +23,9 @@ struct Handlers {
 };
 
 // Boot the UART and install callbacks.
-void begin(const Handlers& handlers, void* user_data = nullptr);
+SEEDBOX_MAYBE_UNUSED void begin(const Handlers& handlers, void* user_data = nullptr);
 // Call this from loop() to slurp bytes and emit events.
-void poll();
+SEEDBOX_MAYBE_UNUSED void poll();
 
 }  // namespace serial7
 }  // namespace midi

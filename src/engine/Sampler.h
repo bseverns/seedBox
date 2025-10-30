@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include "HardwarePrelude.h"
+#include "util/Annotations.h"
 
 // Sampler owns a deterministic voice pool shared between hardware and the
 // native simulator. The intent: **any seed rendered in rehearsal behaves the
@@ -61,13 +62,13 @@ public:
   // Reserve a voice for the provided seed and schedule it to launch at
   // `whenSamples`. All pitch/envelope/tone settings get baked into the voice
   // record immediately.
-  void trigger(const Seed& s, uint32_t whenSamples);
+  SEEDBOX_MAYBE_UNUSED void trigger(const Seed& s, uint32_t whenSamples);
 
   // Count how many voices are flagged active. Handy for UI + tests.
   uint8_t activeVoices() const;
   // Introspect a specific voice slot. Out-of-range requests return a default
   // constructed VoiceState.
-  VoiceState voice(uint8_t index) const;
+  SEEDBOX_MAYBE_UNUSED VoiceState voice(uint8_t index) const;
 
 private:
   struct VoiceInternal {

@@ -25,44 +25,42 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 
 void Sampler::init() {
   nextHandle_ = 1;
-  for (auto& v : voices_) {
-    // Reset every voice slot back to a blank template. This mirrors what
-    // happens when you power-cycle the synth — no lingering envelope states or
-    // stale sample handles survive a call to `init`.
-    v = VoiceInternal{};
-  }
+  // Reset every voice slot back to a blank template. This mirrors what happens
+  // when you power-cycle the synth — no lingering envelope states or stale
+  // sample handles survive a call to `init`.
+  voices_.fill(VoiceInternal{});
 
 #ifdef SEEDBOX_HW
   patchCables_.clear();
 
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
-    auto& hw = hwVoices_[i];
+    auto& hwVoice = hwVoices_[i];
 
     // Default mixer gains balance the RAM + SD sources. Later, once actual
     // sample tables land, a trigger call toggles the appropriate source on/off.
-    hw.sourceMixer.gain(0, 1.0f);
-    hw.sourceMixer.gain(1, 1.0f);
+    hwVoice.sourceMixer.gain(0, 1.0f);
+    hwVoice.sourceMixer.gain(1, 1.0f);
 
     // Prime the envelope with sane defaults. The configureVoice path overwrites
     // these values every trigger so the sampler tracks Seed intent.
-    hw.envelope.attack(1.0f);
-    hw.envelope.decay(50.0f);
-    hw.envelope.sustain(0.8f);
-    hw.envelope.release(100.0f);
+    hwVoice.envelope.attack(1.0f);
+    hwVoice.envelope.decay(50.0f);
+    hwVoice.envelope.sustain(0.8f);
+    hwVoice.envelope.release(100.0f);
 
     // Tone filter starts bright-ish and wide. ConfigureVoice narrows it based on
     // the seed's tilt request.
-    hw.toneFilter.frequency(6000.0f);
-    hw.toneFilter.resonance(0.707f);
+    hwVoice.toneFilter.frequency(6000.0f);
+    hwVoice.toneFilter.resonance(0.707f);
 
     // Patch the signal chain:
     //   RAM sample + SD sample -> mixer -> envelope -> tilt filter -> stereo mix
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.ramPlayer, 0, hw.sourceMixer, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sdPlayer, 0, hw.sourceMixer, 1));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.sourceMixer, 0, hw.envelope, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.envelope, 0, hw.toneFilter, 0));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, voiceMixerLeft_, i));
-    patchCables_.emplace_back(std::make_unique<AudioConnection>(hw.toneFilter, 0, voiceMixerRight_, i));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.ramPlayer, 0, hwVoice.sourceMixer, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.sdPlayer, 0, hwVoice.sourceMixer, 1));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.sourceMixer, 0, hwVoice.envelope, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.envelope, 0, hwVoice.toneFilter, 0));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.toneFilter, 0, voiceMixerLeft_, i));
+    patchCables_.emplace_back(std::make_unique<AudioConnection>(hwVoice.toneFilter, 0, voiceMixerRight_, i));
 
     voiceMixerLeft_.gain(i, 0.0f);
     voiceMixerRight_.gain(i, 0.0f);
@@ -201,16 +199,16 @@ float Sampler::clamp01(float value) {
 }
 
 void Sampler::trigger(const Seed& seed, uint32_t whenSamples) {
-  const uint8_t index = allocateVoice(whenSamples);
-  VoiceInternal& voice = voices_[index];
+  const uint8_t voiceIndex = allocateVoice(whenSamples);
+  VoiceInternal& voiceSlot = voices_[voiceIndex];
 
   // Increment the deterministic handle. Wrap around safely (0 is reserved so we
   // can treat it as "uninitialized").
-  voice.handle = nextHandle_++;
+  voiceSlot.handle = nextHandle_++;
   if (nextHandle_ == 0) {
     nextHandle_ = 1;
   }
 
   // Bake every seed attribute into the voice record + hardware nodes.
-  configureVoice(voice, index, seed, whenSamples);
+  configureVoice(voiceSlot, voiceIndex, seed, whenSamples);
 }
