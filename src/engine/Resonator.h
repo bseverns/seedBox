@@ -44,7 +44,7 @@ public:
     const char* preset{nullptr};
   };
 
-  SEEDBOX_MAYBE_UNUSED VoiceState voice(uint8_t index) const;
+  SEEDBOX_MAYBE_UNUSED VoiceState voice(uint8_t voiceIndex) const;
 
   static constexpr uint8_t kMaxVoices = 16;
 

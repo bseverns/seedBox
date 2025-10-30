@@ -250,13 +250,13 @@ const char* ResonatorBank::presetName(uint8_t bank) const {
   return presets_[bank].name;
 }
 
-ResonatorBank::VoiceState ResonatorBank::voice(uint8_t index) const {
+ResonatorBank::VoiceState ResonatorBank::voice(uint8_t voiceIndex) const {
   VoiceState out;
-  if (index >= kMaxVoices) {
+  if (voiceIndex >= kMaxVoices) {
     return out;
   }
 
-  const VoiceInternal& src = voices_[index];
+  const VoiceInternal& src = voices_[voiceIndex];
   out.active = src.active;
   out.handle = src.handle;
   out.startSample = src.startSample;
