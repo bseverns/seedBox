@@ -547,13 +547,9 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
   const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
 
-#ifdef SEEDBOX_HW
-  const bool probeFanout = (!SeedBoxConfig::kQuietMode) && debugMetersEnabled_ && s.engine == 2;
+#if defined(SEEDBOX_HW) && !QUIET_MODE
+  const bool probeFanout = debugMetersEnabled_ && s.engine == 2;
   const float fanout = probeFanout ? engines_.resonator().fanoutProbeLevel() : 0.0f;
-#else
-  constexpr bool probeFanout = false;
-  constexpr float fanout = 0.0f;
-#endif
 
   if (probeFanout) {
     writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
@@ -562,6 +558,11 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
                       formatScratch(scratch, "D%.2fP%.2fN%03u", density, probability,
                                      static_cast<unsigned>(nowSamples % 1000u)));
   }
+#else
+  writeDisplayField(out.metrics,
+                    formatScratch(scratch, "D%.2fP%.2fN%03u", density, probability,
+                                   static_cast<unsigned>(nowSamples % 1000u)));
+#endif
 
   const float mutate = std::clamp(s.mutateAmt, 0.0f, 1.0f);
   const float jitterMs = std::clamp(s.jitterMs, 0.0f, 999.9f);
