@@ -10,17 +10,19 @@
 namespace AudioMemoryBudget {
 
 // Sampler chews through envelopes and dual-source playback, but it stays fairly
-// lean: 96 blocks kept the old per-engine allocation stable during sustained
-// polyphony tests.
-constexpr uint16_t kSamplerBlocks = 96;
+// lean: 88 blocks still cover the legacy stress tests while handing a few blocks
+// back to the global pool. Less RAM pressure, no audible compromise.
+constexpr uint16_t kSamplerBlocks = 88;
 
-// Granular is the monster. Window overlap and SD streaming slammed the pool
-// until we earmarked 160 blocks. Treat this as the "max chaos" budget.
-constexpr uint16_t kGranularBlocks = 160;
+// Granular is the monster. Window overlap and SD streaming slammed the pool,
+// but we can dial the ceiling to 144 blocks and keep the "max chaos" lessons
+// intact. The tighter budget buys us the RAM we need to actually ship.
+constexpr uint16_t kGranularBlocks = 144;
 
 // Resonator banks light up burst envelopes, delay lines, and a spray of modal
-// filters. Matching the historical 96 block carve-out keeps the pings ringing.
-constexpr uint16_t kResonatorBlocks = 96;
+// filters. Shaving this down to 88 blocks still leaves plenty of sustain while
+// easing the linker's RAM panic.
+constexpr uint16_t kResonatorBlocks = 88;
 
 // The old setup.cpp call to AudioMemory(64) effectively funded the shared I/O
 // spine: input bus, final mix, and whatever utility nodes sneak in around the

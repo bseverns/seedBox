@@ -9,6 +9,7 @@
 #include "app/AppState.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string_view>
@@ -16,11 +17,13 @@
 #include "SeedBoxConfig.h"
 #include "interop/mn42_map.h"
 #include "util/RNG.h"
+#include "engine/Sampler.h"
+#include "hal/hal_audio.h"
+#include "hal/hal_io.h"
 #ifdef SEEDBOX_HW
   #include "HardwarePrelude.h"
   #include "AudioMemoryBudget.h"
   #include "io/Storage.h"
-  #include "engine/Sampler.h"
 #endif
 
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
@@ -30,6 +33,22 @@
 namespace {
 constexpr uint8_t kEngineCount = 3;
 constexpr uint8_t kEngineCycleCc = 20;
+
+constexpr hal::io::PinNumber kReseedButtonPin = 2;
+constexpr hal::io::PinNumber kStatusLedPin = 13;
+
+const std::array<hal::io::DigitalConfig, 2> kFrontPanelPins{{
+    {kReseedButtonPin, true, true},
+    {kStatusLedPin, false, false},
+}};
+
+constexpr std::array<const char*, 4> kDemoSdClips{{"wash", "dust", "vox", "pads"}};
+
+void populateSdClips(GranularEngine& engine) {
+  for (uint8_t i = 0; i < kDemoSdClips.size(); ++i) {
+    engine.registerSdClip(static_cast<uint8_t>(i + 1), kDemoSdClips[i]);
+  }
+}
 
 template <size_t N>
 void writeDisplayField(char (&dst)[N], std::string_view text) {
@@ -77,6 +96,24 @@ const char* engineLabel(uint8_t engine) {
 }
 }
 
+void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx) {
+  if (auto* self = static_cast<AppState*>(ctx)) {
+    self->handleAudio(buffer);
+  }
+}
+
+void AppState::digitalCallbackTrampoline(hal::io::PinNumber pin, bool level, uint32_t timestamp,
+                                         void* ctx) {
+  if (auto* self = static_cast<AppState*>(ctx)) {
+    self->handleDigitalEdge(static_cast<uint8_t>(pin), level, timestamp);
+  }
+}
+
+AppState::~AppState() {
+  hal::audio::stop();
+  hal::audio::shutdown();
+}
+
 // initHardware wires up the physical instrument: MIDI ingress, the engine
 // router in hardware mode, and finally the deterministic seed prime. The code
 // mirrors initSim because we want both paths to be interchangeable in class —
@@ -106,11 +143,12 @@ void AppState::initHardware() {
     midi.setControlChangeHandler(nullptr);
   }
 #endif
-  engines_.init(EngineRouter::Mode::kHardware);
-  engines_.granular().setMaxActiveVoices(36);
-  engines_.granular().armLiveInput(true);
-  engines_.resonator().setMaxVoices(10);
-  primeSeeds(masterSeed_);
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hal::audio::start();
+  hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
+  hal::io::setDigitalCallback(&AppState::digitalCallbackTrampoline, this);
+  hal::io::writeDigital(kStatusLedPin, false);
+  bootRuntime(EngineRouter::Mode::kHardware, true);
 #ifdef SEEDBOX_HW
   midi.markAppReady();
 #endif
@@ -120,26 +158,63 @@ void AppState::initHardware() {
 // rest of the wiring is identical so deterministic behaviour survives unit
 // tests and lecture demos.
 void AppState::initSim() {
-  engines_.init(EngineRouter::Mode::kSim);
-  engines_.granular().setMaxActiveVoices(12);
-  engines_.granular().armLiveInput(false);
-  engines_.resonator().setMaxVoices(4);
-  primeSeeds(masterSeed_);
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hal::audio::stop();
+  hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
+  hal::io::setDigitalCallback(&AppState::digitalCallbackTrampoline, this);
+  hal::io::writeDigital(kStatusLedPin, false);
+  bootRuntime(EngineRouter::Mode::kSim, false);
+}
+
+void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
+  engines_.init(mode);
+  engines_.granular().setMaxActiveVoices(hardwareMode ? 36 : 12);
+  engines_.granular().armLiveInput(hardwareMode);
+  populateSdClips(engines_.granular());
+  engines_.resonator().setMaxVoices(hardwareMode ? 10 : 4);
+  engines_.resonator().setDampingRange(0.18f, 0.92f);
+  reseed(masterSeed_);
+  scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
+  captureDisplaySnapshot(displayCache_);
+  displayDirty_ = true;
+  audioCallbackCount_ = 0;
+}
+
+void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
+  ++audioCallbackCount_;
+  if (!buffer.left || !buffer.right) {
+    return;
+  }
+  std::fill(buffer.left, buffer.left + buffer.frames, 0.0f);
+  std::fill(buffer.right, buffer.right + buffer.frames, 0.0f);
+}
+
+void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t) {
+  if (pin == kReseedButtonPin && level) {
+    reseedRequested_ = true;
+  }
 }
 
 // tick is the heartbeat. Every call either primes seeds (first-run), lets the
 // internal scheduler drive things when we own the transport, or just counts
 // frames so the OLED can display a ticking counter.
 void AppState::tick() {
-  if constexpr (!SeedBoxConfig::kQuietMode) {
-    if (!seedsPrimed_) {
-      primeSeeds(masterSeed_);
-    }
+  hal::io::poll();
+  if (reseedRequested_) {
+    uint32_t base = masterSeed_ ? masterSeed_ : 0x5EEDB0B1u;
+    const uint32_t nextSeed = RNG::xorshift(base);
+    reseed(nextSeed);
+    reseedRequested_ = false;
+  }
+  if (!seedsPrimed_) {
+    reseed(masterSeed_);
   }
   if (!externalClockDominant_) {
     scheduler_.onTick();
   }
   ++frame_;
+  captureDisplaySnapshot(displayCache_);
+  displayDirty_ = true;
 }
 
 // primeSeeds is where the deterministic world-building happens. We treat
@@ -156,7 +231,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     scheduler_.setBpm(0.f);
     scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
     seedEngineSelections_.clear();
-    focusSeed_ = 0;
+    setFocusSeed(0);
     seedsPrimed_ = false;
     externalTransportRunning_ = false;
     transportLatchedRunning_ = false;
@@ -166,6 +241,8 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     transportLatchEnabled_ = false;
     mn42HelloSeen_ = false;
     updateClockDominance();
+    hal::io::writeDigital(kStatusLedPin, false);
+    displayDirty_ = true;
     return;
   }
 
@@ -233,12 +310,14 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     setSeedEngine(static_cast<uint8_t>(i), desired);
   }
 
-  focusSeed_ = 0;
+  setFocusSeed(0);
   seedsPrimed_ = true;
   externalTransportRunning_ = false;
   transportLatchedRunning_ = false;
   transportGateHeld_ = false;
   updateClockDominance();
+  hal::io::writeDigital(kStatusLedPin, true);
+  displayDirty_ = true;
 }
 
 void AppState::onExternalClockTick() {
@@ -323,15 +402,12 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
     const size_t count = seeds_.size();
     const uint8_t focus = static_cast<uint8_t>(std::min<size_t>(focusSeed_, count - 1));
     const uint8_t current = seeds_[focus].engine;
-    uint8_t target = current;
     // Our rule-of-thumb: CC values >= 64 spin the encoder clockwise (advance to
     // the next engine) while lower values back up one slot. The math is tiny
     // but worth spelling out for clarity.
-    if (val >= 64) {
-      target = static_cast<uint8_t>((current + 1) % kEngineCount);
-    } else {
-      target = static_cast<uint8_t>((current + kEngineCount - 1) % kEngineCount);
-    }
+    const uint8_t target = (val >= 64)
+                               ? static_cast<uint8_t>((current + 1) % kEngineCount)
+                               : static_cast<uint8_t>((current + kEngineCount - 1) % kEngineCount);
     setSeedEngine(focus, target);
     return;
   }
@@ -399,6 +475,8 @@ void AppState::handleTransportGate(uint8_t value) {
 
 void AppState::reseed(uint32_t masterSeed) {
   primeSeeds(masterSeed);
+  const bool hardwareMode = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
+  scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
 }
 
 void AppState::setFocusSeed(uint8_t index) {
@@ -441,26 +519,91 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   std::array<char, 64> scratch{};
   writeDisplayField(out.title, formatScratch(scratch, "SeedBox %06X", masterSeed_ & 0xFFFFFFu));
 
+  const float sampleRate = hal::audio::sampleRate();
+  const std::size_t block = hal::audio::framesPerBlock();
+  const bool ledOn = hal::io::readDigital(kStatusLedPin);
+  const uint32_t nowSamples = scheduler_.nowSamples();
+
   if (seeds_.empty()) {
     if constexpr (SeedBoxConfig::kQuietMode) {
       writeDisplayField(out.status, "quiet mode zzz");
-      writeDisplayField(out.metrics, "flip QUIET=0");
     } else {
       writeDisplayField(out.status, "no seeds loaded");
-      writeDisplayField(out.metrics, "tap reseed to wake");
     }
-    writeDisplayField(out.nuance, formatScratch(scratch, "frame %08lu", static_cast<unsigned long>(frame_)));
+    writeDisplayField(out.metrics, formatScratch(scratch, "SR%.1fkB%02zu", sampleRate / 1000.f, block));
+    writeDisplayField(out.nuance,
+                      formatScratch(scratch, "AC%05lluF%05lu",
+                                     static_cast<unsigned long long>(audioCallbackCount_ % 100000ULL),
+                                     static_cast<unsigned long>(frame_ % 100000UL)));
     return;
   }
 
-  const Seed& s = seeds_[std::min<size_t>(focusSeed_, seeds_.size() - 1)];
-  writeDisplayField(out.status, formatScratch(scratch, "#%02u %s %+0.1fst", s.id, engineLabel(s.engine), s.pitch));
+  const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
+  const Seed& s = seeds_[focusIndex];
+  writeDisplayField(out.status, formatScratch(scratch, "#%02u%s%+0.1fst%c", s.id, engineLabel(s.engine), s.pitch,
+                                              ledOn ? '*' : '-'));
   const float density = std::clamp(s.density, 0.0f, 99.99f);
   const float probability = std::clamp(s.probability, 0.0f, 1.0f);
-  writeDisplayField(out.metrics, formatScratch(scratch, "D%.2f P%.2f", density, probability));
-  const float jitter = std::clamp(s.jitterMs, 0.0f, 999.9f);
+  const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
+  const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
+
+#ifdef SEEDBOX_HW
+  const bool probeFanout = (!SeedBoxConfig::kQuietMode) && debugMetersEnabled_ && s.engine == 2;
+  const float fanout = probeFanout ? engines_.resonator().fanoutProbeLevel() : 0.0f;
+#else
+  constexpr bool probeFanout = false;
+  constexpr float fanout = 0.0f;
+#endif
+
+  if (probeFanout) {
+    writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
+  } else {
+    writeDisplayField(out.metrics,
+                      formatScratch(scratch, "D%.2fP%.2fN%03u", density, probability,
+                                     static_cast<unsigned>(nowSamples % 1000u)));
+  }
+
   const float mutate = std::clamp(s.mutateAmt, 0.0f, 1.0f);
-  writeDisplayField(out.nuance, formatScratch(scratch, "J%.1fms Mu%.2f", jitter, mutate));
+  const float jitterMs = std::clamp(s.jitterMs, 0.0f, 999.9f);
+  const unsigned jitterInt = static_cast<unsigned>(std::min(99.0f, std::round(jitterMs)));
+  char engineToken[8] = {'-', '-', '-', '-', '\0'};
+
+  switch (s.engine) {
+    case 0: {
+      const auto voice = engines_.sampler().voice(static_cast<uint8_t>(focusIndex % Sampler::kMaxVoices));
+      std::snprintf(engineToken, sizeof(engineToken), "%c%c%02u", voice.active ? 'S' : 's',
+                    voice.usesSdStreaming ? 'D' : 'M', voice.sampleIndex);
+      break;
+    }
+    case 1: {
+      const auto voice = engines_.granular().voice(static_cast<uint8_t>(focusIndex % GranularEngine::kVoicePoolSize));
+      const char sourceTag = (voice.source == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
+      std::snprintf(engineToken, sizeof(engineToken), "%c%c%02u", voice.active ? 'G' : 'g', sourceTag, voice.sdSlot);
+      break;
+    }
+    case 2: {
+      const auto voice = engines_.resonator().voice(static_cast<uint8_t>(focusIndex % ResonatorBank::kMaxVoices));
+      const char* preset = engines_.resonator().presetName(voice.bank);
+      char presetA = '-';
+      char presetB = '-';
+      if (preset && preset[0] != '\0') {
+        presetA = preset[0];
+        if (preset[1] != '\0') {
+          presetB = preset[1];
+        }
+      }
+      const uint8_t modeDigit = static_cast<uint8_t>(std::min<uint8_t>(voice.mode, 9));
+      std::snprintf(engineToken, sizeof(engineToken), "%c%c%c%c", voice.active ? 'R' : 'r', presetA, presetB,
+                    static_cast<char>('0' + modeDigit));
+      break;
+    }
+    default:
+      std::snprintf(engineToken, sizeof(engineToken), "?%03u", static_cast<unsigned>(s.engine % 1000));
+      break;
+  }
+
+  writeDisplayField(out.nuance,
+                    formatScratch(scratch, "Mu%.2f%sR%02XJ%02u", mutate, engineToken, prngByte, jitterInt));
 }
 
 const Seed* AppState::debugScheduledSeed(uint8_t index) const {

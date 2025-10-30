@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "util/Annotations.h"
 
 namespace hal {
 namespace audio {
@@ -26,18 +27,19 @@ struct StereoBufferView {
 using Callback = void (*)(const StereoBufferView &buffer, void *user_data);
 
 // Hook the callback and prep the backend.  Call this once at boot.
-void init(Callback callback, void *user_data = nullptr);
-void start();
-void stop();
-void shutdown();
+SEEDBOX_MAYBE_UNUSED void init(Callback callback, void *user_data = nullptr);
+SEEDBOX_MAYBE_UNUSED void start();
+SEEDBOX_MAYBE_UNUSED void stop();
+SEEDBOX_MAYBE_UNUSED void shutdown();
 
-std::size_t framesPerBlock();
-float sampleRate();
+SEEDBOX_MAYBE_UNUSED std::size_t framesPerBlock();
+SEEDBOX_MAYBE_UNUSED float sampleRate();
+SEEDBOX_MAYBE_UNUSED std::uint32_t sampleClock();
 
 #ifndef SEEDBOX_HW
 // Simulator hooks to control timing from unit tests.
-void mockSetSampleRate(float hz);
-void mockPump(std::size_t frames);
+SEEDBOX_MAYBE_UNUSED void mockSetSampleRate(float hz);
+SEEDBOX_MAYBE_UNUSED void mockPump(std::size_t frames);
 #endif  // SEEDBOX_HW
 
 }  // namespace audio

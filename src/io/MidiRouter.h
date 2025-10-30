@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <functional>
 #include <utility>
+#include "util/Annotations.h"
 
 // MidiRouter is the only piece that talks directly to usbMIDI. It translates
 // raw wire protocol (clock, transport, CC) into high-level callbacks the rest
@@ -34,7 +35,7 @@ public:
   // Pump this from the main loop while usbMIDI.read() returns events. It will
   // dispatch clock + transport + CC into the matching handlers without storing
   // anything.
-  void onUsbEvent();
+  SEEDBOX_MAYBE_UNUSED void onUsbEvent();
 
   // Poll any non-USB links (currently the TRS Type-A Serial7 port) so they can
   // share the same callback surface as usbMIDI. Hardware builds call this once
@@ -49,7 +50,7 @@ public:
   // Mark that the application stack finished booting. Once this flag flips we
   // reply to any MN42 hello traffic and keep the controller convinced we're
   // alive by streaming periodic handshake pulses.
-  void markAppReady();
+  SEEDBOX_MAYBE_UNUSED void markAppReady();
 
   // Clock and transport hooks that the scheduler / transport layer wire into.
   void onClockTick();

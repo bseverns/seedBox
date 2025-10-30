@@ -108,7 +108,8 @@ void PatternScheduler::onTick() {
   // Grab the transport timestamp once per scheduler tick so our simulated clock
   // advances even if every seed stays quiet. Future seeds that trigger on this
   // tick share the same anchor before jitter nudges them around.
-  const uint32_t tickSample = latchTickSample();
+  latchTickSample();
+  const uint32_t tickSample = nowSamples();
 
   // Seed lifecycle doctrine, MOARkNOBS style:
   // 1) PICK: this scheduler is the authority — we march through seeds_ in

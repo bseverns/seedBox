@@ -7,14 +7,24 @@
 // Treat it like a field guide for the rest of the codebase: the UI, tests, and
 // documentation all poke through this interface.  That means generous comments
 // are fair game — we're not hiding cleverness, we're teaching it.
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
 #include "Seed.h"
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
+#include "util/Annotations.h"
 #ifdef SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
+
+namespace hal {
+namespace audio {
+struct StereoBufferView;
+}  // namespace audio
+namespace io {
+using PinNumber = std::uint8_t;
+}  // namespace io
+}  // namespace hal
 
 // AppState is the mothership for everything the performer can poke at run time.
 // It owns the seed table, orchestrates scheduling, and provides a place for the
@@ -23,6 +33,7 @@
 // what control hooks exist without spelunking the implementation.
 class AppState {
 public:
+  ~AppState();
   // Boot the full hardware stack. We spin up MIDI routing, initialise the
   // engine router in hardware mode, and prime the deterministic seed table so
   // the Teensy build behaves exactly like the simulator.
@@ -48,6 +59,10 @@ public:
   // Populate the snapshot struct with text destined for the OLED / debug
   // display. Think of this as the "mixing console" view for teaching labs.
   void captureDisplaySnapshot(DisplaySnapshot& out) const;
+
+  const DisplaySnapshot& displayCache() const { return displayCache_; }
+  bool displayDirty() const { return displayDirty_; }
+  void clearDisplayDirtyFlag() { displayDirty_ = false; }
 
   // Re-roll the procedural seeds using a supplied master seed. Students can use
   // this hook to explore how the scheduler reacts to different pseudo-random
@@ -89,10 +104,21 @@ public:
 #endif
 
 private:
+  static void audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx);
+  static void digitalCallbackTrampoline(hal::io::PinNumber pin, bool level, uint32_t timestamp,
+                                        void* ctx);
+
   // Helper that hydrates the seeds_ array deterministically from masterSeed_.
   // The implementation leans heavily on comments so students can watch the RNG
   // state machine do its thing.
   void primeSeeds(uint32_t masterSeed);
+  void updateClockDominance();
+  void applyMn42ModeBits(uint8_t value);
+  void handleTransportGate(uint8_t value);
+  void handleAudio(const hal::audio::StereoBufferView& buffer);
+  void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
+  void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
+
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
   uint32_t frame_{0};
@@ -111,9 +137,8 @@ private:
   bool externalTransportRunning_{false};
   bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
-
-  // Tiny helper trio for the transport + MN42 handshake logic.
-  void updateClockDominance();
-  void applyMn42ModeBits(uint8_t value);
-  void handleTransportGate(uint8_t value);
+  DisplaySnapshot displayCache_{};
+  bool displayDirty_{false};
+  uint64_t audioCallbackCount_{0};
+  bool reseedRequested_{false};
 };

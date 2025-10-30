@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "util/Annotations.h"
 
 namespace hal {
 namespace io {
@@ -25,18 +26,18 @@ using DigitalCallback = void (*)(PinNumber pin, bool level, std::uint32_t timest
                                  void *user_data);
 
 // Configure the pins once at boot.
-void init(const DigitalConfig *configs, std::size_t count);
+SEEDBOX_MAYBE_UNUSED void init(const DigitalConfig *configs, std::size_t count);
 // Register a callback that fires whenever any watched input toggles.
-void setDigitalCallback(DigitalCallback callback, void *user_data = nullptr);
+SEEDBOX_MAYBE_UNUSED void setDigitalCallback(DigitalCallback callback, void *user_data = nullptr);
 // Pump this from the main loop to detect edges.
-void poll();
+SEEDBOX_MAYBE_UNUSED void poll();
 
-void writeDigital(PinNumber pin, bool level);
-bool readDigital(PinNumber pin);
+SEEDBOX_MAYBE_UNUSED void writeDigital(PinNumber pin, bool level);
+SEEDBOX_MAYBE_UNUSED bool readDigital(PinNumber pin);
 
 #ifndef SEEDBOX_HW
 // Simulator helper: pretend an input pin changed state at a specific time.
-void mockSetDigitalInput(PinNumber pin, bool level, std::uint32_t timestamp_us = 0);
+SEEDBOX_MAYBE_UNUSED void mockSetDigitalInput(PinNumber pin, bool level, std::uint32_t timestamp_us = 0);
 #endif  // SEEDBOX_HW
 
 }  // namespace io

@@ -14,6 +14,7 @@
 #include "engine/Sampler.h"
 #include "engine/Granular.h"
 #include "engine/Resonator.h"
+#include "util/Annotations.h"
 
 // EngineRouter glues the pattern scheduler to the actual audio engines. Right
 // now it simply records deterministic trigger plans so the Option B and C
@@ -33,10 +34,14 @@ public:
   // tight with the transport.
   void triggerSeed(const Seed& seed, uint32_t whenSamples);
 
-  static void dispatchThunk(void* ctx, const Seed& seed, uint32_t whenSamples);
+  SEEDBOX_MAYBE_UNUSED static void dispatchThunk(void* ctx, const Seed& seed, uint32_t whenSamples);
 
+  Sampler& sampler() { return sampler_; }
+  const Sampler& sampler() const { return sampler_; }
   GranularEngine& granular() { return granular_; }
+  const GranularEngine& granular() const { return granular_; }
   ResonatorBank& resonator() { return resonator_; }
+  const ResonatorBank& resonator() const { return resonator_; }
 
 private:
   Mode mode_{Mode::kSim};

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "Seed.h"
 #include "HardwarePrelude.h"
+#include "util/Annotations.h"
 
 // ResonatorBank sketches Option C (Karplus-Strong / modal ping engine). The
 // actual Teensy Audio graph will plug in later; for now we keep the scheduling
@@ -12,16 +13,16 @@ public:
   enum class Mode : uint8_t { kSim, kHardware };
 
   void init(Mode mode);
-  void setMaxVoices(uint8_t voices);
-  void setDampingRange(float minDamping, float maxDamping);
+  SEEDBOX_MAYBE_UNUSED void setMaxVoices(uint8_t voices);
+  SEEDBOX_MAYBE_UNUSED void setDampingRange(float minDamping, float maxDamping);
 
-  void trigger(const Seed& seed, uint32_t whenSamples);
+  SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
 
   uint8_t activeVoices() const;
-  const char* presetName(uint8_t bank) const;
+  SEEDBOX_MAYBE_UNUSED const char* presetName(uint8_t bank) const;
 
 #ifdef SEEDBOX_HW
-  float fanoutProbeLevel();
+  SEEDBOX_MAYBE_UNUSED float fanoutProbeLevel() const;
 #endif
 
   struct VoiceState {
@@ -43,7 +44,7 @@ public:
     const char* preset{nullptr};
   };
 
-  VoiceState voice(uint8_t index) const;
+  SEEDBOX_MAYBE_UNUSED VoiceState voice(uint8_t index) const;
 
   static constexpr uint8_t kMaxVoices = 16;
 
@@ -79,7 +80,7 @@ private:
   // and then map that plan onto either hardware nodes or simulator state.
   uint8_t allocateVoice();
   void planExcitation(VoiceInternal& v, const Seed& seed, uint32_t whenSamples);
-  void mapVoiceToGraph(uint8_t index, VoiceInternal& voice);
+  void mapVoiceToGraph(uint8_t index, VoiceInternal& voicePlan);
   const ModalPreset& resolvePreset(uint8_t bank) const;
   uint8_t clampMode(uint8_t requested) const;
 
@@ -114,7 +115,7 @@ private:
   std::array<AudioMixer4, kSubmixCount> submixRight_{};
   AudioMixer4 finalMixLeft_{};
   AudioMixer4 finalMixRight_{};
-  AudioAnalyzePeak voiceFanoutProbe_{};
+  mutable AudioAnalyzePeak voiceFanoutProbe_{};
   AudioOutputI2S output_{};
   std::vector<std::unique_ptr<AudioConnection>> patchCables_{};
 #endif

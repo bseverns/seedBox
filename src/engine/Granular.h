@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "Seed.h"
 #include "HardwarePrelude.h"
+#include "util/Annotations.h"
 
 // Planning scaffold for Option B (granular engine). We now spin up the Teensy
 // Audio graph when running on hardware (and keep detailed stubs for the native
@@ -36,14 +37,14 @@ public:
   GranularEngine() = default;
 
   void init(Mode mode);
-  void setMaxActiveVoices(uint8_t voices);
-  void armLiveInput(bool enabled);
-  void registerSdClip(uint8_t slot, const char* path);
+  SEEDBOX_MAYBE_UNUSED void setMaxActiveVoices(uint8_t voices);
+  SEEDBOX_MAYBE_UNUSED void armLiveInput(bool enabled);
+  SEEDBOX_MAYBE_UNUSED void registerSdClip(uint8_t slot, const char* path);
 
-  void trigger(const Seed& seed, uint32_t whenSamples);
+  SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
 
   uint8_t activeVoiceCount() const;
-  GrainVoice voice(uint8_t index) const;
+  SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;
   Mode mode() const { return mode_; }
 
 #ifndef SEEDBOX_HW
@@ -58,6 +59,9 @@ public:
 #endif
 
   static constexpr uint8_t kVoicePoolSize = 40;
+  // Grain windows live in DMAMEM so the TCM heap can breathe.  Keep this in sync
+  // with the teensy granular effect's happy place.
+  static constexpr int kGrainMemorySamples = 2048;
   static constexpr uint8_t kSdClipSlots = 8;
 
 private:
@@ -74,7 +78,7 @@ private:
   //   mapGrainToGraph -> wire that plan into the Teensy graph (or simulator).
   uint8_t allocateVoice();
   void planGrain(GrainVoice& voice, const Seed& seed, uint32_t whenSamples);
-  void mapGrainToGraph(uint8_t index, GrainVoice& voice);
+  void mapGrainToGraph(uint8_t index, GrainVoice& grain);
   Source resolveSource(uint8_t encoded) const;
   const SourceSlot* resolveSourceSlot(Source source, uint8_t requestedSlot) const;
 
@@ -90,7 +94,6 @@ private:
     AudioPlaySdWav sdPlayer;
     AudioMixer4 sourceMixer;
     AudioEffectGranular granular;
-    int16_t grainMemory[2048];
   };
 
   static constexpr uint8_t kMixerFanIn = 4;
