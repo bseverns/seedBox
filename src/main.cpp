@@ -10,6 +10,7 @@
 //
 #include "BuildInfo.h"
 #include "app/AppState.h"
+#include "hal/Board.h"
 
 #ifdef SEEDBOX_HW
   #include "HardwarePrelude.h"
@@ -20,7 +21,7 @@
 
 // Global application brain.  The object is intentionally static so that we have
 // one long-lived state machine that outlives the setup/loop churn.
-AppState app;
+AppState app(hal::board());
 
 void setup() {
 #ifdef SEEDBOX_HW
