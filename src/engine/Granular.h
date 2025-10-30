@@ -59,6 +59,9 @@ public:
 #endif
 
   static constexpr uint8_t kVoicePoolSize = 40;
+  // Grain windows live in DMAMEM so the TCM heap can breathe.  Keep this in sync
+  // with the teensy granular effect's happy place.
+  static constexpr int kGrainMemorySamples = 2048;
   static constexpr uint8_t kSdClipSlots = 8;
 
 private:
@@ -91,7 +94,6 @@ private:
     AudioPlaySdWav sdPlayer;
     AudioMixer4 sourceMixer;
     AudioEffectGranular granular;
-    int16_t grainMemory[2048];
   };
 
   static constexpr uint8_t kMixerFanIn = 4;

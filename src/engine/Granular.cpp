@@ -15,6 +15,13 @@
 #include "util/Units.h"
 
 namespace {
+
+#ifdef SEEDBOX_HW
+// Teensy shoves DMAMEM symbols into RAM2, which keeps these hulking grain
+// buffers out of the precious tightly-coupled RAM1 pool.  Each voice grabs a
+// 2048-sample window during init and recycles it forever.
+DMAMEM int16_t gGranularGrainPool[GranularEngine::kVoicePoolSize][GranularEngine::kGrainMemorySamples];
+#endif
 static uint8_t clampVoices(uint8_t voices) {
   if (voices < 1) return 1;
   if (voices > GranularEngine::kVoicePoolSize) return GranularEngine::kVoicePoolSize;
@@ -89,7 +96,7 @@ void GranularEngine::init(Mode mode) {
     auto &hwVoice = hwVoices_[i];
     hwVoice.sourceMixer.gain(0, 0.0f);
     hwVoice.sourceMixer.gain(1, 0.0f);
-    hwVoice.granular.begin(hwVoice.grainMemory, static_cast<int>(sizeof(hwVoice.grainMemory) / sizeof(hwVoice.grainMemory[0])));
+    hwVoice.granular.begin(gGranularGrainPool[i], GranularEngine::kGrainMemorySamples);
 
     const uint8_t group = static_cast<uint8_t>(i / kMixerFanIn);
     const uint8_t slot = static_cast<uint8_t>(i % kMixerFanIn);
