@@ -548,10 +548,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
 
 #if defined(SEEDBOX_HW) && !QUIET_MODE
-  const bool probeFanout = debugMetersEnabled_ && s.engine == 2;
-  const float fanout = probeFanout ? engines_.resonator().fanoutProbeLevel() : 0.0f;
-
-  if (probeFanout) {
+  if (debugMetersEnabled_ && s.engine == 2) {
+    const float fanout = engines_.resonator().fanoutProbeLevel();
     writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
   } else {
     writeDisplayField(out.metrics,
