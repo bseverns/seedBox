@@ -7,7 +7,7 @@
 // Treat it like a field guide for the rest of the codebase: the UI, tests, and
 // documentation all poke through this interface.  That means generous comments
 // are fair game — we're not hiding cleverness, we're teaching it.
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
 #include "Seed.h"
 #include "engine/Patterns.h"
@@ -21,6 +21,9 @@ namespace hal {
 namespace audio {
 struct StereoBufferView;
 }  // namespace audio
+namespace io {
+using PinNumber = std::uint8_t;
+}  // namespace io
 }  // namespace hal
 
 // AppState is the mothership for everything the performer can poke at run time.
@@ -101,6 +104,10 @@ public:
 #endif
 
 private:
+  static void audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx);
+  static void digitalCallbackTrampoline(hal::io::PinNumber pin, bool level, uint32_t timestamp,
+                                        void* ctx);
+
   // Helper that hydrates the seeds_ array deterministically from masterSeed_.
   // The implementation leans heavily on comments so students can watch the RNG
   // state machine do its thing.

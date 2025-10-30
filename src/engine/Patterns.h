@@ -43,6 +43,8 @@ public:
   SEEDBOX_MAYBE_UNUSED void setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t));
   uint64_t ticks() const { return tickCount_; }
 
+  SEEDBOX_MAYBE_UNUSED uint32_t nowSamples() const;
+
   // Peek at the scheduler's internal copy of a seed for debugging / teaching.
   // Returns nullptr if you wander off the end of the list.
   SEEDBOX_MAYBE_UNUSED const Seed* seedForDebug(std::size_t index) const;
@@ -53,7 +55,6 @@ private:
   bool densityGate(std::size_t seedIndex, float density);
   void recalcSamplesPerTick();
   uint32_t latchTickSample();
-  SEEDBOX_MAYBE_UNUSED uint32_t nowSamples() const;
   uint32_t msToSamples(float ms);
 private:
   std::vector<Seed> seeds_;

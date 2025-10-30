@@ -50,18 +50,6 @@ void populateSdClips(GranularEngine& engine) {
   }
 }
 
-void audioCallbackShim(const hal::audio::StereoBufferView& buffer, void* ctx) {
-  if (ctx) {
-    static_cast<AppState*>(ctx)->handleAudio(buffer);
-  }
-}
-
-void digitalCallbackShim(hal::io::PinNumber pin, bool level, std::uint32_t timestamp, void* ctx) {
-  if (ctx) {
-    static_cast<AppState*>(ctx)->handleDigitalEdge(static_cast<uint8_t>(pin), level, timestamp);
-  }
-}
-
 template <size_t N>
 void writeDisplayField(char (&dst)[N], std::string_view text) {
   static_assert(N > 0, "Display field must have space for a terminator");
@@ -108,6 +96,19 @@ const char* engineLabel(uint8_t engine) {
 }
 }
 
+void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx) {
+  if (auto* self = static_cast<AppState*>(ctx)) {
+    self->handleAudio(buffer);
+  }
+}
+
+void AppState::digitalCallbackTrampoline(hal::io::PinNumber pin, bool level, uint32_t timestamp,
+                                         void* ctx) {
+  if (auto* self = static_cast<AppState*>(ctx)) {
+    self->handleDigitalEdge(static_cast<uint8_t>(pin), level, timestamp);
+  }
+}
+
 AppState::~AppState() {
   hal::audio::stop();
   hal::audio::shutdown();
@@ -142,10 +143,10 @@ void AppState::initHardware() {
     midi.setControlChangeHandler(nullptr);
   }
 #endif
-  hal::audio::init(&audioCallbackShim, this);
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
   hal::audio::start();
   hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
-  hal::io::setDigitalCallback(&digitalCallbackShim, this);
+  hal::io::setDigitalCallback(&AppState::digitalCallbackTrampoline, this);
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kHardware, true);
 #ifdef SEEDBOX_HW
@@ -157,10 +158,10 @@ void AppState::initHardware() {
 // rest of the wiring is identical so deterministic behaviour survives unit
 // tests and lecture demos.
 void AppState::initSim() {
-  hal::audio::init(&audioCallbackShim, this);
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
   hal::audio::stop();
   hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
-  hal::io::setDigitalCallback(&digitalCallbackShim, this);
+  hal::io::setDigitalCallback(&AppState::digitalCallbackTrampoline, this);
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kSim, false);
 }
@@ -200,8 +201,9 @@ void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t) {
 void AppState::tick() {
   hal::io::poll();
   if (reseedRequested_) {
-    const uint32_t base = masterSeed_ ? masterSeed_ : 0x5EEDB0B1u;
-    reseed(RNG::xorshift(base));
+    uint32_t base = masterSeed_ ? masterSeed_ : 0x5EEDB0B1u;
+    const uint32_t nextSeed = RNG::xorshift(base);
+    reseed(nextSeed);
     reseedRequested_ = false;
   }
   if (!seedsPrimed_) {

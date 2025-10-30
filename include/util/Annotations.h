@@ -24,4 +24,3 @@
   #define SEEDBOX_MAYBE_UNUSED
 #endif
 
-#endif  // util_Annotations_h
