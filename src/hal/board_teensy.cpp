@@ -3,9 +3,8 @@
 #include "hal/Board.h"
 
 #include <array>
+#include <Arduino.h>
 #include <Bounce.h>
-#include <elapsedMillis.h>
-#include <elapsedMicros.h>
 
 #include "hal_io.h"
 
@@ -58,6 +57,7 @@ class TeensyBoard final : public Board {
 public:
   TeensyBoard() {
     io::init(kPinConfig.data(), kPinConfig.size());
+    last_micros_tick_ = static_cast<std::uint32_t>(::micros());
     for (std::size_t i = 0; i < kEncoders.size(); ++i) {
       auto& bounce = encoder_switches_[i];
       bounce.attach(kEncoders[i].pin_switch, INPUT_PULLUP);
@@ -73,7 +73,10 @@ public:
 
   void poll() override {
     io::poll();
-    advanceClock();
+    const auto rawMicros = static_cast<std::uint32_t>(::micros());
+    const std::uint32_t delta = rawMicros - last_micros_tick_;
+    last_micros_tick_ = rawMicros;
+    advanceClock(delta);
 
     for (std::size_t i = 0; i < kEncoders.size(); ++i) {
       encoder_switches_[i].update();
@@ -123,12 +126,10 @@ public:
   std::uint64_t nowMicros() const override { return micros_accum_; }
 
 private:
-  void advanceClock() {
-    const std::uint32_t delta = micros_tick_;
+  void advanceClock(std::uint32_t delta) {
     if (delta == 0) {
       return;
     }
-    micros_tick_ -= delta;
     micros_accum_ += delta;
     const std::uint32_t accum = micros_residual_ + delta;
     millis_accum_ += accum / 1000u;
@@ -164,7 +165,7 @@ private:
   std::array<std::uint8_t, kEncoderCount> encoder_states_{};
   std::array<Bounce, kEncoderCount> encoder_switches_{};
   std::array<Bounce, kStandaloneButtons.size()> buttons_{};
-  elapsedMicros micros_tick_{};
+  std::uint32_t last_micros_tick_{0};
   std::uint64_t micros_accum_{0};
   std::uint64_t millis_accum_{0};
   std::uint32_t micros_residual_{0};
