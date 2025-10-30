@@ -7,6 +7,7 @@
 #include <unity.h>
 #include "app/AppState.h"
 #include "interop/mn42_map.h"
+#include "SeedBoxConfig.h"
 
 #define private public
 #include "io/MidiRouter.h"
@@ -159,4 +160,32 @@ void test_mn42_hello_resends_ack() {
                                  seedbox::interop::mn42::cc::kHandshake,
                                  seedbox::interop::mn42::handshake::kHello);
   TEST_ASSERT_TRUE(router.mn42AckSent_);
+}
+
+void test_quiet_mode_follow_flag_survives_tick() {
+  if (!SeedBoxConfig::kQuietMode) {
+    TEST_IGNORE_MESSAGE("quiet-mode regression runs only when QUIET_MODE=1");
+    return;
+  }
+
+  AppState app;
+  app.initSim();
+
+  // Prime the quiet-mode reset path so legacy behaviour (re-entering
+  // primeSeeds() every frame) would have clobbered the follow flag.
+  app.tick();
+
+  TEST_ASSERT_FALSE(app.followExternalClockEnabled());
+
+  app.onExternalControlChange(seedbox::interop::mn42::kDefaultChannel,
+                              seedbox::interop::mn42::cc::kMode,
+                              seedbox::interop::mn42::mode::kFollowExternalClock);
+
+  TEST_ASSERT_TRUE(app.followExternalClockEnabled());
+
+  app.tick();
+
+  // Regression check: followExternalClockEnabled() should stay latched even
+  // though quiet mode keeps the audio engines muted.
+  TEST_ASSERT_TRUE(app.followExternalClockEnabled());
 }
