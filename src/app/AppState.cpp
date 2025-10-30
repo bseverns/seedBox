@@ -150,7 +150,12 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
 
 }
 
-AppState::AppState(hal::Board& board) : board_(board), input_(board) {}
+AppState::AppState(hal::Board& board) : board_(board), input_(board) {
+  internalClock_.attachScheduler(&scheduler_);
+  midiClockIn_.attachScheduler(&scheduler_);
+  midiClockOut_.attachScheduler(&scheduler_);
+  selectClockProvider(&internalClock_);
+}
 
 void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx) {
   if (auto* self = static_cast<AppState*>(ctx)) {
@@ -218,6 +223,9 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   populateSdClips(engines_.granular());
   engines_.resonator().setMaxVoices(hardwareMode ? 10 : 4);
   engines_.resonator().setDampingRange(0.18f, 0.92f);
+  ClockProvider* provider = followExternalClockEnabled_ ? static_cast<ClockProvider*>(&midiClockIn_)
+                                                        : static_cast<ClockProvider*>(&internalClock_);
+  selectClockProvider(provider);
   reseed(masterSeed_);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
   captureDisplaySnapshot(displayCache_);
@@ -225,6 +233,7 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   audioCallbackCount_ = 0;
   mode_ = Mode::HOME;
   input_.clear();
+  swingPageRequested_ = false;
 }
 
 void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
@@ -253,7 +262,10 @@ void AppState::tick() {
     reseed(masterSeed_);
   }
   if (!externalClockDominant_) {
-    scheduler_.onTick();
+    if (!clock_) {
+      selectClockProvider(&internalClock_);
+    }
+    clock_->onTick();
   }
   ++frame_;
   captureDisplaySnapshot(displayCache_);
@@ -267,9 +279,32 @@ void AppState::processInputEvents() {
         evt.primaryButton == hal::Board::ButtonID::EncoderSeedBank) {
       handleReseedRequest();
     }
+    if (handleClockButtonEvent(evt)) {
+      continue;
+    }
     applyModeTransition(evt);
     dispatchToPage(evt);
   }
+}
+
+bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
+  if (evt.primaryButton != hal::Board::ButtonID::TapTempo) {
+    return false;
+  }
+  if (evt.type == InputEvents::Type::ButtonLongPress) {
+    swingPageRequested_ = true;
+    displayDirty_ = true;
+    return true;
+  }
+  if (evt.type == InputEvents::Type::ButtonPress) {
+    toggleClockProvider();
+    if (mode_ == Mode::PERF) {
+      transportLatchedRunning_ = !transportLatchedRunning_;
+    }
+    displayDirty_ = true;
+    return true;
+  }
+  return false;
 }
 
 void AppState::applyModeTransition(const InputEvents::Event& evt) {
@@ -398,6 +433,74 @@ const char* AppState::modeLabel(Mode mode) {
   }
 }
 
+namespace {
+void alignProviderRunning(ClockProvider* clock, InternalClock& internal, MidiClockIn& midiIn,
+                          MidiClockOut& midiOut, bool externalRunning) {
+  if (!clock) {
+    internal.stopTransport();
+    midiIn.stopTransport();
+    midiOut.stopTransport();
+    return;
+  }
+  if (clock == &internal) {
+    internal.startTransport();
+    midiIn.stopTransport();
+  } else {
+    internal.stopTransport();
+    if (externalRunning) {
+      midiIn.startTransport();
+    } else {
+      midiIn.stopTransport();
+    }
+  }
+  // Outbound MIDI stays in lockstep with whichever source is active.
+  if (clock == &midiOut) {
+    midiOut.startTransport();
+  } else {
+    if (clock == &internal || externalRunning) {
+      midiOut.startTransport();
+    } else {
+      midiOut.stopTransport();
+    }
+  }
+}
+}  // namespace
+
+void AppState::selectClockProvider(ClockProvider* provider) {
+  ClockProvider* target = provider ? provider : &internalClock_;
+  ClockProvider* previous = clock_;
+
+  if (previous && previous != target) {
+    previous->stopTransport();
+  }
+
+  clock_ = target;
+
+  internalClock_.attachScheduler(&scheduler_);
+  midiClockIn_.attachScheduler(&scheduler_);
+  midiClockOut_.attachScheduler(&scheduler_);
+  scheduler_.setClockProvider(clock_);
+
+  if (clock_) {
+    clock_->setBpm(scheduler_.bpm());
+  }
+
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+}
+
+void AppState::toggleClockProvider() {
+  const bool useExternal = (clock_ != &midiClockIn_);
+  if (useExternal) {
+    selectClockProvider(&midiClockIn_);
+    followExternalClockEnabled_ = true;
+  } else {
+    selectClockProvider(&internalClock_);
+    followExternalClockEnabled_ = false;
+  }
+  updateClockDominance();
+  displayDirty_ = true;
+}
+
 // primeSeeds is where the deterministic world-building happens. We treat
 // masterSeed as the only source of entropy, then spin a tiny RNG to fill each
 // Seed with musically interesting defaults. The idea: instructors can step
@@ -408,7 +511,9 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 
   if constexpr (SeedBoxConfig::kQuietMode) {
     seeds_.clear();
-    scheduler_ = PatternScheduler{};
+    ClockProvider* provider = clock_ ? clock_ : &internalClock_;
+    scheduler_ = PatternScheduler(provider);
+    selectClockProvider(provider);
     scheduler_.setBpm(0.f);
     scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
     seedEngineSelections_.clear();
@@ -425,6 +530,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     debugMetersEnabled_ = false;
     transportLatchEnabled_ = false;
     mn42HelloSeen_ = false;
+    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
     updateClockDominance();
     hal::io::writeDigital(kStatusLedPin, false);
     displayDirty_ = true;
@@ -433,7 +539,9 @@ void AppState::primeSeeds(uint32_t masterSeed) {
 
   const std::vector<uint8_t> previousSelections = seedEngineSelections_;
   seeds_.clear();
-  scheduler_ = PatternScheduler{};
+  ClockProvider* provider = clock_ ? clock_ : &internalClock_;
+  scheduler_ = PatternScheduler(provider);
+  selectClockProvider(provider);
   scheduler_.setBpm(120.f);
   scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
 
@@ -500,6 +608,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   externalTransportRunning_ = false;
   transportLatchedRunning_ = false;
   transportGateHeld_ = false;
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
   hal::io::writeDigital(kStatusLedPin, true);
   displayDirty_ = true;
@@ -518,13 +627,16 @@ void AppState::onExternalClockTick() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   if (!wasDominant && externalClockDominant_) {
     Serial.println(F("external clock: TRS/USB seized transport"));
   }
 #endif
-  scheduler_.onTick();
+  if (clock_ == &midiClockIn_ || externalClockDominant_) {
+    midiClockIn_.onTick();
+  }
 }
 
 void AppState::onExternalTransportStart() {
@@ -532,6 +644,7 @@ void AppState::onExternalTransportStart() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
+  selectClockProvider(&midiClockIn_);
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = true;
@@ -548,6 +661,11 @@ void AppState::onExternalTransportStop() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = false;
+  if (!followExternalClockEnabled_) {
+    selectClockProvider(&internalClock_);
+  } else {
+    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+  }
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = false;
@@ -613,6 +731,8 @@ void AppState::applyMn42ModeBits(uint8_t value) {
   const bool follow = (value & seedbox::interop::mn42::mode::kFollowExternalClock) != 0;
   if (followExternalClockEnabled_ != follow) {
     followExternalClockEnabled_ = follow;
+    selectClockProvider(follow ? static_cast<ClockProvider*>(&midiClockIn_)
+                               : static_cast<ClockProvider*>(&internalClock_));
     updateClockDominance();
   }
 

@@ -15,6 +15,7 @@
 #include "util/Annotations.h"
 #include "hal/Board.h"
 #include "app/InputEvents.h"
+#include "app/Clock.h"
 #ifdef SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
@@ -108,6 +109,7 @@ public:
   bool externalTransportRunning() const { return externalTransportRunning_; }
   bool mn42HelloSeen() const { return mn42HelloSeen_; }
   Mode mode() const { return mode_; }
+  bool swingPageRequested() const { return swingPageRequested_; }
 
 #ifdef SEEDBOX_HW
   MidiRouter midi;
@@ -126,6 +128,7 @@ private:
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
   void processInputEvents();
+  bool handleClockButtonEvent(const InputEvents::Event& evt);
   void applyModeTransition(const InputEvents::Event& evt);
   void dispatchToPage(const InputEvents::Event& evt);
   void handleHomeEvent(const InputEvents::Event& evt);
@@ -136,6 +139,8 @@ private:
   void handleUtilEvent(const InputEvents::Event& evt);
   void handleReseedRequest();
   static const char* modeLabel(Mode mode);
+  void selectClockProvider(ClockProvider* provider);
+  void toggleClockProvider();
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
@@ -144,7 +149,11 @@ private:
   Mode mode_{Mode::HOME};
   uint32_t frame_{0};
   std::vector<Seed> seeds_{};
+  InternalClock internalClock_{};
+  MidiClockIn midiClockIn_{};
+  MidiClockOut midiClockOut_{};
   PatternScheduler scheduler_{};
+  ClockProvider* clock_{nullptr};
   EngineRouter engines_{};
   std::vector<uint8_t> seedEngineSelections_{};
   uint32_t masterSeed_{0x5EEDB0B1u};
@@ -158,8 +167,10 @@ private:
   bool externalTransportRunning_{false};
   bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
+  bool swingPageRequested_{false};
   DisplaySnapshot displayCache_{};
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
 };
+
