@@ -22,7 +22,7 @@ public:
   SEEDBOX_MAYBE_UNUSED const char* presetName(uint8_t bank) const;
 
 #ifdef SEEDBOX_HW
-  SEEDBOX_MAYBE_UNUSED float fanoutProbeLevel();
+  SEEDBOX_MAYBE_UNUSED float fanoutProbeLevel() const;
 #endif
 
   struct VoiceState {
@@ -115,7 +115,7 @@ private:
   std::array<AudioMixer4, kSubmixCount> submixRight_{};
   AudioMixer4 finalMixLeft_{};
   AudioMixer4 finalMixRight_{};
-  AudioAnalyzePeak voiceFanoutProbe_{};
+  mutable AudioAnalyzePeak voiceFanoutProbe_{};
   AudioOutputI2S output_{};
   std::vector<std::unique_ptr<AudioConnection>> patchCables_{};
 #endif

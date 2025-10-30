@@ -318,7 +318,7 @@ void ResonatorBank::mapVoiceToGraph(uint8_t index, VoiceInternal& voicePlan) {
 }
 
 #ifdef SEEDBOX_HW
-float ResonatorBank::fanoutProbeLevel() {
+float ResonatorBank::fanoutProbeLevel() const {
   if (voiceFanoutProbe_.available()) {
     return voiceFanoutProbe_.read();
   }

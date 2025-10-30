@@ -566,7 +566,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   const float mutate = std::clamp(s.mutateAmt, 0.0f, 1.0f);
   const float jitterMs = std::clamp(s.jitterMs, 0.0f, 999.9f);
   const unsigned jitterInt = static_cast<unsigned>(std::min(99.0f, std::round(jitterMs)));
-  char engineToken[5] = {'-', '-', '-', '-', '\0'};
+  char engineToken[8] = {'-', '-', '-', '-', '\0'};
 
   switch (s.engine) {
     case 0: {
