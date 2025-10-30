@@ -95,7 +95,7 @@ public:
     if (trimmed.empty() || trimmed.front() == '#') {
       return;
     }
-    std::istringstream stream(std::string(trimmed));
+    std::istringstream stream{std::string(trimmed)};
     std::string command;
     stream >> command;
     command = toLower(command);

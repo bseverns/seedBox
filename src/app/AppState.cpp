@@ -148,21 +148,6 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::SETTINGS},
 }};
 
-using ModeHandler = void (AppState::*)(const InputEvents::Event&);
-
-struct ModeDispatch {
-  AppState::Mode mode;
-  ModeHandler handler;
-};
-
-constexpr std::array<ModeDispatch, 6> kModeHandlers{{
-    {AppState::Mode::HOME, &AppState::handleHomeEvent},
-    {AppState::Mode::SEEDS, &AppState::handleSeedsEvent},
-    {AppState::Mode::ENGINE, &AppState::handleEngineEvent},
-    {AppState::Mode::PERF, &AppState::handlePerfEvent},
-    {AppState::Mode::SETTINGS, &AppState::handleSettingsEvent},
-    {AppState::Mode::UTIL, &AppState::handleUtilEvent},
-}};
 }
 
 AppState::AppState(hal::Board& board) : board_(board), input_(board) {}
@@ -309,6 +294,20 @@ void AppState::applyModeTransition(const InputEvents::Event& evt) {
 }
 
 void AppState::dispatchToPage(const InputEvents::Event& evt) {
+  using ModeHandler = void (AppState::*)(const InputEvents::Event&);
+  struct ModeDispatch {
+    Mode mode;
+    ModeHandler handler;
+  };
+  static constexpr std::array<ModeDispatch, 6> kModeHandlers{{
+      {Mode::HOME, &AppState::handleHomeEvent},
+      {Mode::SEEDS, &AppState::handleSeedsEvent},
+      {Mode::ENGINE, &AppState::handleEngineEvent},
+      {Mode::PERF, &AppState::handlePerfEvent},
+      {Mode::SETTINGS, &AppState::handleSettingsEvent},
+      {Mode::UTIL, &AppState::handleUtilEvent},
+  }};
+
   for (const auto& entry : kModeHandlers) {
     if (entry.mode == mode_) {
       (this->*entry.handler)(evt);
