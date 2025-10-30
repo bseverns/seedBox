@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include "HardwarePrelude.h"
+#include "engine/Engine.h"
 #include "util/Annotations.h"
 
 // Sampler owns a deterministic voice pool shared between hardware and the
@@ -18,7 +19,7 @@
 // - Hardware and native builds share the same bookkeeping. The hardware build
 //   wires a Teensy Audio graph; the native build keeps the data-only shell so
 //   unit tests and notebooks can inspect state without an SGTL5000 nearby.
-class Sampler {
+class Sampler : public Engine {
 public:
   static constexpr uint8_t kMaxVoices = 4;
 
@@ -63,6 +64,15 @@ public:
   // `whenSamples`. All pitch/envelope/tone settings get baked into the voice
   // record immediately.
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& s, uint32_t whenSamples);
+
+  // Engine interface -----------------------------------------------------
+  void prepare(const Engine::PrepareContext& ctx) override;
+  void onTick(const Engine::TickContext& ctx) override;
+  void onParam(const Engine::ParamChange& change) override;
+  void onSeed(const Engine::SeedContext& ctx) override;
+  void renderAudio(const Engine::RenderContext& ctx) override;
+  Engine::StateBuffer serializeState() const override;
+  void deserializeState(const Engine::StateBuffer& state) override;
 
   // Count how many voices are flagged active. Handy for UI + tests.
   uint8_t activeVoices() const;

@@ -134,6 +134,37 @@ void GranularEngine::init(Mode mode) {
 #endif
 }
 
+void GranularEngine::prepare(const Engine::PrepareContext& ctx) {
+  init(ctx.hardware ? Mode::kHardware : Mode::kSim);
+  (void)ctx.masterSeed;
+  (void)ctx.sampleRate;
+  (void)ctx.framesPerBlock;
+}
+
+void GranularEngine::onTick(const Engine::TickContext& ctx) {
+  (void)ctx;
+}
+
+void GranularEngine::onParam(const Engine::ParamChange& change) {
+  (void)change;
+}
+
+void GranularEngine::onSeed(const Engine::SeedContext& ctx) {
+  trigger(ctx.seed, ctx.whenSamples);
+}
+
+void GranularEngine::renderAudio(const Engine::RenderContext& ctx) {
+  (void)ctx;
+}
+
+Engine::StateBuffer GranularEngine::serializeState() const {
+  return {};
+}
+
+void GranularEngine::deserializeState(const Engine::StateBuffer& state) {
+  (void)state;
+}
+
 void GranularEngine::setMaxActiveVoices(uint8_t voices) {
   maxActiveVoices_ = clampVoices(voices);
 }

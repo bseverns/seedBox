@@ -74,6 +74,35 @@ void Sampler::init() {
 #endif
 }
 
+void Sampler::prepare(const Engine::PrepareContext& ctx) {
+  (void)ctx;
+  init();
+}
+
+void Sampler::onTick(const Engine::TickContext& ctx) {
+  (void)ctx;
+}
+
+void Sampler::onParam(const Engine::ParamChange& change) {
+  (void)change;
+}
+
+void Sampler::onSeed(const Engine::SeedContext& ctx) {
+  trigger(ctx.seed, ctx.whenSamples);
+}
+
+void Sampler::renderAudio(const Engine::RenderContext& ctx) {
+  (void)ctx;
+}
+
+Engine::StateBuffer Sampler::serializeState() const {
+  return {};
+}
+
+void Sampler::deserializeState(const Engine::StateBuffer& state) {
+  (void)state;
+}
+
 uint8_t Sampler::activeVoices() const {
   return static_cast<uint8_t>(std::count_if(voices_.begin(), voices_.end(), [](const VoiceInternal& v) {
     return v.active;
