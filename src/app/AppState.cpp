@@ -226,9 +226,6 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   ClockProvider* provider = followExternalClockEnabled_ ? static_cast<ClockProvider*>(&midiClockIn_)
                                                         : static_cast<ClockProvider*>(&internalClock_);
   selectClockProvider(provider);
-  internalClock_.startTransport();
-  midiClockIn_.stopTransport();
-  midiClockOut_.stopTransport();
   reseed(masterSeed_);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
   captureDisplaySnapshot(displayCache_);
@@ -436,8 +433,51 @@ const char* AppState::modeLabel(Mode mode) {
   }
 }
 
+namespace {
+void alignProviderRunning(ClockProvider* clock, InternalClock& internal, MidiClockIn& midiIn,
+                          MidiClockOut& midiOut, bool externalRunning) {
+  if (!clock) {
+    internal.stopTransport();
+    midiIn.stopTransport();
+    midiOut.stopTransport();
+    return;
+  }
+  if (clock == &internal) {
+    internal.startTransport();
+    midiIn.stopTransport();
+  } else {
+    internal.stopTransport();
+    if (externalRunning) {
+      midiIn.startTransport();
+    } else {
+      midiIn.stopTransport();
+    }
+  }
+  // Outbound MIDI stays in lockstep with whichever source is active.
+  if (clock == &midiOut) {
+    midiOut.startTransport();
+  } else {
+    if (clock == &internal || externalRunning) {
+      midiOut.startTransport();
+    } else {
+      midiOut.stopTransport();
+    }
+  }
+}
+}  // namespace
+
 void AppState::selectClockProvider(ClockProvider* provider) {
   ClockProvider* target = provider ? provider : &internalClock_;
+  if (clock_ == target && clock_) {
+    clock_->setBpm(scheduler_.bpm());
+    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+    return;
+  }
+
+  if (clock_) {
+    clock_->stopTransport();
+  }
+
   clock_ = target;
   internalClock_.attachScheduler(&scheduler_);
   midiClockIn_.attachScheduler(&scheduler_);
@@ -446,9 +486,7 @@ void AppState::selectClockProvider(ClockProvider* provider) {
   if (clock_) {
     clock_->setBpm(scheduler_.bpm());
   }
-  if (target == &internalClock_) {
-    internalClock_.startTransport();
-  }
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
 }
 
 void AppState::toggleClockProvider() {
@@ -493,6 +531,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     debugMetersEnabled_ = false;
     transportLatchEnabled_ = false;
     mn42HelloSeen_ = false;
+    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
     updateClockDominance();
     hal::io::writeDigital(kStatusLedPin, false);
     displayDirty_ = true;
@@ -570,6 +609,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   externalTransportRunning_ = false;
   transportLatchedRunning_ = false;
   transportGateHeld_ = false;
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
   hal::io::writeDigital(kStatusLedPin, true);
   displayDirty_ = true;
@@ -588,6 +628,7 @@ void AppState::onExternalClockTick() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
 #if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
   if (!wasDominant && externalClockDominant_) {
@@ -604,10 +645,7 @@ void AppState::onExternalTransportStart() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
-  midiClockIn_.startTransport();
-  if (clock_ == &midiClockIn_) {
-    clock_->startTransport();
-  }
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = true;
@@ -624,10 +662,7 @@ void AppState::onExternalTransportStop() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = false;
-  midiClockIn_.stopTransport();
-  if (clock_ == &midiClockIn_) {
-    clock_->stopTransport();
-  }
+  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = false;
