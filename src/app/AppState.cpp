@@ -468,24 +468,23 @@ void alignProviderRunning(ClockProvider* clock, InternalClock& internal, MidiClo
 
 void AppState::selectClockProvider(ClockProvider* provider) {
   ClockProvider* target = provider ? provider : &internalClock_;
-  if (clock_ == target && clock_) {
-    clock_->setBpm(scheduler_.bpm());
-    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-    return;
-  }
+  ClockProvider* previous = clock_;
 
-  if (clock_) {
-    clock_->stopTransport();
+  if (previous && previous != target) {
+    previous->stopTransport();
   }
 
   clock_ = target;
+
   internalClock_.attachScheduler(&scheduler_);
   midiClockIn_.attachScheduler(&scheduler_);
   midiClockOut_.attachScheduler(&scheduler_);
   scheduler_.setClockProvider(clock_);
+
   if (clock_) {
     clock_->setBpm(scheduler_.bpm());
   }
+
   alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
 }
 
@@ -635,7 +634,7 @@ void AppState::onExternalClockTick() {
     Serial.println(F("external clock: TRS/USB seized transport"));
   }
 #endif
-  if (clock_ == &midiClockIn_) {
+  if (clock_ == &midiClockIn_ || externalClockDominant_) {
     midiClockIn_.onTick();
   }
 }
@@ -645,7 +644,7 @@ void AppState::onExternalTransportStart() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
-  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+  selectClockProvider(&midiClockIn_);
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = true;
@@ -662,7 +661,11 @@ void AppState::onExternalTransportStop() {
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = false;
-  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+  if (!followExternalClockEnabled_) {
+    selectClockProvider(&internalClock_);
+  } else {
+    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+  }
   updateClockDominance();
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = false;
