@@ -4,7 +4,7 @@
 
 #include <array>
 #include <Arduino.h>
-#include <Bounce.h>
+#include <Bounce2.h>
 
 #include "hal_io.h"
 
