@@ -12,7 +12,6 @@
 #include <vector>
 #include <cstddef>
 #include <cstdint>
-#include <cstddef>
 #include "Seed.h"
 #include "util/Annotations.h"
 #include "app/Clock.h"
