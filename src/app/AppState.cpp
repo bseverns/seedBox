@@ -877,7 +877,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   // use status/metrics/nuance rows to narrate what's happening with the focus
   // seed. Think of it as a glorified logcat for the front panel.
   std::array<char, 64> scratch{};
-  std::array<char, 64> statusScratch{};
   writeDisplayField(out.title, formatScratch(scratch, "SeedBox %06X", masterSeed_ & 0xFFFFFFu));
 
   const float sampleRate = hal::audio::sampleRate();

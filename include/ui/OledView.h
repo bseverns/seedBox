@@ -4,11 +4,11 @@
 #include "app/UiState.h"
 #include "ui/TextFrame.h"
 
-namespace ui {
-
 #ifdef SEEDBOX_HW
-class Adafruit_SH1107;
+#include <Adafruit_SH110X.h>
 #endif
+
+namespace ui {
 
 class OledView {
 public:
