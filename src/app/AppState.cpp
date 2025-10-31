@@ -171,8 +171,6 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::SETTINGS},
 }};
 
-}
-
 AppState::AppState(hal::Board& board) : board_(board), input_(board) {
   internalClock_.attachScheduler(&scheduler_);
   midiClockIn_.attachScheduler(&scheduler_);
