@@ -42,12 +42,6 @@ void setup() {
 
 void loop() {
 #ifdef SEEDBOX_HW
-  // Make sure we never starve the USB MIDI buffer.  We chew through everything
-  // that's pending so the Teensy core does not silently drop notes when things
-  // get busy.
-  while (usbMIDI.read()) { app.midi.onUsbEvent(); }
-  // Serial MIDI devices (DIN/TRS) do not generate interrupts, so we poll them
-  // once per loop.
   app.midi.poll();
 #endif
   // Finally, tick the app.  This pumps the state machine, audio engine, and any

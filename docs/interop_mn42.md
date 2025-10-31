@@ -80,3 +80,53 @@ Respond however you want — CC ack, flashing LEDs, or a triumphant glitch-pop.
 
 Keep tweaking and jotting discoveries. This page should evolve like a gig
 setlist — fast edits, honest notes, no preciousness.
+
+## Router defaults and port matrix
+
+SeedBox now routes MIDI through a tiny facade with explicit port capabilities.
+Both USB and the TRS Type-A jacks can talk clock, transport, and control
+changes. The CLI backend mirrors the same truth table so native tests can drive
+either port without needing a Teensy on the desk.
+
+| Port | Clock In/Out | Transport In/Out | CC In/Out | Notes |
+| --- | --- | --- | --- | --- |
+| `MidiRouter::Port::kUsb` | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | Backed by `usbMIDI` on hardware, CLI shim in native builds. |
+| `MidiRouter::Port::kTrsA` | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | Lives on Serial7; channel map clamps everything to MN42's lane by default. |
+
+`QUIET_MODE` short-circuits the actual wire writes, but the router still logs
+what *would* have gone out so tests can assert on behaviour without buzzing a
+real rig.
+
+### PERF page routing snapshot
+
+`AppState::initHardware()` declares a routing matrix per UI page. PERF is the
+live set, so it mirrors clock + transport out of both ports while accepting CCs
+from either side:
+
+```cpp
+std::array<MidiRouter::RouteConfig, MidiRouter::kPortCount> perf{};
+const auto usb = static_cast<std::size_t>(MidiRouter::Port::kUsb);
+const auto trs = static_cast<std::size_t>(MidiRouter::Port::kTrsA);
+perf[usb].acceptClock = perf[trs].acceptClock = true;
+perf[usb].acceptTransport = perf[trs].acceptTransport = true;
+perf[usb].acceptControlChange = perf[trs].acceptControlChange = true;
+perf[usb].mirrorClock = perf[trs].mirrorClock = true;
+perf[usb].mirrorTransport = perf[trs].mirrorTransport = true;
+```
+
+EDIT/HACK modes fall back to CC-only intake so classroom demos can mash knobs
+without surprise tempo hijacks.
+
+### Panic + note-off guardrails
+
+`MidiRouter::panic()` slams an "all notes off" CC to every port/channel that
+the router thinks is still alive. Note-offs are tracked with a guard table so
+duplicate releases do nothing. Native tests hit this path through the CLI
+backend to make sure the guard behaves before we drop it onto hardware.
+
+### Param map scaffold
+
+Future controller integrations can stash CC→parameter descriptions inside
+[`src/interop/mn42_param_map.h`](../src/interop/mn42_param_map.h). Right now
+it's an empty grid with documentation baked in; feel free to populate it as soon
+as the MN42 panel layout locks.
