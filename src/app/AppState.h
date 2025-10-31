@@ -157,6 +157,7 @@ private:
   void updateClockDominance();
   void applyMn42ModeBits(uint8_t value);
   void handleTransportGate(uint8_t value);
+  void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
   std::vector<Seed> buildLfsrSeeds(uint32_t masterSeed, std::size_t count);
@@ -221,6 +222,5 @@ private:
   bool lockButtonHeld_{false};
   uint32_t lockButtonPressTimestamp_{0};
   float swingPercent_{0.0f};
-  bool seedLock_{false};
 };
 

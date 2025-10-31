@@ -807,16 +807,6 @@ float AppState::currentTapTempoBpm() const {
     return 120.f;
   }
   return static_cast<float>(60000.0 / averageMs);
-  setFocusSeed(0);
-  seedsPrimed_ = true;
-  externalTransportRunning_ = false;
-  transportLatchedRunning_ = false;
-  transportGateHeld_ = false;
-  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-  updateClockDominance();
-  hal::io::writeDigital(kStatusLedPin, true);
-  captureDisplaySnapshot(displayCache_, uiStateCache_);
-  displayDirty_ = true;
 }
 
 void AppState::onExternalClockTick() {
@@ -1169,8 +1159,17 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   UiState localUi{};
   UiState* uiOut = ui ? ui : &localUi;
 
+  const bool hasSeeds = !seeds_.empty();
+  std::size_t focusIndex = 0;
+  if (hasSeeds) {
+    focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+  }
+  const bool globalLocked = seedLock_.globalLocked();
+  const bool focusLocked = hasSeeds ? seedLock_.seedLocked(focusIndex) : false;
+  const bool anyLockActive = globalLocked || focusLocked;
+
   uiOut->mode = UiState::Mode::kPerformance;
-  if (seedLock_) {
+  if (anyLockActive) {
     uiOut->mode = UiState::Mode::kEdit;
   }
   if (debugMetersEnabled_) {
@@ -1179,24 +1178,32 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   uiOut->bpm = scheduler_.bpm();
   uiOut->swing = swingPercent_;
   uiOut->clock = externalClockDominant_ ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
-  uiOut->seedLocked = seedLock_;
+  uiOut->seedLocked = anyLockActive;
 
-  if (!seeds_.empty()) {
-    const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
+  if (hasSeeds) {
     const Seed& s = seeds_[focusIndex];
     writeUiField(uiOut->engineName, engineLongName(s.engine));
   } else {
     writeUiField(uiOut->engineName, "Idle");
   }
 
-  writeUiField(uiOut->pageHints[0], seedLock_ ? "Pg focus locked" : "Pg cycle seeds");
-  if (seedLock_) {
+  if (globalLocked) {
+    writeUiField(uiOut->pageHints[0], "Pg seeds locked");
+  } else if (focusLocked) {
+    writeUiField(uiOut->pageHints[0], "Pg focus locked");
+  } else {
+    writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+  }
+
+  if (globalLocked) {
+    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
+  } else if (focusLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
     writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
   }
 
-  if (seeds_.empty()) {
+  if (!hasSeeds) {
     if constexpr (SeedBoxConfig::kQuietMode) {
       writeDisplayField(out.status, formatScratch(scratch, "%s quiet", modeLabel(mode_)));
     } else {
@@ -1210,7 +1217,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     return;
   }
 
-  const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
   const Seed& s = seeds_[focusIndex];
   const std::string_view shortName = engineLabel(engines_, s.engine);
   writeDisplayField(out.status,
