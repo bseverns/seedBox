@@ -167,16 +167,24 @@ void EngineRouter::dispatchThunk(void* ctx, const Seed& seed, std::uint32_t when
 void EngineRouter::onSeed(const Seed& seed) {
   switch (seed.engine) {
     case 0:
-      sampler_.onSeed(seed);
+      if (sampler_) {
+        sampler_->onSeed(seed);
+      }
       break;
     case 1:
-      granular_.onSeed(seed);
+      if (granular_) {
+        granular_->onSeed(seed);
+      }
       break;
     case 2:
-      resonator_.onSeed(seed);
+      if (resonator_) {
+        resonator_->onSeed(seed);
+      }
       break;
     default:
-      sampler_.onSeed(seed);
+      if (sampler_) {
+        sampler_->onSeed(seed);
+      }
       break;
   }
 }
