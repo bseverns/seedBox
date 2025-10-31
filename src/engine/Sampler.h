@@ -1,7 +1,8 @@
 #pragma once
-#include "Seed.h"
 #include <array>
 #include <cstdint>
+#include <vector>
+#include "Seed.h"
 #include "HardwarePrelude.h"
 #include "engine/Engine.h"
 #include "util/Annotations.h"
@@ -64,6 +65,8 @@ public:
   // `whenSamples`. All pitch/envelope/tone settings get baked into the voice
   // record immediately.
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& s, uint32_t whenSamples);
+  void onSeed(const Seed& seed);
+  const Seed* lastSeed(uint32_t id) const;
 
   // Engine interface -----------------------------------------------------
   Engine::Type type() const noexcept override;
@@ -113,6 +116,7 @@ private:
 private:
   std::array<VoiceInternal, kMaxVoices> voices_{};
   uint32_t nextHandle_{1};
+  std::vector<Seed> seedCache_{};
 
 #ifdef SEEDBOX_HW
   struct HardwareVoice {

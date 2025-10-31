@@ -40,7 +40,7 @@ public:
   void setSeedLock(std::size_t index, bool locked);
   void setGlobalLock(bool locked);
   void reseed(std::uint32_t masterSeed);
-
+  void onSeed(const Seed& seed);
   void triggerSeed(const Seed& seed, std::uint32_t whenSamples);
 
   SEEDBOX_MAYBE_UNUSED static void dispatchThunk(void* ctx, const Seed& seed, std::uint32_t whenSamples);

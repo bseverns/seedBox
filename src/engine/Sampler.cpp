@@ -229,6 +229,22 @@ float Sampler::clamp01(float value) {
   return std::max(0.0f, std::min(1.0f, value));
 }
 
+void Sampler::onSeed(const Seed& seed) {
+  const std::size_t index = static_cast<std::size_t>(seed.id);
+  if (seedCache_.size() <= index) {
+    seedCache_.resize(index + 1);
+  }
+  seedCache_[index] = seed;
+}
+
+const Seed* Sampler::lastSeed(uint32_t id) const {
+  const std::size_t index = static_cast<std::size_t>(id);
+  if (index >= seedCache_.size()) {
+    return nullptr;
+  }
+  return &seedCache_[index];
+}
+
 void Sampler::trigger(const Seed& seed, uint32_t whenSamples) {
   const uint8_t voiceIndex = allocateVoice(whenSamples);
   VoiceInternal& voiceSlot = voices_[voiceIndex];

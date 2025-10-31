@@ -5,6 +5,7 @@
 #include "HardwarePrelude.h"
 #include "engine/Engine.h"
 #include "util/Annotations.h"
+#include <vector>
 
 // ResonatorBank sketches Option C (Karplus-Strong / modal ping engine). The
 // actual Teensy Audio graph will plug in later; for now we keep the scheduling
@@ -18,6 +19,8 @@ public:
   SEEDBOX_MAYBE_UNUSED void setDampingRange(float minDamping, float maxDamping);
 
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
+  void onSeed(const Seed& seed);
+  const Seed* lastSeed(uint32_t id) const;
 
   // Engine interface -----------------------------------------------------
   Engine::Type type() const noexcept override;
@@ -103,6 +106,7 @@ private:
   std::array<VoiceInternal, kMaxVoices> voices_{};
   uint32_t nextHandle_{1};
   std::array<ModalPreset, 6> presets_{};
+  std::vector<Seed> seedCache_{};
 
 #ifdef SEEDBOX_HW
   struct HardwareVoice {

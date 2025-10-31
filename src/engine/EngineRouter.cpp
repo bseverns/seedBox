@@ -164,6 +164,30 @@ void EngineRouter::dispatchThunk(void* ctx, const Seed& seed, std::uint32_t when
   static_cast<EngineRouter*>(ctx)->triggerSeed(seed, whenSamples);
 }
 
+void EngineRouter::onSeed(const Seed& seed) {
+  switch (seed.engine) {
+    case 0:
+      if (sampler_) {
+        sampler_->onSeed(seed);
+      }
+      break;
+    case 1:
+      if (granular_) {
+        granular_->onSeed(seed);
+      }
+      break;
+    case 2:
+      if (resonator_) {
+        resonator_->onSeed(seed);
+      }
+      break;
+    default:
+      if (sampler_) {
+        sampler_->onSeed(seed);
+      }
+      break;
+  }
+}
 std::size_t EngineRouter::engineCount() const { return registry_.size(); }
 
 std::uint8_t EngineRouter::sanitizeEngineId(std::uint8_t engineId) const {

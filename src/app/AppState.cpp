@@ -19,6 +19,7 @@
 #include "SeedBoxConfig.h"
 #include "interop/mn42_map.h"
 #include "util/RNG.h"
+#include "util/ScaleQuantizer.h"
 #include "engine/Sampler.h"
 #include "hal/hal_audio.h"
 #include "hal/hal_io.h"
@@ -35,7 +36,17 @@
 namespace {
 constexpr uint8_t kEngineCycleCc = 20;
 
+constexpr hal::io::PinNumber kReseedButtonPin = 2;
+constexpr hal::io::PinNumber kLockButtonPin = 3;
 constexpr hal::io::PinNumber kStatusLedPin = 13;
+
+const std::array<hal::io::DigitalConfig, 3> kFrontPanelPins{{
+    {kReseedButtonPin, true, true},
+    {kLockButtonPin, true, true},
+    {kStatusLedPin, false, false},
+}};
+
+constexpr uint32_t kLockLongPressUs = 600000;  // ~0.6s long press threshold.
 
 constexpr std::array<const char*, 4> kDemoSdClips{{"wash", "dust", "vox", "pads"}};
 
@@ -289,6 +300,27 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   }
   std::fill(buffer.left, buffer.left + buffer.frames, 0.0f);
   std::fill(buffer.right, buffer.right + buffer.frames, 0.0f);
+}
+
+void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp) {
+  if (pin == kReseedButtonPin && level) {
+    reseedRequested_ = true;
+    return;
+  }
+  if (pin == kLockButtonPin) {
+    if (level) {
+      lockButtonHeld_ = true;
+      lockButtonPressTimestamp_ = timestamp;
+    } else if (lockButtonHeld_) {
+      const uint32_t elapsed = timestamp - lockButtonPressTimestamp_;
+      if (elapsed >= kLockLongPressUs) {
+        seedPageToggleGlobalLock();
+      } else {
+        seedPageToggleLock(focusSeed_);
+      }
+      lockButtonHeld_ = false;
+    }
+  }
 }
 
 // tick is the heartbeat. Every call either primes seeds (first-run), lets the
@@ -563,11 +595,10 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     scheduler_.setBpm(0.f);
     scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
     seedEngineSelections_.clear();
+    seedLock_.clear();
+    tapTempoHistory_.clear();
+    presetBuffer_ = PresetBuffer{};
     setFocusSeed(0);
-    // Quiet mode is a one-shot reset: once the mute scaffold is built we want
-    // tick() to stop cycling back through primeSeeds().  Mark the table as
-    // primed so followExternalClockEnabled() and friends keep whatever state
-    // the tests (or a teacher) dial in afterwards.
     seedsPrimed_ = true;
     externalTransportRunning_ = false;
     transportLatchedRunning_ = false;
@@ -585,23 +616,107 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   }
 
   const std::vector<uint8_t> previousSelections = seedEngineSelections_;
-  seeds_.clear();
-  ClockProvider* provider = clock_ ? clock_ : &internalClock_;
-  scheduler_ = PatternScheduler(provider);
-  selectClockProvider(provider);
-  scheduler_.setBpm(120.f);
+  const std::vector<Seed> previousSeeds = seeds_;
+  const uint8_t previousFocus = focusSeed_;
+
+  constexpr std::size_t kSeedCount = 4;
+  seedLock_.resize(kSeedCount);
+  seedLock_.trim(kSeedCount);
+
+  std::vector<Seed> generated;
+  if (!seedLock_.globalLocked() || previousSeeds.empty()) {
+    switch (seedPrimeMode_) {
+      case SeedPrimeMode::kTapTempo:
+        generated = buildTapTempoSeeds(masterSeed_, kSeedCount, currentTapTempoBpm());
+        break;
+      case SeedPrimeMode::kPreset:
+        generated = buildPresetSeeds(kSeedCount);
+        break;
+      case SeedPrimeMode::kLfsr:
+      default:
+        generated = buildLfsrSeeds(masterSeed_, kSeedCount);
+        break;
+    }
+    if (generated.empty()) {
+      generated = buildLfsrSeeds(masterSeed_, kSeedCount);
+    }
+    if (generated.size() < kSeedCount) {
+      generated.resize(kSeedCount);
+    }
+    if (generated.size() > kSeedCount) {
+      generated.resize(kSeedCount);
+    }
+    for (std::size_t i = 0; i < generated.size(); ++i) {
+      if (seedLock_.seedLocked(i) && i < previousSeeds.size()) {
+        generated[i] = previousSeeds[i];
+      } else {
+        generated[i].id = static_cast<uint32_t>(i);
+        if (generated[i].prng == 0) {
+          generated[i].prng = RNG::xorshift(masterSeed_);
+        }
+      }
+    }
+  } else {
+    generated = previousSeeds;
+    if (generated.size() < kSeedCount) {
+      const auto topUp = buildLfsrSeeds(masterSeed_, kSeedCount);
+      for (std::size_t i = generated.size(); i < kSeedCount && i < topUp.size(); ++i) {
+        generated.push_back(topUp[i]);
+      }
+    }
+    if (generated.size() > kSeedCount) {
+      generated.resize(kSeedCount);
+    }
+    for (std::size_t i = 0; i < generated.size(); ++i) {
+      generated[i].id = static_cast<uint32_t>(i);
+    }
+  }
+
+  seeds_ = generated;
+
+  scheduler_ = PatternScheduler{};
+  const float bpm = (seedPrimeMode_ == SeedPrimeMode::kTapTempo) ? currentTapTempoBpm() : 120.f;
+  scheduler_.setBpm(bpm);
   scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
 
-  uint32_t state = masterSeed_;
-  constexpr size_t kSeedCount = 4;
-  seedEngineSelections_.assign(kSeedCount, 0);
-  engines_.setSeedCount(kSeedCount);
-  for (size_t i = 0; i < kSeedCount; ++i) {
-    // Every loop iteration births a new Seed and walks RNG::xorshift / uniform
-    // helpers forward. Because the RNG is deterministic we can rerun
-    // primeSeeds with the same masterSeed and always land on the same genome.
+  for (const Seed& seed : seeds_) {
+    scheduler_.addSeed(seed);
+  }
+
+  seedEngineSelections_.assign(seeds_.size(), 0);
+  for (std::size_t i = 0; i < seeds_.size(); ++i) {
+    const uint8_t desired = (i < previousSelections.size()) ? previousSelections[i] : seeds_[i].engine;
+    setSeedEngine(static_cast<uint8_t>(i), desired);
+  }
+
+  if (!seeds_.empty()) {
+    const std::size_t maxIndex = seeds_.size() - 1;
+    const uint8_t targetFocus = previousSeeds.empty()
+                                    ? 0
+                                    : static_cast<uint8_t>(std::min<std::size_t>(previousFocus, maxIndex));
+    setFocusSeed(targetFocus);
+  } else {
+    focusSeed_ = 0;
+  }
+
+  seedsPrimed_ = true;
+  externalTransportRunning_ = false;
+  transportLatchedRunning_ = false;
+  transportGateHeld_ = false;
+  updateClockDominance();
+  hal::io::writeDigital(kStatusLedPin, true);
+  displayDirty_ = true;
+}
+
+std::vector<Seed> AppState::buildLfsrSeeds(uint32_t masterSeed, std::size_t count) {
+  std::vector<Seed> seeds;
+  seeds.reserve(count);
+  uint32_t state = masterSeed ? masterSeed : 0x5EEDB0B1u;
+  for (std::size_t i = 0; i < count; ++i) {
     Seed seed{};
     seed.id = static_cast<uint32_t>(i);
+    seed.source = Seed::Source::kLfsr;
+    seed.lineage = masterSeed;
     seed.prng = RNG::xorshift(state);
     seed.engine = 0;
     seed.sampleIdx = static_cast<uint8_t>(i % 16);
@@ -613,10 +728,6 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     seed.spread = 0.1f + 0.8f * RNG::uniform01(state);
     seed.mutateAmt = 0.05f + 0.15f * RNG::uniform01(state);
 
-    // --- Granular controls ---
-    // Grain size controls the duration of a single voice. We skew the random
-    // walk toward shorter grains so the scheduler can demonstrate density
-    // stacking without smearing the entire texture.
     seed.granular.grainSizeMs = 35.f + 120.f * RNG::uniform01(state);
     seed.granular.sprayMs = 4.f + 24.f * RNG::uniform01(state);
     seed.granular.transpose = static_cast<float>(static_cast<int32_t>(RNG::xorshift(state) % 13) - 6);
@@ -627,7 +738,6 @@ void AppState::primeSeeds(uint32_t masterSeed) {
                                : static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
     seed.granular.sdSlot = static_cast<uint8_t>(RNG::xorshift(state) % GranularEngine::kSdClipSlots);
 
-    // --- Resonator controls ---
     seed.resonator.exciteMs = 2.0f + 10.0f * RNG::uniform01(state);
     seed.resonator.damping = RNG::uniform01(state);
     seed.resonator.brightness = RNG::uniform01(state);
@@ -636,31 +746,67 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     seed.resonator.mode = static_cast<uint8_t>(i % 2);
     seed.resonator.bank = static_cast<uint8_t>(RNG::xorshift(state) % 6);
 
-    seeds_.push_back(seed);
-    scheduler_.addSeed(seeds_.back());
+    seeds.push_back(seed);
   }
+  return seeds;
+}
 
-  for (size_t i = 0; i < kSeedCount; ++i) {
-    // Restore any explicit engine selections we captured before reseeding.
-    // That keeps lesson plans deterministic: once a class sets seed 2 to the
-    // resonator they can reseed the parameters without losing the engine
-    // choice.
-    const uint8_t desired = (i < previousSelections.size())
-                                ? previousSelections[i]
-                                : seeds_[i].engine;
-    setSeedEngine(static_cast<uint8_t>(i), desired);
+std::vector<Seed> AppState::buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm) {
+  auto seeds = buildLfsrSeeds(masterSeed, count);
+  const float safeBpm = bpm > 1.f ? bpm : 120.f;
+  const float densityScale = safeBpm / 120.f;
+  const uint32_t lineageTag = static_cast<uint32_t>(std::max(0.f, safeBpm * 100.f));
+  for (auto& seed : seeds) {
+    seed.source = Seed::Source::kTapTempo;
+    seed.lineage = lineageTag;
+    seed.density = std::clamp(seed.density * densityScale, 0.25f, 6.0f);
+    seed.jitterMs = std::max(0.5f, seed.jitterMs * 0.5f);
   }
+  return seeds;
+}
 
-  setFocusSeed(0);
-  seedsPrimed_ = true;
-  externalTransportRunning_ = false;
-  transportLatchedRunning_ = false;
-  transportGateHeld_ = false;
-  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-  updateClockDominance();
-  hal::io::writeDigital(kStatusLedPin, true);
-  captureDisplaySnapshot(displayCache_, uiStateCache_);
-  displayDirty_ = true;
+std::vector<Seed> AppState::buildPresetSeeds(std::size_t count) {
+  std::vector<Seed> seeds;
+  if (presetBuffer_.seeds.empty()) {
+    return buildLfsrSeeds(masterSeed_, count);
+  }
+  seeds.reserve(count);
+  for (std::size_t i = 0; i < count; ++i) {
+    const Seed& templateSeed = presetBuffer_.seeds[i % presetBuffer_.seeds.size()];
+    Seed seed = templateSeed;
+    seed.id = static_cast<uint32_t>(i);
+    seed.source = Seed::Source::kPreset;
+    seed.lineage = presetBuffer_.id;
+    if (seed.prng == 0) {
+      uint32_t lineageSeed = masterSeed_ ^ (presetBuffer_.id + static_cast<uint32_t>(i * 97));
+      seed.prng = RNG::xorshift(lineageSeed ? lineageSeed : masterSeed_);
+    }
+    seeds.push_back(seed);
+  }
+  return seeds;
+}
+
+float AppState::currentTapTempoBpm() const {
+  if (tapTempoHistory_.empty()) {
+    return 120.f;
+  }
+  double total = 0.0;
+  std::size_t count = 0;
+  for (uint32_t interval : tapTempoHistory_) {
+    if (interval == 0) {
+      continue;
+    }
+    total += static_cast<double>(interval);
+    ++count;
+  }
+  if (count == 0) {
+    return 120.f;
+  }
+  const double averageMs = total / static_cast<double>(count);
+  if (averageMs <= 0.0) {
+    return 120.f;
+  }
+  return static_cast<float>(60000.0 / averageMs);
 }
 
 void AppState::onExternalClockTick() {
@@ -763,6 +909,10 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
     setSeedEngine(focus, target);
     return;
   }
+  if (cc == cc::kQuantize) {
+    applyQuantizeControl(val);
+    return;
+  }
 
   // Future CC maps will route through here once the macro table lands.
 }
@@ -834,6 +984,126 @@ void AppState::reseed(uint32_t masterSeed) {
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
 }
 
+void AppState::seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode) {
+  setSeedPrimeMode(mode);
+  reseed(masterSeed);
+}
+
+void AppState::setSeedPrimeMode(SeedPrimeMode mode) { seedPrimeMode_ = mode; }
+
+void AppState::seedPageToggleLock(uint8_t index) {
+  if (seeds_.empty()) {
+    return;
+  }
+  const std::size_t idx = static_cast<std::size_t>(index) % seeds_.size();
+  seedLock_.toggleSeedLock(idx);
+  displayDirty_ = true;
+}
+
+void AppState::seedPageToggleGlobalLock() {
+  seedLock_.toggleGlobalLock();
+  displayDirty_ = true;
+}
+
+bool AppState::isSeedLocked(uint8_t index) const {
+  if (seedLock_.globalLocked()) {
+    return true;
+  }
+  if (seeds_.empty()) {
+    return false;
+  }
+  const std::size_t idx = static_cast<std::size_t>(index) % seeds_.size();
+  return seedLock_.seedLocked(idx);
+}
+
+void AppState::seedPageNudge(uint8_t index, const SeedNudge& nudge) {
+  if (seeds_.empty()) {
+    return;
+  }
+  const std::size_t idx = static_cast<std::size_t>(index) % seeds_.size();
+  if (seedLock_.seedLocked(idx)) {
+    return;
+  }
+  Seed& seed = seeds_[idx];
+  if (nudge.pitchSemitones != 0.f) {
+    seed.pitch += nudge.pitchSemitones;
+  }
+  if (nudge.densityDelta != 0.f) {
+    seed.density = std::max(0.f, seed.density + nudge.densityDelta);
+  }
+  if (nudge.probabilityDelta != 0.f) {
+    seed.probability = std::clamp(seed.probability + nudge.probabilityDelta, 0.f, 1.f);
+  }
+  if (nudge.jitterDeltaMs != 0.f) {
+    seed.jitterMs = std::max(0.f, seed.jitterMs + nudge.jitterDeltaMs);
+  }
+  if (nudge.toneDelta != 0.f) {
+    seed.tone = std::clamp(seed.tone + nudge.toneDelta, 0.f, 1.f);
+  }
+  if (nudge.spreadDelta != 0.f) {
+    seed.spread = std::clamp(seed.spread + nudge.spreadDelta, 0.f, 1.f);
+  }
+  scheduler_.updateSeed(idx, seed);
+  engines_.onSeed(seed);
+  displayDirty_ = true;
+}
+
+void AppState::recordTapTempoInterval(uint32_t intervalMs) {
+  if (intervalMs == 0) {
+    return;
+  }
+  tapTempoHistory_.push_back(intervalMs);
+  constexpr std::size_t kMaxHistory = 8;
+  if (tapTempoHistory_.size() > kMaxHistory) {
+    const std::size_t drop = tapTempoHistory_.size() - kMaxHistory;
+    tapTempoHistory_.erase(tapTempoHistory_.begin(), tapTempoHistory_.begin() + drop);
+  }
+}
+
+void AppState::setSeedPreset(uint32_t presetId, const std::vector<Seed>& seeds) {
+  presetBuffer_.id = presetId;
+  presetBuffer_.seeds = seeds;
+}
+
+void AppState::applyQuantizeControl(uint8_t value) {
+  if (seeds_.empty()) {
+    return;
+  }
+  const std::size_t idx = static_cast<std::size_t>(focusSeed_) % seeds_.size();
+  if (seedLock_.seedLocked(idx)) {
+    return;
+  }
+  const uint8_t scaleIndex = static_cast<uint8_t>(value / 32);
+  const uint8_t root = static_cast<uint8_t>(value % 12);
+  util::ScaleQuantizer::Scale scale = util::ScaleQuantizer::Scale::kChromatic;
+  switch (scaleIndex) {
+    case 0:
+      scale = util::ScaleQuantizer::Scale::kChromatic;
+      break;
+    case 1:
+      scale = util::ScaleQuantizer::Scale::kMajor;
+      break;
+    case 2:
+      scale = util::ScaleQuantizer::Scale::kMinor;
+      break;
+    case 3:
+      scale = util::ScaleQuantizer::Scale::kPentatonicMajor;
+      break;
+    default:
+      scale = util::ScaleQuantizer::Scale::kPentatonicMinor;
+      break;
+  }
+
+  Seed& seed = seeds_[idx];
+  const float quantized = util::ScaleQuantizer::SnapToScale(seed.pitch, root, scale);
+  if (quantized != seed.pitch) {
+    seed.pitch = quantized;
+    scheduler_.updateSeed(idx, seed);
+    engines_.onSeed(seed);
+    displayDirty_ = true;
+  }
+}
+
 void AppState::setFocusSeed(uint8_t index) {
   if (seeds_.empty()) {
     focusSeed_ = 0;
@@ -866,6 +1136,8 @@ void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
   // right trigger callback. This keeps PatternScheduler as the single source of
   // truth for playback order.
   scheduler_.updateSeed(idx, seed);
+  engines_.onSeed(seed);
+  displayDirty_ = true;
 }
 
 void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
@@ -887,8 +1159,17 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   UiState localUi{};
   UiState* uiOut = ui ? ui : &localUi;
 
+  const bool hasSeeds = !seeds_.empty();
+  std::size_t focusIndex = 0;
+  if (hasSeeds) {
+    focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+  }
+  const bool globalLocked = seedLock_.globalLocked();
+  const bool focusLocked = hasSeeds ? seedLock_.seedLocked(focusIndex) : false;
+  const bool anyLockActive = globalLocked || focusLocked;
+
   uiOut->mode = UiState::Mode::kPerformance;
-  if (seedLock_) {
+  if (anyLockActive) {
     uiOut->mode = UiState::Mode::kEdit;
   }
   if (debugMetersEnabled_) {
@@ -897,24 +1178,32 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   uiOut->bpm = scheduler_.bpm();
   uiOut->swing = swingPercent_;
   uiOut->clock = externalClockDominant_ ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
-  uiOut->seedLocked = seedLock_;
+  uiOut->seedLocked = anyLockActive;
 
-  if (!seeds_.empty()) {
-    const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
+  if (hasSeeds) {
     const Seed& s = seeds_[focusIndex];
     writeUiField(uiOut->engineName, engineLongName(s.engine));
   } else {
     writeUiField(uiOut->engineName, "Idle");
   }
 
-  writeUiField(uiOut->pageHints[0], seedLock_ ? "Pg focus locked" : "Pg cycle seeds");
-  if (seedLock_) {
+  if (globalLocked) {
+    writeUiField(uiOut->pageHints[0], "Pg seeds locked");
+  } else if (focusLocked) {
+    writeUiField(uiOut->pageHints[0], "Pg focus locked");
+  } else {
+    writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+  }
+
+  if (globalLocked) {
+    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
+  } else if (focusLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
     writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
   }
 
-  if (seeds_.empty()) {
+  if (!hasSeeds) {
     if constexpr (SeedBoxConfig::kQuietMode) {
       writeDisplayField(out.status, formatScratch(scratch, "%s quiet", modeLabel(mode_)));
     } else {
@@ -928,7 +1217,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     return;
   }
 
-  const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
   const Seed& s = seeds_[focusIndex];
   const std::string_view shortName = engineLabel(engines_, s.engine);
   writeDisplayField(out.status,

@@ -356,3 +356,19 @@ GranularEngine::SimHardwareVoice GranularEngine::simHardwareVoice(uint8_t index)
   return simHwVoices_[index];
 }
 #endif
+
+void GranularEngine::onSeed(const Seed& seed) {
+  const std::size_t index = static_cast<std::size_t>(seed.id);
+  if (seedCache_.size() <= index) {
+    seedCache_.resize(index + 1);
+  }
+  seedCache_[index] = seed;
+}
+
+const Seed* GranularEngine::lastSeed(uint32_t id) const {
+  const std::size_t index = static_cast<std::size_t>(id);
+  if (index >= seedCache_.size()) {
+    return nullptr;
+  }
+  return &seedCache_[index];
+}
