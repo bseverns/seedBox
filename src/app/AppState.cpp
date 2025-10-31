@@ -75,6 +75,20 @@ std::string_view formatScratch(std::array<char, 64>& scratch, const char* fmt, A
   return std::string_view(scratch.data(), len);
 }
 
+template <std::size_t N>
+void writeUiField(std::array<char, N>& dst, std::string_view text) {
+  static_assert(N > 0, "UI field must have space for a terminator");
+  const size_t maxCopy = N - 1;
+  const size_t copyLen = std::min(text.size(), maxCopy);
+  if (copyLen > 0) {
+    std::memcpy(dst.data(), text.data(), copyLen);
+  }
+  dst[copyLen] = '\0';
+  if (copyLen + 1 < N) {
+    std::fill(dst.begin() + static_cast<std::ptrdiff_t>(copyLen + 1), dst.end(), '\0');
+  }
+}
+
 uint8_t sanitizeEngine(uint8_t engine) {
   // Engine IDs arrive from MIDI CCs and debug tools, so we modulo them into the
   // valid range to avoid out-of-bounds dispatches.
@@ -92,6 +106,15 @@ const char* engineLabel(uint8_t engine) {
     case 1: return "GRA";
     case 2: return "PING";
     default: return "UNK";
+  }
+}
+
+const char* engineLongName(uint8_t engine) {
+  switch (engine) {
+    case 0: return "Sampler";
+    case 1: return "Granular";
+    case 2: return "Resonator";
+    default: return "Unknown";
   }
 }
 }
@@ -175,7 +198,7 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   engines_.resonator().setDampingRange(0.18f, 0.92f);
   reseed(masterSeed_);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
-  captureDisplaySnapshot(displayCache_);
+  captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
   audioCallbackCount_ = 0;
 }
@@ -213,7 +236,7 @@ void AppState::tick() {
     scheduler_.onTick();
   }
   ++frame_;
-  captureDisplaySnapshot(displayCache_);
+  captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
 }
 
@@ -246,6 +269,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     mn42HelloSeen_ = false;
     updateClockDominance();
     hal::io::writeDigital(kStatusLedPin, false);
+    captureDisplaySnapshot(displayCache_, uiStateCache_);
     displayDirty_ = true;
     return;
   }
@@ -321,6 +345,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   transportGateHeld_ = false;
   updateClockDominance();
   hal::io::writeDigital(kStatusLedPin, true);
+  captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
 }
 
@@ -517,6 +542,10 @@ void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
 }
 
 void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
+  captureDisplaySnapshot(out, nullptr);
+}
+
+void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   // OLED real estate is tiny, so we jam the master seed into the title and then
   // use status/metrics/nuance rows to narrate what's happening with the focus
   // seed. Think of it as a glorified logcat for the front panel.
@@ -527,6 +556,36 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   const std::size_t block = hal::audio::framesPerBlock();
   const bool ledOn = hal::io::readDigital(kStatusLedPin);
   const uint32_t nowSamples = scheduler_.nowSamples();
+
+  UiState localUi{};
+  UiState* uiOut = ui ? ui : &localUi;
+
+  uiOut->mode = UiState::Mode::kPerformance;
+  if (seedLock_) {
+    uiOut->mode = UiState::Mode::kEdit;
+  }
+  if (debugMetersEnabled_) {
+    uiOut->mode = UiState::Mode::kSystem;
+  }
+  uiOut->bpm = scheduler_.bpm();
+  uiOut->swing = swingPercent_;
+  uiOut->clock = externalClockDominant_ ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
+  uiOut->seedLocked = seedLock_;
+
+  if (!seeds_.empty()) {
+    const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
+    const Seed& s = seeds_[focusIndex];
+    writeUiField(uiOut->engineName, engineLongName(s.engine));
+  } else {
+    writeUiField(uiOut->engineName, "Idle");
+  }
+
+  writeUiField(uiOut->pageHints[0], seedLock_ ? "Pg focus locked" : "Pg cycle seeds");
+  if (seedLock_) {
+    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
+  } else {
+    writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
+  }
 
   if (seeds_.empty()) {
     if constexpr (SeedBoxConfig::kQuietMode) {

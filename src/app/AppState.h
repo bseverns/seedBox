@@ -13,6 +13,7 @@
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
 #include "util/Annotations.h"
+#include "app/UiState.h"
 #ifdef SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
@@ -59,6 +60,11 @@ public:
   // Populate the snapshot struct with text destined for the OLED / debug
   // display. Think of this as the "mixing console" view for teaching labs.
   void captureDisplaySnapshot(DisplaySnapshot& out) const;
+  void captureDisplaySnapshot(DisplaySnapshot& out, UiState& ui) const {
+    captureDisplaySnapshot(out, &ui);
+  }
+
+  const UiState& uiStateCache() const { return uiStateCache_; }
 
   const DisplaySnapshot& displayCache() const { return displayCache_; }
   bool displayDirty() const { return displayDirty_; }
@@ -118,6 +124,7 @@ private:
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
+  void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
@@ -138,7 +145,10 @@ private:
   bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
   DisplaySnapshot displayCache_{};
+  UiState uiStateCache_{};
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
+  float swingPercent_{0.0f};
+  bool seedLock_{false};
 };
