@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <vector>
 #include "Seed.h"
 #include "HardwarePrelude.h"
 #include "util/Annotations.h"
@@ -42,6 +43,8 @@ public:
   SEEDBOX_MAYBE_UNUSED void registerSdClip(uint8_t slot, const char* path);
 
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
+  void onSeed(const Seed& seed);
+  const Seed* lastSeed(uint32_t id) const;
 
   uint8_t activeVoiceCount() const;
   SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;
@@ -88,6 +91,7 @@ private:
   bool liveInputArmed_{true};
   std::array<GrainVoice, kVoicePoolSize> voices_{};
   std::array<SourceSlot, kSdClipSlots> sdClips_{};
+  std::vector<Seed> seedCache_{};
 
 #ifdef SEEDBOX_HW
   struct HardwareVoice {

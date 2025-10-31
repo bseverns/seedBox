@@ -7,8 +7,10 @@
 // Treat it like a field guide for the rest of the codebase: the UI, tests, and
 // documentation all poke through this interface.  That means generous comments
 // are fair game — we're not hiding cleverness, we're teaching it.
+#include <cstddef>
 #include <cstdint>
 #include <vector>
+#include "SeedLock.h"
 #include "Seed.h"
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
@@ -33,6 +35,16 @@ using PinNumber = std::uint8_t;
 // what control hooks exist without spelunking the implementation.
 class AppState {
 public:
+  enum class SeedPrimeMode : uint8_t { kLfsr = 0, kTapTempo, kPreset };
+  struct SeedNudge {
+    float pitchSemitones{0.f};
+    float densityDelta{0.f};
+    float probabilityDelta{0.f};
+    float jitterDeltaMs{0.f};
+    float toneDelta{0.f};
+    float spreadDelta{0.f};
+  };
+
   ~AppState();
   // Boot the full hardware stack. We spin up MIDI routing, initialise the
   // engine router in hardware mode, and prime the deterministic seed table so
@@ -68,6 +80,20 @@ public:
   // this hook to explore how the scheduler reacts to different pseudo-random
   // genomes without rebooting the whole device.
   void reseed(uint32_t masterSeed);
+  void seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode);
+  void setSeedPrimeMode(SeedPrimeMode mode);
+  SeedPrimeMode seedPrimeMode() const { return seedPrimeMode_; }
+
+  void seedPageToggleLock(uint8_t index);
+  void seedPageToggleGlobalLock();
+  bool isSeedLocked(uint8_t index) const;
+  bool isGlobalSeedLocked() const { return seedLock_.globalLocked(); }
+  void seedPageNudge(uint8_t index, const SeedNudge& nudge);
+  void recordTapTempoInterval(uint32_t intervalMs);
+  void setSeedPreset(uint32_t presetId, const std::vector<Seed>& seeds);
+  uint32_t activePresetId() const { return presetBuffer_.id; }
+  EngineRouter& engineRouterForDebug() { return engines_; }
+  const EngineRouter& engineRouterForDebug() const { return engines_; }
 
   // Set which seed the UI is focused on. The focus influences which engine gets
   // cycled when the performer mashes the CC encoder.
@@ -118,6 +144,11 @@ private:
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
+  std::vector<Seed> buildLfsrSeeds(uint32_t masterSeed, std::size_t count);
+  std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
+  std::vector<Seed> buildPresetSeeds(std::size_t count);
+  float currentTapTempoBpm() const;
+  void applyQuantizeControl(uint8_t value);
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
@@ -126,6 +157,13 @@ private:
   PatternScheduler scheduler_{};
   EngineRouter engines_{};
   std::vector<uint8_t> seedEngineSelections_{};
+  SeedLock seedLock_{};
+  SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};
+  std::vector<uint32_t> tapTempoHistory_{};
+  struct PresetBuffer {
+    uint32_t id{0};
+    std::vector<Seed> seeds{};
+  } presetBuffer_{};
   uint32_t masterSeed_{0x5EEDB0B1u};
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
@@ -141,4 +179,6 @@ private:
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
+  bool lockButtonHeld_{false};
+  uint32_t lockButtonPressTimestamp_{0};
 };

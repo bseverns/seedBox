@@ -38,3 +38,20 @@ void EngineRouter::dispatchThunk(void* ctx, const Seed& seed, uint32_t whenSampl
   // EngineRouter's concrete type.
   static_cast<EngineRouter*>(ctx)->triggerSeed(seed, whenSamples);
 }
+
+void EngineRouter::onSeed(const Seed& seed) {
+  switch (seed.engine) {
+    case 0:
+      sampler_.onSeed(seed);
+      break;
+    case 1:
+      granular_.onSeed(seed);
+      break;
+    case 2:
+      resonator_.onSeed(seed);
+      break;
+    default:
+      sampler_.onSeed(seed);
+      break;
+  }
+}

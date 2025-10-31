@@ -33,6 +33,7 @@ public:
   // over a sample-accurate timestamp (`whenSamples`) so downstream code can stay
   // tight with the transport.
   void triggerSeed(const Seed& seed, uint32_t whenSamples);
+  void onSeed(const Seed& seed);
 
   SEEDBOX_MAYBE_UNUSED static void dispatchThunk(void* ctx, const Seed& seed, uint32_t whenSamples);
 

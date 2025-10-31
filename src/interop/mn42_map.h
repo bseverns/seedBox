@@ -30,6 +30,7 @@ constexpr uint8_t kHandshake = 14;      // Single-byte hello / ack CC.
 constexpr uint8_t kMode = 15;           // Bit field describing active features.
 constexpr uint8_t kSeedMorph = 16;      // 0-127 blend between stored seeds.
 constexpr uint8_t kTransportGate = 17;  // Velocity-style latch for start/stop.
+constexpr uint8_t kQuantize = 18;       // Snap focused seed to a scale.
 }  // namespace cc
 
 // Mode bit field that both devices read/write using cc::kMode.  The constants

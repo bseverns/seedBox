@@ -336,3 +336,19 @@ const ResonatorBank::ModalPreset& ResonatorBank::resolvePreset(uint8_t bank) con
 uint8_t ResonatorBank::clampMode(uint8_t requested) const {
   return requested == 0 ? 0 : 1;
 }
+
+void ResonatorBank::onSeed(const Seed& seed) {
+  const std::size_t index = static_cast<std::size_t>(seed.id);
+  if (seedCache_.size() <= index) {
+    seedCache_.resize(index + 1);
+  }
+  seedCache_[index] = seed;
+}
+
+const Seed* ResonatorBank::lastSeed(uint32_t id) const {
+  const std::size_t index = static_cast<std::size_t>(id);
+  if (index >= seedCache_.size()) {
+    return nullptr;
+  }
+  return &seedCache_[index];
+}
