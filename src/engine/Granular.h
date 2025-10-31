@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "Seed.h"
 #include "HardwarePrelude.h"
+#include "engine/Engine.h"
 #include "util/Annotations.h"
 
 // Planning scaffold for Option B (granular engine). We now spin up the Teensy
@@ -10,7 +11,7 @@
 // sim) so the control surface, routing, and documentation all stay in lockstep.
 // Seeds map deterministically into `GrainVoice` plans that tests can snapshot,
 // making it possible to teach the whole DSP chain straight from the code.
-class GranularEngine {
+class GranularEngine : public Engine {
 public:
   enum class Mode : uint8_t { kSim, kHardware };
   enum class Source : uint8_t { kLiveInput = 0, kSdClip = 1 };
@@ -42,6 +43,16 @@ public:
   SEEDBOX_MAYBE_UNUSED void registerSdClip(uint8_t slot, const char* path);
 
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
+
+  // Engine interface -----------------------------------------------------
+  Engine::Type type() const noexcept override;
+  void prepare(const Engine::PrepareContext& ctx) override;
+  void onTick(const Engine::TickContext& ctx) override;
+  void onParam(const Engine::ParamChange& change) override;
+  void onSeed(const Engine::SeedContext& ctx) override;
+  void renderAudio(const Engine::RenderContext& ctx) override;
+  Engine::StateBuffer serializeState() const override;
+  void deserializeState(const Engine::StateBuffer& state) override;
 
   uint8_t activeVoiceCount() const;
   SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;

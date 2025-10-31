@@ -72,6 +72,8 @@ void configureGranularWindow(Effect& effect, float windowSkew, float grainLength
 }  // namespace
 #endif  // SEEDBOX_HW
 
+Engine::Type GranularEngine::type() const noexcept { return Engine::Type::kGranular; }
+
 void GranularEngine::init(Mode mode) {
   mode_ = mode;
   maxActiveVoices_ = (mode == Mode::kHardware) ? 32 : 12;
@@ -132,6 +134,37 @@ void GranularEngine::init(Mode mode) {
   patchCables_.emplace_back(std::make_unique<AudioConnection>(finalMixLeft_, 0, output_, 0));
   patchCables_.emplace_back(std::make_unique<AudioConnection>(finalMixRight_, 0, output_, 1));
 #endif
+}
+
+void GranularEngine::prepare(const Engine::PrepareContext& ctx) {
+  init(ctx.hardware ? Mode::kHardware : Mode::kSim);
+  (void)ctx.masterSeed;
+  (void)ctx.sampleRate;
+  (void)ctx.framesPerBlock;
+}
+
+void GranularEngine::onTick(const Engine::TickContext& ctx) {
+  (void)ctx;
+}
+
+void GranularEngine::onParam(const Engine::ParamChange& change) {
+  (void)change;
+}
+
+void GranularEngine::onSeed(const Engine::SeedContext& ctx) {
+  trigger(ctx.seed, ctx.whenSamples);
+}
+
+void GranularEngine::renderAudio(const Engine::RenderContext& ctx) {
+  (void)ctx;
+}
+
+Engine::StateBuffer GranularEngine::serializeState() const {
+  return {};
+}
+
+void GranularEngine::deserializeState(const Engine::StateBuffer& state) {
+  (void)state;
 }
 
 void GranularEngine::setMaxActiveVoices(uint8_t voices) {

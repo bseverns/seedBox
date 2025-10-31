@@ -9,6 +9,8 @@ say so loudly.
 | Script | Job | Notes |
 | --- | --- | --- |
 | `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
+| `native/tap_tempo.py` | Estimates BPM from tap timestamps. | Accepts CLI args or STDIN; prints mean interval, BPM, and optional PPQN correction so workshops can nerd out on timing math. |
+| `native/micro_offset_probe.py` | Audits per-track micro offsets. | Feed it offsets in milliseconds and it yells if any lane drifts beyond your tolerance — perfect for regression gates around swing experiments. |
 | `kicad/sgtl5000_frontend.py` | Spits out a KiCad-ready SGTL5000 codec netlist using SKiDL. | Needs KiCad libraries on disk (`KICAD_SYMBOL_DIR` etc.) and `pip install skidl`. In library-less CI or preview runs it falls back to internal stub symbols, prints a ton of warnings, and still drops `build/hw/sgtl5000_frontend.net`. |
 | `kicad/teensy41_core.py` | Builds the Teensy 4.1 core (IMXRT1062, MKL02, QSPI flash, USB-C, breakouts). | Mirrors the [JensChr reference board](https://github.com/jenschr/Teensy-4.1-example) so we can fab our own MCU base. Same SKiDL + KiCad lib requirements as the SGTL script; stub symbols unblock previews. |
 | `kicad/seedbox_stack.py` | One-shot netlist for the full SeedBox brain (core + SGTL5000). | Calls the two generators above, reuses their nets, and spits out `build/hw/seedbox_stack.net` so you can start layout with everything already talking. |
