@@ -11,6 +11,8 @@
 #include "util/RNG.h"
 #include "util/Units.h"
 
+Engine::Type ResonatorBank::type() const noexcept { return Engine::Type::kResonator; }
+
 namespace {
 float clamp01(float v) {
   return std::max(0.f, std::min(1.f, v));
@@ -142,6 +144,37 @@ void ResonatorBank::init(Mode mode) {
     patchCables_.emplace_back(std::make_unique<AudioConnection>(voiceMixerLeft_[1], 0, voiceFanoutProbe_, 0));
   }
 #endif
+}
+
+void ResonatorBank::prepare(const Engine::PrepareContext& ctx) {
+  init(ctx.hardware ? Mode::kHardware : Mode::kSim);
+  (void)ctx.masterSeed;
+  (void)ctx.sampleRate;
+  (void)ctx.framesPerBlock;
+}
+
+void ResonatorBank::onTick(const Engine::TickContext& ctx) {
+  (void)ctx;
+}
+
+void ResonatorBank::onParam(const Engine::ParamChange& change) {
+  (void)change;
+}
+
+void ResonatorBank::onSeed(const Engine::SeedContext& ctx) {
+  trigger(ctx.seed, ctx.whenSamples);
+}
+
+void ResonatorBank::renderAudio(const Engine::RenderContext& ctx) {
+  (void)ctx;
+}
+
+Engine::StateBuffer ResonatorBank::serializeState() const {
+  return {};
+}
+
+void ResonatorBank::deserializeState(const Engine::StateBuffer& state) {
+  (void)state;
 }
 
 void ResonatorBank::setMaxVoices(uint8_t voices) {

@@ -23,6 +23,8 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
 }
 
+Engine::Type Sampler::type() const noexcept { return Engine::Type::kSampler; }
+
 void Sampler::init() {
   nextHandle_ = 1;
   // Reset every voice slot back to a blank template. This mirrors what happens
@@ -72,6 +74,35 @@ void Sampler::init() {
   // Native build keeps the data-path only. Audio nodes live exclusively in the
   // hardware target to avoid dragging Teensy headers into tests.
 #endif
+}
+
+void Sampler::prepare(const Engine::PrepareContext& ctx) {
+  (void)ctx;
+  init();
+}
+
+void Sampler::onTick(const Engine::TickContext& ctx) {
+  (void)ctx;
+}
+
+void Sampler::onParam(const Engine::ParamChange& change) {
+  (void)change;
+}
+
+void Sampler::onSeed(const Engine::SeedContext& ctx) {
+  trigger(ctx.seed, ctx.whenSamples);
+}
+
+void Sampler::renderAudio(const Engine::RenderContext& ctx) {
+  (void)ctx;
+}
+
+Engine::StateBuffer Sampler::serializeState() const {
+  return {};
+}
+
+void Sampler::deserializeState(const Engine::StateBuffer& state) {
+  (void)state;
 }
 
 uint8_t Sampler::activeVoices() const {

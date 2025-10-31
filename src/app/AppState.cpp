@@ -32,7 +32,6 @@
 #endif
 
 namespace {
-constexpr uint8_t kEngineCount = 3;
 constexpr uint8_t kEngineCycleCc = 20;
 
 constexpr hal::io::PinNumber kStatusLedPin = 13;
@@ -70,24 +69,17 @@ std::string_view formatScratch(std::array<char, N>& scratch, const char* fmt, Ar
   return std::string_view(scratch.data(), len);
 }
 
-uint8_t sanitizeEngine(uint8_t engine) {
-  // Engine IDs arrive from MIDI CCs and debug tools, so we modulo them into the
-  // valid range to avoid out-of-bounds dispatches.
-  if (kEngineCount == 0) {
-    return 0;
-  }
-  return static_cast<uint8_t>(engine % kEngineCount);
+uint8_t sanitizeEngine(const EngineRouter& router, uint8_t engine) {
+  return router.sanitizeEngineId(engine);
 }
 
-const char* engineLabel(uint8_t engine) {
-  // Compact three-letter labels fit the OLED.  Handy when teaching folks how to
-  // read the status line without squinting.
-  switch (engine) {
-    case 0: return "SMP";
-    case 1: return "GRA";
-    case 2: return "PING";
-    default: return "UNK";
+std::string_view engineLabel(const EngineRouter& router, uint8_t engine) {
+  const uint8_t sanitized = router.sanitizeEngineId(engine);
+  const std::string_view label = router.engineShortName(sanitized);
+  if (label.empty()) {
+    return std::string_view{"UNK"};
   }
+  return label;
 }
 
 constexpr std::uint32_t buttonMask(hal::Board::ButtonID id) {
@@ -548,6 +540,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   uint32_t state = masterSeed_;
   constexpr size_t kSeedCount = 4;
   seedEngineSelections_.assign(kSeedCount, 0);
+  engines_.setSeedCount(kSeedCount);
   for (size_t i = 0; i < kSeedCount; ++i) {
     // Every loop iteration births a new Seed and walks RNG::xorshift / uniform
     // helpers forward. Because the RNG is deterministic we can rerun
@@ -696,7 +689,8 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
     }
   }
   if (cc == kEngineCycleCc) {
-    if (kEngineCount == 0) {
+    const std::size_t engineCount = engines_.engineCount();
+    if (engineCount == 0) {
       return;
     }
     if (seeds_.empty()) {
@@ -704,13 +698,12 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
     }
     const size_t count = seeds_.size();
     const uint8_t focus = static_cast<uint8_t>(std::min<size_t>(focusSeed_, count - 1));
-    const uint8_t current = seeds_[focus].engine;
+    const std::size_t current = static_cast<std::size_t>(seeds_[focus].engine % static_cast<uint8_t>(engineCount));
     // Our rule-of-thumb: CC values >= 64 spin the encoder clockwise (advance to
     // the next engine) while lower values back up one slot. The math is tiny
     // but worth spelling out for clarity.
-    const uint8_t target = (val >= 64)
-                               ? static_cast<uint8_t>((current + 1) % kEngineCount)
-                               : static_cast<uint8_t>((current + kEngineCount - 1) % kEngineCount);
+    const std::size_t next = (val >= 64) ? (current + 1) % engineCount : (current + engineCount - 1) % engineCount;
+    const uint8_t target = engines_.sanitizeEngineId(static_cast<uint8_t>(next));
     setSeedEngine(focus, target);
     return;
   }
@@ -780,6 +773,7 @@ void AppState::handleTransportGate(uint8_t value) {
 
 void AppState::reseed(uint32_t masterSeed) {
   primeSeeds(masterSeed);
+  engines_.reseed(masterSeed_);
   const bool hardwareMode = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
 }
@@ -802,7 +796,7 @@ void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
   }
   const size_t count = seeds_.size();
   const size_t idx = static_cast<size_t>(seedIndex) % count;
-  const uint8_t sanitized = sanitizeEngine(engineId);
+  const uint8_t sanitized = sanitizeEngine(engines_, engineId);
 
   if (seedEngineSelections_.size() < count) {
     seedEngineSelections_.resize(count, 0);
@@ -811,6 +805,7 @@ void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
   Seed& seed = seeds_[idx];
   seed.engine = sanitized;
   seedEngineSelections_[idx] = sanitized;
+  engines_.assignSeed(idx, sanitized);
   // Re-register the seed with the scheduler so downstream engines fire the
   // right trigger callback. This keeps PatternScheduler as the single source of
   // truth for playback order.
@@ -846,9 +841,10 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
 
   const size_t focusIndex = std::min<size_t>(focusSeed_, seeds_.size() - 1);
   const Seed& s = seeds_[focusIndex];
-  const auto statusCore =
-      formatScratch(statusScratch, "#%02u%s%+0.1fst%c", s.id, engineLabel(s.engine), s.pitch, ledOn ? '*' : '-');
-  writeDisplayField(out.status, formatScratch(scratch, "%s %s", modeLabel(mode_), statusCore.data()));
+  const std::string_view shortName = engineLabel(engines_, s.engine);
+  writeDisplayField(out.status,
+                    formatScratch(scratch, "#%02u%.*s%+0.1fst%c", s.id, static_cast<int>(shortName.size()),
+                                   shortName.data(), s.pitch, ledOn ? '*' : '-'));
   const float density = std::clamp(s.density, 0.0f, 99.99f);
   const float probability = std::clamp(s.probability, 0.0f, 1.0f);
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
