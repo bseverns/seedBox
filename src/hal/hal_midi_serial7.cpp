@@ -175,6 +175,71 @@ void poll() {
 #endif
 }
 
+void sendClock() {
+#ifdef SEEDBOX_HW
+  Serial7.write(0xF8u);
+#endif
+}
+
+void sendStart() {
+#ifdef SEEDBOX_HW
+  Serial7.write(0xFAu);
+#endif
+}
+
+void sendStop() {
+#ifdef SEEDBOX_HW
+  Serial7.write(0xFCu);
+#endif
+}
+
+void sendControlChange(std::uint8_t channel, std::uint8_t controller, std::uint8_t value) {
+#ifdef SEEDBOX_HW
+  const std::uint8_t status = static_cast<std::uint8_t>(0xB0u | (channel & 0x0Fu));
+  Serial7.write(status);
+  Serial7.write(controller & 0x7Fu);
+  Serial7.write(value & 0x7Fu);
+#else
+  (void)channel;
+  (void)controller;
+  (void)value;
+#endif
+}
+
+void sendNoteOn(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) {
+#ifdef SEEDBOX_HW
+  const std::uint8_t status = static_cast<std::uint8_t>(0x90u | (channel & 0x0Fu));
+  Serial7.write(status);
+  Serial7.write(note & 0x7Fu);
+  Serial7.write(velocity & 0x7Fu);
+#else
+  (void)channel;
+  (void)note;
+  (void)velocity;
+#endif
+}
+
+void sendNoteOff(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) {
+#ifdef SEEDBOX_HW
+  const std::uint8_t status = static_cast<std::uint8_t>(0x80u | (channel & 0x0Fu));
+  Serial7.write(status);
+  Serial7.write(note & 0x7Fu);
+  Serial7.write(velocity & 0x7Fu);
+#else
+  (void)channel;
+  (void)note;
+  (void)velocity;
+#endif
+}
+
+void sendAllNotesOff(std::uint8_t channel) {
+#ifdef SEEDBOX_HW
+  sendControlChange(channel, 123u, 0u);
+#else
+  (void)channel;
+#endif
+}
+
 }  // namespace serial7
 }  // namespace midi
 }  // namespace hal

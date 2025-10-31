@@ -15,6 +15,10 @@
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
 #include "util/Annotations.h"
+#include "app/UiState.h"
+#include "hal/Board.h"
+#include "app/InputEvents.h"
+#include "app/Clock.h"
 #ifdef SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
@@ -23,9 +27,6 @@ namespace hal {
 namespace audio {
 struct StereoBufferView;
 }  // namespace audio
-namespace io {
-using PinNumber = std::uint8_t;
-}  // namespace io
 }  // namespace hal
 
 // AppState is the mothership for everything the performer can poke at run time.
@@ -45,6 +46,16 @@ public:
     float spreadDelta{0.f};
   };
 
+  enum class Mode : std::uint8_t {
+    HOME,
+    SEEDS,
+    ENGINE,
+    PERF,
+    SETTINGS,
+    UTIL,
+  };
+
+  explicit AppState(hal::Board& board = hal::board());
   ~AppState();
   // Boot the full hardware stack. We spin up MIDI routing, initialise the
   // engine router in hardware mode, and prime the deterministic seed table so
@@ -71,6 +82,11 @@ public:
   // Populate the snapshot struct with text destined for the OLED / debug
   // display. Think of this as the "mixing console" view for teaching labs.
   void captureDisplaySnapshot(DisplaySnapshot& out) const;
+  void captureDisplaySnapshot(DisplaySnapshot& out, UiState& ui) const {
+    captureDisplaySnapshot(out, &ui);
+  }
+
+  const UiState& uiStateCache() const { return uiStateCache_; }
 
   const DisplaySnapshot& displayCache() const { return displayCache_; }
   bool displayDirty() const { return displayDirty_; }
@@ -124,6 +140,8 @@ public:
   bool transportLatchedRunning() const { return transportLatchedRunning_; }
   bool externalTransportRunning() const { return externalTransportRunning_; }
   bool mn42HelloSeen() const { return mn42HelloSeen_; }
+  Mode mode() const { return mode_; }
+  bool swingPageRequested() const { return swingPageRequested_; }
 
 #ifdef SEEDBOX_HW
   MidiRouter midi;
@@ -131,8 +149,6 @@ public:
 
 private:
   static void audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx);
-  static void digitalCallbackTrampoline(hal::io::PinNumber pin, bool level, uint32_t timestamp,
-                                        void* ctx);
 
   // Helper that hydrates the seeds_ array deterministically from masterSeed_.
   // The implementation leans heavily on comments so students can watch the RNG
@@ -142,19 +158,40 @@ private:
   void applyMn42ModeBits(uint8_t value);
   void handleTransportGate(uint8_t value);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
-  void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
   std::vector<Seed> buildLfsrSeeds(uint32_t masterSeed, std::size_t count);
   std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
   std::vector<Seed> buildPresetSeeds(std::size_t count);
   float currentTapTempoBpm() const;
   void applyQuantizeControl(uint8_t value);
+  void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
+  void processInputEvents();
+  bool handleClockButtonEvent(const InputEvents::Event& evt);
+  void applyModeTransition(const InputEvents::Event& evt);
+  void dispatchToPage(const InputEvents::Event& evt);
+  void handleHomeEvent(const InputEvents::Event& evt);
+  void handleSeedsEvent(const InputEvents::Event& evt);
+  void handleEngineEvent(const InputEvents::Event& evt);
+  void handlePerfEvent(const InputEvents::Event& evt);
+  void handleSettingsEvent(const InputEvents::Event& evt);
+  void handleUtilEvent(const InputEvents::Event& evt);
+  void handleReseedRequest();
+  static const char* modeLabel(Mode mode);
+  void selectClockProvider(ClockProvider* provider);
+  void toggleClockProvider();
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
+  hal::Board& board_;
+  InputEvents input_;
+  Mode mode_{Mode::HOME};
   uint32_t frame_{0};
   std::vector<Seed> seeds_{};
+  InternalClock internalClock_{};
+  MidiClockIn midiClockIn_{};
+  MidiClockOut midiClockOut_{};
   PatternScheduler scheduler_{};
+  ClockProvider* clock_{nullptr};
   EngineRouter engines_{};
   std::vector<uint8_t> seedEngineSelections_{};
   SeedLock seedLock_{};
@@ -175,10 +212,15 @@ private:
   bool externalTransportRunning_{false};
   bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
+  bool swingPageRequested_{false};
   DisplaySnapshot displayCache_{};
+  UiState uiStateCache_{};
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
   bool lockButtonHeld_{false};
   uint32_t lockButtonPressTimestamp_{0};
+  float swingPercent_{0.0f};
+  bool seedLock_{false};
 };
+

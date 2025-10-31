@@ -3,13 +3,14 @@
 #include <cstdint>
 #include "Seed.h"
 #include "HardwarePrelude.h"
+#include "engine/Engine.h"
 #include "util/Annotations.h"
 #include <vector>
 
 // ResonatorBank sketches Option C (Karplus-Strong / modal ping engine). The
 // actual Teensy Audio graph will plug in later; for now we keep the scheduling
 // and per-seed parameter plumbing alive so the roadmap is executable.
-class ResonatorBank {
+class ResonatorBank : public Engine {
 public:
   enum class Mode : uint8_t { kSim, kHardware };
 
@@ -20,6 +21,16 @@ public:
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
   void onSeed(const Seed& seed);
   const Seed* lastSeed(uint32_t id) const;
+
+  // Engine interface -----------------------------------------------------
+  Engine::Type type() const noexcept override;
+  void prepare(const Engine::PrepareContext& ctx) override;
+  void onTick(const Engine::TickContext& ctx) override;
+  void onParam(const Engine::ParamChange& change) override;
+  void onSeed(const Engine::SeedContext& ctx) override;
+  void renderAudio(const Engine::RenderContext& ctx) override;
+  Engine::StateBuffer serializeState() const override;
+  void deserializeState(const Engine::StateBuffer& state) override;
 
   uint8_t activeVoices() const;
   SEEDBOX_MAYBE_UNUSED const char* presetName(uint8_t bank) const;
