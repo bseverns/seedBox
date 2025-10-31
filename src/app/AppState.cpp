@@ -9,6 +9,7 @@
 #include "app/AppState.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -83,13 +84,14 @@ void writeUiField(std::array<char, N>& dst, std::string_view text) {
   }
 }
 
-uint8_t sanitizeEngine(uint8_t engine) {
+uint8_t sanitizeEngine(const EngineRouter& router, uint8_t engine) {
   // Engine IDs arrive from MIDI CCs and debug tools, so we modulo them into the
   // valid range to avoid out-of-bounds dispatches.
-  if (kEngineCount == 0) {
+  const std::size_t count = router.engineCount();
+  if (count == 0) {
     return 0;
   }
-  return static_cast<uint8_t>(engine % kEngineCount);
+  return static_cast<uint8_t>(engine % count);
 }
 
 std::string_view engineLabel(const EngineRouter& router, uint8_t engine) {
@@ -109,6 +111,10 @@ const char* engineLongName(uint8_t engine) {
     default: return "Unknown";
   }
 }
+}
+
+constexpr std::uint32_t buttonMask(hal::Board::ButtonID id) {
+  return 1u << static_cast<std::uint32_t>(id);
 }
 
 constexpr std::uint32_t buttonMask(std::initializer_list<hal::Board::ButtonID> ids) {
