@@ -56,7 +56,7 @@ protected:
 };
 
 #ifdef SEEDBOX_HW
-class UsbMidiBackend : public MidiRouter::Backend {
+class MidiRouter::UsbMidiBackend : public MidiRouter::Backend {
 public:
   explicit UsbMidiBackend(MidiRouter& router)
       : MidiRouter::Backend(router, MidiRouter::Port::kUsb) {}
@@ -168,7 +168,7 @@ public:
   }
 };
 
-class TrsAMidiBackend : public MidiRouter::Backend {
+class MidiRouter::TrsAMidiBackend : public MidiRouter::Backend {
 public:
   explicit TrsAMidiBackend(MidiRouter& router)
       : MidiRouter::Backend(router, MidiRouter::Port::kTrsA) {}
@@ -195,17 +195,17 @@ public:
 
     hal::midi::serial7::Handlers handlers{};
     handlers.clock = [](void* ctx) {
-      static_cast<TrsAMidiBackend*>(ctx)->router_.handleClockFrom(Port::kTrsA);
+      static_cast<MidiRouter::TrsAMidiBackend*>(ctx)->router_.handleClockFrom(Port::kTrsA);
     };
     handlers.start = [](void* ctx) {
-      static_cast<TrsAMidiBackend*>(ctx)->router_.handleStartFrom(Port::kTrsA);
+      static_cast<MidiRouter::TrsAMidiBackend*>(ctx)->router_.handleStartFrom(Port::kTrsA);
     };
     handlers.stop = [](void* ctx) {
-      static_cast<TrsAMidiBackend*>(ctx)->router_.handleStopFrom(Port::kTrsA);
+      static_cast<MidiRouter::TrsAMidiBackend*>(ctx)->router_.handleStopFrom(Port::kTrsA);
     };
     handlers.control_change = [](std::uint8_t channel, std::uint8_t controller,
                                  std::uint8_t value, void* ctx) {
-      static_cast<TrsAMidiBackend*>(ctx)->router_.handleControlChangeFrom(
+      static_cast<MidiRouter::TrsAMidiBackend*>(ctx)->router_.handleControlChangeFrom(
           Port::kTrsA, channel, controller, value);
     };
     hal::midi::serial7::begin(handlers, this);

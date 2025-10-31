@@ -202,6 +202,10 @@ public:
 #endif
 
 private:
+#ifdef SEEDBOX_HW
+  class UsbMidiBackend;
+  class TrsAMidiBackend;
+#endif
   class Backend;
 
   struct PortState {
