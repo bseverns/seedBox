@@ -9,6 +9,7 @@
 #include "app/AppState.h"
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -83,13 +84,14 @@ void writeUiField(std::array<char, N>& dst, std::string_view text) {
   }
 }
 
-uint8_t sanitizeEngine(uint8_t engine) {
+uint8_t sanitizeEngine(const EngineRouter& router, uint8_t engine) {
   // Engine IDs arrive from MIDI CCs and debug tools, so we modulo them into the
   // valid range to avoid out-of-bounds dispatches.
-  if (kEngineCount == 0) {
+  const std::size_t count = router.engineCount();
+  if (count == 0) {
     return 0;
   }
-  return static_cast<uint8_t>(engine % kEngineCount);
+  return static_cast<uint8_t>(engine % count);
 }
 
 std::string_view engineLabel(const EngineRouter& router, uint8_t engine) {
@@ -109,6 +111,10 @@ const char* engineLongName(uint8_t engine) {
     default: return "Unknown";
   }
 }
+}
+
+constexpr std::uint32_t buttonMask(hal::Board::ButtonID id) {
+  return 1u << static_cast<std::uint32_t>(id);
 }
 
 constexpr std::uint32_t buttonMask(std::initializer_list<hal::Board::ButtonID> ids) {
@@ -164,8 +170,6 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
     {AppState::Mode::PERF, InputEvents::Type::ButtonChord,
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::SETTINGS},
 }};
-
-}
 
 AppState::AppState(hal::Board& board) : board_(board), input_(board) {
   internalClock_.attachScheduler(&scheduler_);
@@ -873,7 +877,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   // use status/metrics/nuance rows to narrate what's happening with the focus
   // seed. Think of it as a glorified logcat for the front panel.
   std::array<char, 64> scratch{};
-  std::array<char, 64> statusScratch{};
   writeDisplayField(out.title, formatScratch(scratch, "SeedBox %06X", masterSeed_ & 0xFFFFFFu));
 
   const float sampleRate = hal::audio::sampleRate();

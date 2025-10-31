@@ -51,7 +51,7 @@ void test_ascii_renderer_tracks_engine_swaps() {
 
   TEST_ASSERT_TRUE(view.hasFrames());
   TEST_ASSERT_GREATER_OR_EQUAL_UINT(2, static_cast<unsigned>(view.frames().size()));
-  TEST_ASSERT_NOT_EQUAL_STRING(first.c_str(), view.latest().c_str());
+  TEST_ASSERT_FALSE(std::strcmp(first.c_str(), view.latest().c_str()) == 0);
   TEST_ASSERT_NOT_NULL(strstr(view.latest().c_str(), "GRA"));
 }
 
