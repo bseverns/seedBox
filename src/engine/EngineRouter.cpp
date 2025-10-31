@@ -43,16 +43,25 @@ void EngineRouter::registerEngine(std::uint8_t id, std::string_view name, std::s
   entry.instance = std::move(engine);
   registry_[id] = std::move(entry);
 
-  if (auto* s = dynamic_cast<Sampler*>(raw)) {
-    sampler_ = s;
-  } else if (auto* g = dynamic_cast<GranularEngine*>(raw)) {
-    granular_ = g;
-  } else if (auto* r = dynamic_cast<ResonatorBank*>(raw)) {
-    resonator_ = r;
-  } else if (auto* e = dynamic_cast<EuclidEngine*>(raw)) {
-    euclid_ = e;
-  } else if (auto* b = dynamic_cast<BurstEngine*>(raw)) {
-    burst_ = b;
+  switch (raw->type()) {
+    case Engine::Type::kSampler:
+      sampler_ = static_cast<Sampler*>(raw);
+      break;
+    case Engine::Type::kGranular:
+      granular_ = static_cast<GranularEngine*>(raw);
+      break;
+    case Engine::Type::kResonator:
+      resonator_ = static_cast<ResonatorBank*>(raw);
+      break;
+    case Engine::Type::kEuclid:
+      euclid_ = static_cast<EuclidEngine*>(raw);
+      break;
+    case Engine::Type::kBurst:
+      burst_ = static_cast<BurstEngine*>(raw);
+      break;
+    case Engine::Type::kUnknown:
+    default:
+      break;
   }
 }
 

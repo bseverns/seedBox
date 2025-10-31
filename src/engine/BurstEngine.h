@@ -19,6 +19,7 @@ public:
     kSpacingSamples = 1,
   };
 
+  Engine::Type type() const noexcept override;
   void prepare(const Engine::PrepareContext& ctx) override;
   void onTick(const Engine::TickContext& ctx) override;
   void onParam(const Engine::ParamChange& change) override;

@@ -7,6 +7,8 @@
 
 #include "Seed.h"
 
+Engine::Type EuclidEngine::type() const noexcept { return Engine::Type::kEuclid; }
+
 namespace {
 constexpr std::uint8_t clampSteps(std::int32_t value) {
   if (value < 1) return 1;

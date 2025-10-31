@@ -23,6 +23,8 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
 }
 
+Engine::Type Sampler::type() const noexcept { return Engine::Type::kSampler; }
+
 void Sampler::init() {
   nextHandle_ = 1;
   // Reset every voice slot back to a blank template. This mirrors what happens
