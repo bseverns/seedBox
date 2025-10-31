@@ -45,6 +45,7 @@ public:
   SEEDBOX_MAYBE_UNUSED void trigger(const Seed& seed, uint32_t whenSamples);
 
   // Engine interface -----------------------------------------------------
+  Engine::Type type() const noexcept override;
   void prepare(const Engine::PrepareContext& ctx) override;
   void onTick(const Engine::TickContext& ctx) override;
   void onParam(const Engine::ParamChange& change) override;

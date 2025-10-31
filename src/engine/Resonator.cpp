@@ -11,6 +11,8 @@
 #include "util/RNG.h"
 #include "util/Units.h"
 
+Engine::Type ResonatorBank::type() const noexcept { return Engine::Type::kResonator; }
+
 namespace {
 float clamp01(float v) {
   return std::max(0.f, std::min(1.f, v));

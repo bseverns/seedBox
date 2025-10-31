@@ -19,6 +19,15 @@ struct Seed;
 // entire firmware runtime.
 class Engine {
 public:
+  enum class Type : std::uint8_t {
+    kSampler,
+    kGranular,
+    kResonator,
+    kEuclid,
+    kBurst,
+    kUnknown,
+  };
+
   struct PrepareContext {
     bool hardware{false};
     std::uint32_t sampleRate{0};
@@ -51,6 +60,7 @@ public:
 
   virtual ~Engine() = default;
 
+  virtual Type type() const noexcept = 0;
   virtual void prepare(const PrepareContext& ctx) = 0;
   virtual void onTick(const TickContext& ctx) = 0;
   virtual void onParam(const ParamChange& change) = 0;

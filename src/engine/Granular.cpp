@@ -72,6 +72,8 @@ void configureGranularWindow(Effect& effect, float windowSkew, float grainLength
 }  // namespace
 #endif  // SEEDBOX_HW
 
+Engine::Type GranularEngine::type() const noexcept { return Engine::Type::kGranular; }
+
 void GranularEngine::init(Mode mode) {
   mode_ = mode;
   maxActiveVoices_ = (mode == Mode::kHardware) ? 32 : 12;

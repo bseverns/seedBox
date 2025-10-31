@@ -6,6 +6,8 @@
 
 #include "Seed.h"
 
+Engine::Type BurstEngine::type() const noexcept { return Engine::Type::kBurst; }
+
 namespace {
 constexpr std::uint8_t clampCluster(std::int32_t value) {
   if (value < 1) return 1;
