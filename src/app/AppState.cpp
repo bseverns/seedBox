@@ -126,22 +126,47 @@ void AppState::initHardware() {
   // init() routines can't accidentally stomp the global allocator mid-set.
   AudioMemory(AudioMemoryBudget::kTotalBlocks);
 
-  if constexpr (!SeedBoxConfig::kQuietMode) {
-    midi.begin();
-    midi.setClockHandler([this]() { onExternalClockTick(); });
-    midi.setStartHandler([this]() { onExternalTransportStart(); });
-    midi.setStopHandler([this]() { onExternalTransportStop(); });
-    midi.setControlChangeHandler(
-        [this](uint8_t ch, uint8_t cc, uint8_t val) {
-          onExternalControlChange(ch, cc, val);
-        });
-  } else {
-    midi.begin();
-    midi.setClockHandler(nullptr);
-    midi.setStartHandler(nullptr);
-    midi.setStopHandler(nullptr);
-    midi.setControlChangeHandler(nullptr);
+  midi.begin();
+  midi.setClockHandler([this]() { onExternalClockTick(); });
+  midi.setStartHandler([this]() { onExternalTransportStart(); });
+  midi.setStopHandler([this]() { onExternalTransportStop(); });
+  midi.setControlChangeHandler(
+      [this](uint8_t ch, uint8_t cc, uint8_t val) {
+        onExternalControlChange(ch, cc, val);
+      });
+
+  MidiRouter::ChannelMap trsChannelMap;
+  for (auto& ch : trsChannelMap.inbound) {
+    ch = seedbox::interop::mn42::kDefaultChannel;
   }
+  for (auto& ch : trsChannelMap.outbound) {
+    ch = seedbox::interop::mn42::kDefaultChannel;
+  }
+  midi.setChannelMap(MidiRouter::Port::kTrsA, trsChannelMap);
+
+  std::array<MidiRouter::RouteConfig, MidiRouter::kPortCount> perfRoutes{};
+  const std::size_t usbIndex = static_cast<std::size_t>(MidiRouter::Port::kUsb);
+  const std::size_t trsIndex = static_cast<std::size_t>(MidiRouter::Port::kTrsA);
+  perfRoutes[usbIndex].acceptClock = true;
+  perfRoutes[usbIndex].acceptTransport = true;
+  perfRoutes[usbIndex].acceptControlChange = true;
+  perfRoutes[usbIndex].mirrorClock = true;
+  perfRoutes[usbIndex].mirrorTransport = true;
+  perfRoutes[trsIndex] = perfRoutes[usbIndex];
+
+  std::array<MidiRouter::RouteConfig, MidiRouter::kPortCount> editRoutes{};
+  for (auto& cfg : editRoutes) {
+    cfg.acceptControlChange = true;
+    cfg.acceptClock = false;
+    cfg.acceptTransport = false;
+    cfg.mirrorClock = false;
+    cfg.mirrorTransport = false;
+  }
+
+  midi.configurePageRouting(MidiRouter::Page::kPerf, perfRoutes);
+  midi.configurePageRouting(MidiRouter::Page::kEdit, editRoutes);
+  midi.configurePageRouting(MidiRouter::Page::kHack, editRoutes);
+  midi.activatePage(MidiRouter::Page::kPerf);
 #endif
   hal::audio::init(&AppState::audioCallbackTrampoline, this);
   hal::audio::start();
