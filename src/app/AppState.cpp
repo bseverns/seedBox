@@ -335,6 +335,8 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   mode_ = Mode::HOME;
   input_.clear();
   swingPageRequested_ = false;
+  quantizeScaleIndex_ = 0;
+  quantizeRoot_ = 0;
 }
 
 void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
@@ -545,6 +547,54 @@ void AppState::handleSeedsEvent(const InputEvents::Event& evt) {
       setFocusSeed(static_cast<uint8_t>(next));
       displayDirty_ = true;
     }
+  }
+
+  if (evt.encoderDelta == 0) {
+    return;
+  }
+
+  if (evt.type == InputEvents::Type::EncoderHoldTurn &&
+      evt.encoder == hal::Board::EncoderID::ToneTilt) {
+    // Tone/Tilt doubles as the "micro edit" knob on the Seeds page. We lean on
+    // modifier buttons so the detents stay musical: Shift steers pitch,
+    // Alt pushes density, and holding both piggybacks both adjustments.
+    const bool shiftHeld = eventHasButton(evt, hal::Board::ButtonID::Shift);
+    const bool altHeld = eventHasButton(evt, hal::Board::ButtonID::AltSeed);
+    if (shiftHeld || altHeld) {
+      if (seeds_.empty()) {
+        return;
+      }
+      const std::size_t focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+      SeedNudge nudge{};
+      if (shiftHeld) {
+        nudge.pitchSemitones = static_cast<float>(evt.encoderDelta);
+      }
+      if (altHeld) {
+        constexpr float kDensityStep = 0.1f;
+        nudge.densityDelta = static_cast<float>(evt.encoderDelta) * kDensityStep;
+      }
+      if (nudge.pitchSemitones != 0.f || nudge.densityDelta != 0.f) {
+        seedPageNudge(static_cast<uint8_t>(focusIndex), nudge);
+      }
+      return;
+    }
+  }
+
+  if (evt.type == InputEvents::Type::EncoderHoldTurn &&
+      evt.encoder == hal::Board::EncoderID::FxMutate &&
+      eventHasButton(evt, hal::Board::ButtonID::AltSeed)) {
+    // Alt + FX becomes a quantize scale selector. Each detent marches through
+    // the CC map locally so the hardware surface matches the MN-42 remote.
+    constexpr int kScaleCount = 4;
+    int next = static_cast<int>(quantizeScaleIndex_) + static_cast<int>(evt.encoderDelta);
+    next %= kScaleCount;
+    if (next < 0) {
+      next += kScaleCount;
+    }
+    quantizeScaleIndex_ = static_cast<uint8_t>(next);
+    const uint8_t controlValue = static_cast<uint8_t>((quantizeScaleIndex_ * 32u) + (quantizeRoot_ % 12u));
+    applyQuantizeControl(controlValue);
+    return;
   }
 }
 
@@ -1167,6 +1217,8 @@ void AppState::applyQuantizeControl(uint8_t value) {
   }
   const uint8_t scaleIndex = static_cast<uint8_t>(value / 32);
   const uint8_t root = static_cast<uint8_t>(value % 12);
+  quantizeScaleIndex_ = static_cast<uint8_t>(std::min<uint8_t>(scaleIndex, 3));
+  quantizeRoot_ = static_cast<uint8_t>(root % 12);
   util::ScaleQuantizer::Scale scale = util::ScaleQuantizer::Scale::kChromatic;
   switch (scaleIndex) {
     case 0:
@@ -1336,7 +1388,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[0], "Pg focus locked");
   } else {
-    writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+    writeUiField(uiOut->pageHints[0], "Tone+Shift:pitch");
   }
 
   if (globalLocked) {
@@ -1344,7 +1396,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
-    writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
+    writeUiField(uiOut->pageHints[1], "Alt+Tone=d/Fx=sc");
   }
 
   if (!hasSeeds) {
