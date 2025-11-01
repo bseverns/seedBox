@@ -81,7 +81,7 @@ public:
   void initSim();
 
   // Pump one control-tick. In sim builds tests call this manually; on hardware
-  // the main loop does the honours. Either way the scheduler decides whether a
+  // the main loop does the honors. Either way, the scheduler decides whether a
   // seed should trigger on this frame.
   void tick();
 
@@ -177,6 +177,7 @@ private:
   // Helper that hydrates the seeds_ array deterministically from masterSeed_.
   // The implementation leans heavily on comments so students can watch the RNG
   // state machine do its thing.
+
   void primeSeeds(uint32_t masterSeed);
   void updateClockDominance();
   void applyMn42ModeBits(uint8_t value);
