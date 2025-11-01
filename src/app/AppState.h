@@ -199,6 +199,7 @@ private:
   void processInputEvents();
   bool handleClockButtonEvent(const InputEvents::Event& evt);
   void applyModeTransition(const InputEvents::Event& evt);
+  bool handleSeedPrimeGesture(const InputEvents::Event& evt);
   void dispatchToPage(const InputEvents::Event& evt);
   void handleHomeEvent(const InputEvents::Event& evt);
   void handleSeedsEvent(const InputEvents::Event& evt);
@@ -230,6 +231,7 @@ private:
   SeedLock seedLock_{};
   SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};
   std::vector<uint32_t> tapTempoHistory_{};
+  std::uint64_t lastTapTempoTapUs_{0};
   struct PresetBuffer {
     uint32_t id{0};
     std::vector<Seed> seeds{};
