@@ -114,9 +114,10 @@ teaching vibe:
 - **Preset snapshots live in `app/Preset.*`.** We serialize the whole scene —
   clock settings, routing, seed genomes, even the current page — to a lean JSON
   blob that all stores understand.
-- **Front panel flow:** short press on the storage page recalls the active slot,
-  long press saves. Crossfades happen over ~1 second so switching scenes never
-  rips the mix apart mid-demo.
+- **Front panel flow:** long-press the Alt button to drop into the storage page.
+  Once the OLED flashes the GPIO hint, a short press on the reseed button
+  recalls the active slot and a long press saves it. Crossfades happen over ~1
+  second so switching scenes never rips the mix apart mid-demo.
 
 Treat the docs like a zine: the new
 [`docs/roadmaps/storage.md`](docs/roadmaps/storage.md) entry riffs on future
