@@ -30,7 +30,7 @@
   #include "io/Storage.h"
 #endif
 
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   #include <Arduino.h>
 #endif
 
@@ -869,13 +869,13 @@ void AppState::onExternalClockTick() {
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
   alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
   updateClockDominance();
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   if (!wasDominant && externalClockDominant_) {
     Serial.println(F("external clock: TRS/USB seized transport"));
   }
@@ -886,7 +886,7 @@ void AppState::onExternalClockTick() {
 }
 
 void AppState::onExternalTransportStart() {
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = true;
@@ -895,7 +895,7 @@ void AppState::onExternalTransportStart() {
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = true;
   }
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   if (!wasDominant && externalClockDominant_) {
     Serial.println(F("external clock: transport START"));
   }
@@ -903,7 +903,7 @@ void AppState::onExternalTransportStart() {
 }
 
 void AppState::onExternalTransportStop() {
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   const bool wasDominant = externalClockDominant_;
 #endif
   externalTransportRunning_ = false;
@@ -916,7 +916,7 @@ void AppState::onExternalTransportStop() {
   if (transportLatchEnabled_) {
     transportLatchedRunning_ = false;
   }
-#if defined(SEEDBOX_HW) && defined(SEEDBOX_DEBUG_CLOCK_SOURCE)
+#if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
   if (wasDominant && !externalClockDominant_) {
     Serial.println(F("external clock: transport STOP"));
   }
@@ -1332,7 +1332,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
   const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
 
-#if defined(SEEDBOX_HW) && !QUIET_MODE
+#if SEEDBOX_HW && !QUIET_MODE
   if (debugMetersEnabled_ && s.engine == 2) {
     const float fanout = engines_.resonator().fanoutProbeLevel();
     writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
