@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   #include <MIDI.h>
   #include <usb_midi.h>
   #include <Arduino.h>
@@ -55,7 +55,7 @@ protected:
   Port port_;
 };
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 class MidiRouter::UsbMidiBackend : public MidiRouter::Backend {
 public:
   explicit UsbMidiBackend(MidiRouter& router)
@@ -629,7 +629,7 @@ SEEDBOX_MAYBE_UNUSED void MidiRouter::markAppReady() {
   }
 }
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 MidiRouter::CliBackend* MidiRouter::cliBackend(Port port) {
   const std::size_t idx = portIndex(port);
   if (!cliBackends_[idx]) {
@@ -783,7 +783,7 @@ void MidiRouter::maybeSendMn42KeepAlive() {
 }
 
 std::uint32_t MidiRouter::nowMs() const {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   return millis();
 #else
   return 0;

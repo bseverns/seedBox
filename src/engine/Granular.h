@@ -61,7 +61,7 @@ public:
   SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;
   Mode mode() const { return mode_; }
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   struct SimHardwareVoice {
     bool sdPlayerStopCalled{false};
     bool sdPlayerPlayCalled{false};
@@ -104,7 +104,7 @@ private:
   std::array<SourceSlot, kSdClipSlots> sdClips_{};
   std::vector<Seed> seedCache_{};
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   struct HardwareVoice {
     AudioPlaySdWav sdPlayer;
     AudioMixer4 sourceMixer;

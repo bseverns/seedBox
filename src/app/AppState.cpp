@@ -24,7 +24,7 @@
 #include "engine/Sampler.h"
 #include "hal/hal_audio.h"
 #include "hal/hal_io.h"
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   #include "HardwarePrelude.h"
   #include "AudioMemoryBudget.h"
   #include "io/Storage.h"
@@ -137,7 +137,7 @@ seedbox::io::Store* ensureStore(seedbox::io::Store* current) {
     return current;
   }
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   static seedbox::io::StoreEeprom hwStore;
   return &hwStore;
 #else
@@ -229,7 +229,7 @@ AppState::~AppState() {
 // students can run the simulator on a laptop and trust that the Teensy build
 // behaves the same.
 void AppState::initHardware() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   store_ = ensureStore(store_);
   // Lock in the entire audio buffer pool before any engine spins up. We slam
   // all four line items from AudioMemoryBudget into one call so individual
@@ -282,7 +282,7 @@ void AppState::initHardware() {
   hal::audio::start();
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kHardware, true);
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   midi.markAppReady();
 #endif
 }

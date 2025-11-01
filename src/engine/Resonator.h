@@ -35,7 +35,7 @@ public:
   uint8_t activeVoices() const;
   SEEDBOX_MAYBE_UNUSED const char* presetName(uint8_t bank) const;
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   SEEDBOX_MAYBE_UNUSED float fanoutProbeLevel() const;
 #endif
 
@@ -108,7 +108,7 @@ private:
   std::array<ModalPreset, 6> presets_{};
   std::vector<Seed> seedCache_{};
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   struct HardwareVoice {
     AudioSynthNoiseWhite burstNoise;
     AudioEffectEnvelope burstEnv;

@@ -35,7 +35,7 @@ SEEDBOX_MAYBE_UNUSED void poll();
 SEEDBOX_MAYBE_UNUSED void writeDigital(PinNumber pin, bool level);
 SEEDBOX_MAYBE_UNUSED bool readDigital(PinNumber pin);
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 // Simulator helper: pretend an input pin changed state at a specific time.
 SEEDBOX_MAYBE_UNUSED void mockSetDigitalInput(PinNumber pin, bool level, std::uint32_t timestamp_us = 0);
 #endif  // SEEDBOX_HW

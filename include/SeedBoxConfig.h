@@ -105,12 +105,12 @@ inline constexpr FlagSummary kFlagMatrix[] = {
 #define SEEDBOX_STATIC_ASSERT(cond, msg) typedef char SeedBoxStaticAssert__[(cond) ? 1 : -1]
 #endif
 
-static const bool SeedBoxConfig_kHardwareBuild = (SEEDBOX_HW != 0);
-static const bool SeedBoxConfig_kSimBuild = (SEEDBOX_SIM != 0);
-static const bool SeedBoxConfig_kQuietMode = (QUIET_MODE != 0);
-static const bool SeedBoxConfig_kGoldenArtifacts = (ENABLE_GOLDEN != 0);
-static const bool SeedBoxConfig_kClockDebug = (SEEDBOX_DEBUG_CLOCK_SOURCE != 0);
-static const bool SeedBoxConfig_kUiDebug = (SEEDBOX_DEBUG_UI != 0);
+#define SeedBoxConfig_kHardwareBuild ((SEEDBOX_HW) != 0)
+#define SeedBoxConfig_kSimBuild ((SEEDBOX_SIM) != 0)
+#define SeedBoxConfig_kQuietMode ((QUIET_MODE) != 0)
+#define SeedBoxConfig_kGoldenArtifacts ((ENABLE_GOLDEN) != 0)
+#define SeedBoxConfig_kClockDebug ((SEEDBOX_DEBUG_CLOCK_SOURCE) != 0)
+#define SeedBoxConfig_kUiDebug ((SEEDBOX_DEBUG_UI) != 0)
 
 SEEDBOX_STATIC_ASSERT(SEEDBOX_HW == 0 || SEEDBOX_HW == 1,
                       "SEEDBOX_HW must be 0 or 1");
@@ -125,7 +125,7 @@ SEEDBOX_STATIC_ASSERT(SEEDBOX_DEBUG_CLOCK_SOURCE == 0 ||
                       "SEEDBOX_DEBUG_CLOCK_SOURCE must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(SEEDBOX_DEBUG_UI == 0 || SEEDBOX_DEBUG_UI == 1,
                       "SEEDBOX_DEBUG_UI must be 0 or 1");
-SEEDBOX_STATIC_ASSERT(!(SeedBoxConfig_kHardwareBuild && SeedBoxConfig_kSimBuild),
+SEEDBOX_STATIC_ASSERT(!((SEEDBOX_HW != 0) && (SEEDBOX_SIM != 0)),
                       "SEEDBOX_HW and SEEDBOX_SIM cannot both be enabled");
 
 typedef struct {

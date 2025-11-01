@@ -18,7 +18,7 @@ namespace {
 // streaming. Right now we just match the voice count so the tests can exercise
 // both paths.
 constexpr uint8_t kRamPreloadCount = Sampler::kMaxVoices;
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
 }
@@ -32,7 +32,7 @@ void Sampler::init() {
   // sample handles survive a call to `init`.
   voices_.fill(VoiceInternal{});
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   patchCables_.clear();
 
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
@@ -185,7 +185,7 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   voice.leftGain = gains.left;
   voice.rightGain = gains.right;
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   auto& hw = hwVoices_[index];
   if (voice.usesSdStreaming) {
     hw.sourceMixer.gain(0, 0.0f);

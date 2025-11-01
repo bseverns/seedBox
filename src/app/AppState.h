@@ -23,7 +23,7 @@
 #include "hal/Board.h"
 #include "app/InputEvents.h"
 #include "app/Clock.h"
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
 
@@ -166,7 +166,7 @@ public:
   Mode mode() const { return mode_; }
   bool swingPageRequested() const { return swingPageRequested_; }
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   MidiRouter midi;
 #endif
 

@@ -8,7 +8,7 @@ namespace Units {
 // spot.  Hardware builds honour the Teensy Audio library's canonical rate while
 // the simulator picks a friendlier 48 kHz number that keeps math clean for
 // desktop tests.
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   static constexpr float kSampleRate = 44100.0f;
 #else
   static constexpr float kSampleRate = 48000.0f;
@@ -29,7 +29,7 @@ inline uint32_t msToSamples(float ms) {
 // 200-sample step, but the scheduler now owns a BPM-aware cursor.  These helpers
 // stick around for older tests that still want direct control over the mock
 // clock.
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   inline constexpr uint32_t kSimTickSamples = 200; // ~4 ms at 48k per scheduler tick
 
   namespace detail {
