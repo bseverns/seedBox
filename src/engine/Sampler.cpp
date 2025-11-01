@@ -23,6 +23,8 @@ constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
 }
 
+Engine::Type Sampler::type() const noexcept { return Engine::Type::kSampler; }
+
 void Sampler::init() {
   nextHandle_ = 1;
   // Reset every voice slot back to a blank template. This mirrors what happens
@@ -72,6 +74,35 @@ void Sampler::init() {
   // Native build keeps the data-path only. Audio nodes live exclusively in the
   // hardware target to avoid dragging Teensy headers into tests.
 #endif
+}
+
+void Sampler::prepare(const Engine::PrepareContext& ctx) {
+  (void)ctx;
+  init();
+}
+
+void Sampler::onTick(const Engine::TickContext& ctx) {
+  (void)ctx;
+}
+
+void Sampler::onParam(const Engine::ParamChange& change) {
+  (void)change;
+}
+
+void Sampler::onSeed(const Engine::SeedContext& ctx) {
+  trigger(ctx.seed, ctx.whenSamples);
+}
+
+void Sampler::renderAudio(const Engine::RenderContext& ctx) {
+  (void)ctx;
+}
+
+Engine::StateBuffer Sampler::serializeState() const {
+  return {};
+}
+
+void Sampler::deserializeState(const Engine::StateBuffer& state) {
+  (void)state;
 }
 
 uint8_t Sampler::activeVoices() const {
@@ -196,6 +227,22 @@ float Sampler::pitchToPlaybackRate(float semitones) {
 
 float Sampler::clamp01(float value) {
   return std::max(0.0f, std::min(1.0f, value));
+}
+
+void Sampler::onSeed(const Seed& seed) {
+  const std::size_t index = static_cast<std::size_t>(seed.id);
+  if (seedCache_.size() <= index) {
+    seedCache_.resize(index + 1);
+  }
+  seedCache_[index] = seed;
+}
+
+const Seed* Sampler::lastSeed(uint32_t id) const {
+  const std::size_t index = static_cast<std::size_t>(id);
+  if (index >= seedCache_.size()) {
+    return nullptr;
+  }
+  return &seedCache_[index];
 }
 
 void Sampler::trigger(const Seed& seed, uint32_t whenSamples) {
