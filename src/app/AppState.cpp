@@ -609,15 +609,6 @@ void AppState::dispatchToPage(const InputEvents::Event& evt) {
 }
 
 namespace {
-const char* primeModeLabel(AppState::SeedPrimeMode mode) {
-  switch (mode) {
-    case AppState::SeedPrimeMode::kTapTempo: return "Tap";
-    case AppState::SeedPrimeMode::kPreset: return "Prst";
-    case AppState::SeedPrimeMode::kLfsr:
-    default: return "LFSR";
-  }
-}
-
 bool eventHasButton(const InputEvents::Event& evt, hal::Board::ButtonID id) {
   return std::find(evt.buttons.begin(), evt.buttons.end(), id) != evt.buttons.end();
 }
@@ -1512,8 +1503,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
-    const auto primeHint =
-        formatScratch(scratch, "Alt+Tap:%s Fx:sc", primeModeLabel(seedPrimeMode_));
     const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
     writeUiField(uiOut->pageHints[1], primeHint);
   }
