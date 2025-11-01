@@ -50,7 +50,10 @@ pio pkg install
 ## Repository rituals
 
 - **Stay in sync**: run `git pull --rebase` before you branch. Merging in master
-  while you have uncommitted PlatformIO artifacts is a quick path to chaos.
+  while you have uncommitted PlatformIO artifacts is a quick path to chaos. After
+  big merges, sanity-check `main` with
+  `python scripts/describe_seedbox_config.py --format=markdown` so the build flag
+  crib sheet in docs still matches the header.
 - **Generated headers**: `scripts/gen_version.py` writes `include/BuildInfo.h`.
   The build system calls it automatically, but if you see missing-version errors
   during native tests, run the script manually to regenerate the header.
@@ -119,10 +122,11 @@ assignments shift so firmware and CAD stay aligned.
 | Open serial console | `pio device monitor -b 115200` | Shares the USB cable with MIDI clock. |
 | Regenerate build info | `python scripts/gen_version.py` | Only needed if the auto-hook fails. |
 
-> ⚠️ **Quiet mode reminder:** the shared `env` block sets `QUIET_MODE=1`. Hardware
-> uploads stay silent until you append `-D QUIET_MODE=0` to your `build_flags`
-> (per-env in `platformio.ini` or via `--project-option`). Native tests already
-> flip the flag off so simulations keep their deterministic seeds.
+> ⚠️ **Quiet mode reminder:** defaults live in
+> [`include/SeedBoxConfig.h`](../include/SeedBoxConfig.h). Hardware uploads stay
+> quiet until you append `-D QUIET_MODE=0` to your `build_flags` (per-env in
+> `platformio.ini` or via `--project-option`). Native tests already flip the flag
+> off so simulations keep their deterministic seeds.
 
 When documenting lab sessions, jot down the exact command invocations and link
 to this table. Future students can replay your steps.

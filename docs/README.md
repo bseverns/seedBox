@@ -52,13 +52,22 @@ we like our references punk and precise.
 
 ## Flag crib notes
 
-Docs should mention the build flags whenever they matter:
+Docs should mention the build flags whenever they matter. When in doubt, quote
+the defaults straight from [`include/SeedBoxConfig.h`](../include/SeedBoxConfig.h):
 
 - `SEEDBOX_HW` toggles hardware glue in code samples.
+- `SEEDBOX_SIM` identifies native builds that keep IO mocked out.
 - `QUIET_MODE` is the polite switch for silencing logs during demos or capture
   sessions (especially before saving `.wav` renders).
 - `ENABLE_GOLDEN` turns on snapshot emission for regression guides; jot down
   where those files land so teammates can replay them.
+- `SEEDBOX_DEBUG_CLOCK_SOURCE` unlocks the serial narration for transport
+  decisions when you're debugging sync.
+- `SEEDBOX_DEBUG_UI` is the playground for future overlays and class demos —
+  document how you use it so others can riff.
+
+Need receipts? `python scripts/describe_seedbox_config.py --format=markdown`
+prints the authoritative table straight from the header so your doc never drifts.
 
 Clarity keeps the jams inclusive. Write like you're inviting someone to sit in
 on the next session.

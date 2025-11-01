@@ -38,6 +38,8 @@ or `include/` code.
 
 ### Toggle-able test flags
 
+Defaults for every switch live in [`include/SeedBoxConfig.h`](../include/SeedBoxConfig.h).
+
 - `ENABLE_GOLDEN` — When set, tests can record fresh comparison data into
   `artifacts/`. Commit the intent in docs, not the raw files, so the repo stays
   lean.

@@ -8,6 +8,7 @@ say so loudly.
 
 | Script | Job | Notes |
 | --- | --- | --- |
+| `describe_seedbox_config.py` | Reads `include/SeedBoxConfig.h` and prints flag defaults. | CI uses it to prove the docs aren't lying about the toggles; run it locally when writing docs. |
 | `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
 | `kicad/sgtl5000_frontend.py` | Spits out a KiCad-ready SGTL5000 codec netlist using SKiDL. | Needs KiCad libraries on disk (`KICAD_SYMBOL_DIR` etc.) and `pip install skidl`. In library-less CI or preview runs it falls back to internal stub symbols, prints a ton of warnings, and still drops `build/hw/sgtl5000_frontend.net`. |
 | `kicad/teensy41_core.py` | Builds the Teensy 4.1 core (IMXRT1062, MKL02, QSPI flash, USB-C, breakouts). | Mirrors the [JensChr reference board](https://github.com/jenschr/Teensy-4.1-example) so we can fab our own MCU base. Same SKiDL + KiCad lib requirements as the SGTL script; stub symbols unblock previews. |
@@ -25,6 +26,19 @@ say so loudly.
 If a script spits out renders or logs, aim them at `out/` for disposable jams or
 `artifacts/` for golden material. Both paths are already ignored by git, so the
 history stays focused on intent, not binaries.
+
+### Flag crib sheet on demand
+
+Need to prove the README's build flag table still matches reality? Run the
+config narrator and paste its Markdown straight into your doc:
+
+```bash
+python scripts/describe_seedbox_config.py --format=markdown
+```
+
+It scrapes `include/SeedBoxConfig.h`, decodes the inline stories, and prints a
+ready-to-share table. Great for PR descriptions, lab guides, or reminding CI to
+show its work.
 
 ### KiCad / SKiDL setup crib notes
 

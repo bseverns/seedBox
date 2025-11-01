@@ -1,16 +1,24 @@
+#include <iostream>
 #include <unity.h>
 
+#include "SeedBoxConfig.h"
 #include "wav_helpers.hpp"
-
-#ifndef ENABLE_GOLDEN
-#define ENABLE_GOLDEN 0
-#endif
 
 namespace {
 void setUp(void) {}
 void tearDown(void) {}
 
 #if ENABLE_GOLDEN
+void test_emit_flag_matrix() {
+    std::cout << "[seedbox-config] active flag matrix" << std::endl;
+    for (const auto &flag : SeedBoxConfig::kFlagMatrix) {
+        std::cout << "  " << flag.name << "=" << (flag.enabled ? "1" : "0")
+                  << " // " << flag.story << std::endl;
+    }
+    std::cout << std::flush;
+    TEST_MESSAGE("Flag matrix dumped for golden log capture.");
+}
+
 void test_render_and_compare_golden() {
     golden::WavWriteRequest request{};
     request.path = "build/fixtures/drone-intro.wav";
@@ -37,6 +45,7 @@ void test_golden_mode_disabled() {
 int main(int, char **) {
     UNITY_BEGIN();
 #if ENABLE_GOLDEN
+    RUN_TEST(test_emit_flag_matrix);
     RUN_TEST(test_render_and_compare_golden);
 #else
     RUN_TEST(test_golden_mode_disabled);
