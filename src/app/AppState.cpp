@@ -13,6 +13,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -56,6 +58,35 @@ constexpr std::array<const char*, 4> kDemoSdClips{{"wash", "dust", "vox", "pads"
 void populateSdClips(GranularEngine& engine) {
   for (uint8_t i = 0; i < kDemoSdClips.size(); ++i) {
     engine.registerSdClip(static_cast<uint8_t>(i + 1), kDemoSdClips[i]);
+  }
+}
+
+constexpr std::array<AppState::SeedPrimeMode, 3> kPrimeModes{{
+    AppState::SeedPrimeMode::kLfsr,
+    AppState::SeedPrimeMode::kTapTempo,
+    AppState::SeedPrimeMode::kPreset,
+}};
+
+AppState::SeedPrimeMode rotatePrimeMode(AppState::SeedPrimeMode current, int step) {
+  const int count = static_cast<int>(kPrimeModes.size());
+  auto it = std::find(kPrimeModes.begin(), kPrimeModes.end(), current);
+  const int index = (it == kPrimeModes.end())
+                        ? 0
+                        : static_cast<int>(std::distance(kPrimeModes.begin(), it));
+  int next = index + step;
+  if (next < 0) {
+    next = (next % count) + count;
+  }
+  next %= count;
+  return kPrimeModes[static_cast<std::size_t>(next)];
+}
+
+const char* primeModeLabel(AppState::SeedPrimeMode mode) {
+  switch (mode) {
+    case AppState::SeedPrimeMode::kTapTempo: return "Tap";
+    case AppState::SeedPrimeMode::kPreset: return "Preset";
+    case AppState::SeedPrimeMode::kLfsr:
+    default: return "LFSR";
   }
 }
 
@@ -166,7 +197,7 @@ struct ModeTransition {
   AppState::Mode to;
 };
 
-constexpr std::array<ModeTransition, 18> kModeTransitions{{
+constexpr std::array<ModeTransition, 24> kModeTransitions{{
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderSeedBank),
      AppState::Mode::SEEDS},
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderDensity),
@@ -198,6 +229,18 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
     {AppState::Mode::SETTINGS, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::Shift),
      AppState::Mode::HOME},
     {AppState::Mode::HOME, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::Shift),
+     AppState::Mode::HOME},
+    {AppState::Mode::HOME, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::SEEDS, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::ENGINE, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::PERF, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::UTIL, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::SETTINGS, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
      AppState::Mode::HOME},
     {AppState::Mode::SETTINGS, InputEvents::Type::ButtonChord,
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::PERF},
@@ -449,12 +492,34 @@ void AppState::processInputEvents() {
         evt.primaryButton == hal::Board::ButtonID::EncoderSeedBank) {
       handleReseedRequest();
     }
+    if (handleSeedPrimeGesture(evt)) {
+      continue;
+    }
     if (handleClockButtonEvent(evt)) {
       continue;
     }
     applyModeTransition(evt);
     dispatchToPage(evt);
   }
+}
+
+bool AppState::handleSeedPrimeGesture(const InputEvents::Event& evt) {
+  if (evt.type != InputEvents::Type::ButtonPress) {
+    return false;
+  }
+  if (evt.primaryButton != hal::Board::ButtonID::TapTempo) {
+    return false;
+  }
+  if (!input_.buttonDown(hal::Board::ButtonID::AltSeed)) {
+    return false;
+  }
+
+  const bool reverse = input_.buttonDown(hal::Board::ButtonID::Shift);
+  const int step = reverse ? -1 : 1;
+  const SeedPrimeMode nextMode = rotatePrimeMode(seedPrimeMode_, step);
+  setSeedPrimeMode(nextMode);
+  seedPageReseed(masterSeed_, nextMode);
+  return true;
 }
 
 bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
@@ -467,6 +532,22 @@ bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
     return true;
   }
   if (evt.type == InputEvents::Type::ButtonPress) {
+    if (seedPrimeMode_ == SeedPrimeMode::kTapTempo) {
+      if (lastTapTempoTapUs_ != 0 && evt.timestampUs > lastTapTempoTapUs_) {
+        const uint64_t deltaUs = evt.timestampUs - lastTapTempoTapUs_;
+        const uint64_t intervalMs64 = deltaUs / 1000ULL;
+        if (intervalMs64 > 0) {
+          const uint64_t clamped =
+              std::min<uint64_t>(intervalMs64, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
+          const uint32_t intervalMs = static_cast<uint32_t>(clamped);
+          recordTapTempoInterval(intervalMs);
+          scheduler_.setBpm(currentTapTempoBpm());
+        }
+      }
+      lastTapTempoTapUs_ = evt.timestampUs;
+    } else {
+      lastTapTempoTapUs_ = 0;
+    }
     toggleClockProvider();
     if (mode_ == Mode::PERF) {
       transportLatchedRunning_ = !transportLatchedRunning_;
@@ -489,6 +570,12 @@ void AppState::applyModeTransition(const InputEvents::Event& evt) {
 
   for (const auto& transition : kModeTransitions) {
     if (transition.from == mode_ && transition.trigger == evt.type && transition.buttons == mask) {
+      if (transition.trigger == InputEvents::Type::ButtonLongPress &&
+          transition.buttons == buttonMask(hal::Board::ButtonID::AltSeed)) {
+        setPage(Page::kStorage);
+        storageButtonHeld_ = false;
+        storageLongPress_ = false;
+      }
       if (mode_ != transition.to) {
         mode_ = transition.to;
         displayDirty_ = true;
@@ -1140,7 +1227,15 @@ void AppState::seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode) {
   reseed(masterSeed);
 }
 
-void AppState::setSeedPrimeMode(SeedPrimeMode mode) { seedPrimeMode_ = mode; }
+void AppState::setSeedPrimeMode(SeedPrimeMode mode) {
+  if (seedPrimeMode_ != mode) {
+    seedPrimeMode_ = mode;
+    displayDirty_ = true;
+  } else {
+    seedPrimeMode_ = mode;
+  }
+  lastTapTempoTapUs_ = 0;
+}
 
 void AppState::seedPageToggleLock(uint8_t index) {
   if (seeds_.empty()) {
@@ -1327,6 +1422,7 @@ bool AppState::savePreset(std::string_view slot) {
     return false;
   }
   activePresetSlot_ = slotName;
+  setSeedPreset(preset.masterSeed, preset.seeds);
   return true;
 }
 
@@ -1397,12 +1493,18 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     writeUiField(uiOut->engineName, "Idle");
   }
 
-  if (globalLocked) {
-    writeUiField(uiOut->pageHints[0], "Pg seeds locked");
-  } else if (focusLocked) {
-    writeUiField(uiOut->pageHints[0], "Pg focus locked");
+  if (currentPage_ == Page::kStorage) {
+    writeUiField(uiOut->pageHints[0], "GPIO: recall");
+    writeUiField(uiOut->pageHints[1], "Hold GPIO: save");
   } else {
     writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
+    if (globalLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg seeds locked");
+    } else if (focusLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg focus locked");
+    } else {
+      writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+    }
   }
 
   if (globalLocked) {
@@ -1412,6 +1514,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else {
     const auto primeHint =
         formatScratch(scratch, "Alt+Tap:%s Fx:sc", primeModeLabel(seedPrimeMode_));
+    const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
     writeUiField(uiOut->pageHints[1], primeHint);
   }
 
@@ -1611,6 +1714,7 @@ void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
 
   setFocusSeed(preset.focusSeed);
   seedsPrimed_ = haveSeeds;
+  setSeedPreset(preset.masterSeed, preset.seeds);
   displayDirty_ = true;
 }
 

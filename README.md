@@ -2,12 +2,10 @@
 
 | Status board | Signal |
 | --- | --- |
-| CI (native + Teensy) | [![CI](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml) |
-
-> Tip: swap `YOUR-ORG` with your GitHub handle so the badge points at the right stage lights.
+| CI (native + Teensy) | [![CI](https://github.com/bseverns/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml) |
 
 SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
-companion project to the MOARkNOBS mythos: a Teensy 4.0 instrument that can
+companion project to the MOARkNOBS mythos: a Teensy(IMXRT1062)-based instrument that can
 also run a "pretend hardware" build on your laptop. You can poke at rhythm
 engines, reseed algorithms, or display sketches without needing a soldered rig.
 
@@ -116,9 +114,10 @@ teaching vibe:
 - **Preset snapshots live in `app/Preset.*`.** We serialize the whole scene —
   clock settings, routing, seed genomes, even the current page — to a lean JSON
   blob that all stores understand.
-- **Front panel flow:** short press on the storage page recalls the active slot,
-  long press saves. Crossfades happen over ~1 second so switching scenes never
-  rips the mix apart mid-demo.
+- **Front panel flow:** long-press the Alt button to drop into the storage page.
+  Once the OLED flashes the GPIO hint, a short press on the reseed button
+  recalls the active slot and a long press saves it. Crossfades happen over ~1
+  second so switching scenes never rips the mix apart mid-demo.
 
 Treat the docs like a zine: the new
 [`docs/roadmaps/storage.md`](docs/roadmaps/storage.md) entry riffs on future
