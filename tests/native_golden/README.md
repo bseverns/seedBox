@@ -1,22 +1,22 @@
 # Native golden harness — the mixtape still on the cutting room floor
 
-This folder is the sketchbook for the future "render it, hash it, trust it"
-pipeline. Nothing here is final; it's a loud sticky note telling us how the
-story should unfold once we start freezing reference audio.
+This folder is the sketchbook for the "render it, hash it, trust it" pipeline.
+The first brick is live: a deterministic 1-second drone render that hashes to
+`f53315eb7db89d33` using 64-bit FNV-1a. The TODOs below still matter, but
+there's finally a real sound anchored to the words.
 
 ## Where we're heading
 
 1. **Render the jam.** Patch the engine to spit raw buffers into
-   `golden::write_wav_16` while running under the `native` environment. The
-   helper will grow up into a real PCM writer once `ENABLE_GOLDEN=1` becomes a
-   thing you flip on purpose.
+   `golden::write_wav_16` while running under the `native` environment. With
+   `ENABLE_GOLDEN=1` the helper now writes an honest-to-goodness PCM file into
+   `artifacts/` for inspection.
 2. **Hash the payload.** When the renderer runs, feed the PCM frames into
-   `golden::hash_pcm16` and stash the fingerprint in `golden.json`. The fake hash
-   keeps the build green for now so you can wire up the plumbing without
-   breaking anybody's flow.
+   `golden::hash_pcm16` and stash the fingerprint in `golden.json`. The helper
+   uses 64-bit FNV-1a so repeated renders should land on the published hash.
 3. **Compare and scream (politely).** Future assertions will load `golden.json`,
-   recompute hashes, and shout when the bytes shift. Until the toggle is on,
-   we're just proving the harness compiles.
+   recompute hashes, and shout when the bytes shift. Until more fixtures exist,
+   we're just proving the harness compiles and the reference hash is stable.
 
 ## Updating fixtures (once they're real)
 

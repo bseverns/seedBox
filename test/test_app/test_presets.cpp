@@ -42,3 +42,12 @@ void test_preset_round_trip_via_eeprom_store() {
   TEST_ASSERT_FLOAT_WITHIN(0.0001f, beforeSeeds[0].granular.grainSizeMs,
                            blendedSeeds[0].granular.grainSizeMs);
 }
+
+void test_init_sim_attaches_default_store() {
+  AppState app;
+  app.initSim();
+
+  TEST_ASSERT_NOT_NULL(app.store());
+  const auto names = app.storedPresets();
+  TEST_ASSERT_TRUE(names.empty());
+}
