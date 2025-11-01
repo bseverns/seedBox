@@ -6,11 +6,11 @@
 #include <cstdint>
 #include <vector>
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 #include <queue>
 #endif
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 #include <Arduino.h>
 #endif
 
@@ -29,7 +29,7 @@ std::vector<PinState> g_pins;
 DigitalCallback g_callback = nullptr;
 void *g_user_data = nullptr;
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 struct PendingEvent {
   PinNumber pin;
   bool level;
@@ -57,7 +57,7 @@ void init(const DigitalConfig *configs, std::size_t count) {
   for (std::size_t i = 0; i < count; ++i) {
     const DigitalConfig &cfg = configs[i];
     PinState state{cfg.pin, cfg.input, cfg.pullup, false};
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
     if (state.is_input) {
       pinMode(state.pin, state.pullup ? INPUT_PULLUP : INPUT);
       state.last_level = digitalRead(state.pin) == HIGH;
@@ -79,7 +79,7 @@ void setDigitalCallback(DigitalCallback callback, void *user_data) {
 }
 
 void poll() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   // On hardware we sample each configured input and fire the callback whenever
   // the level flips.  Polling once per main loop keeps things deterministic and
   // easy to explain.
@@ -116,14 +116,14 @@ void writeDigital(PinNumber pin, bool level) {
   if (PinState *state = findPin(pin)) {
     state->last_level = level;
   }
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   // Mirror the cached state out to the actual GPIO line.
   digitalWrite(pin, level ? HIGH : LOW);
 #endif
 }
 
 bool readDigital(PinNumber pin) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   return digitalRead(pin) == HIGH;
 #else
   if (PinState *state = findPin(pin)) {
@@ -134,7 +134,7 @@ bool readDigital(PinNumber pin) {
 #endif
 }
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 void mockSetDigitalInput(PinNumber pin, bool level, std::uint32_t timestamp_us) {
   if (PinState *state = findPin(pin)) {
     if (state->last_level == level) {

@@ -84,7 +84,7 @@ void test_granular_clamps_zero_cap() {
 }
 
 void test_granular_stops_sd_player_when_slot_missing() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   TEST_IGNORE_MESSAGE("Simulated hardware helpers only exist in the native build");
 #else
   GranularEngine engine;

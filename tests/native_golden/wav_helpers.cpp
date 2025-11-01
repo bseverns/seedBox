@@ -9,9 +9,7 @@
 #include <system_error>
 #include <type_traits>
 
-#ifndef ENABLE_GOLDEN
-#define ENABLE_GOLDEN 0
-#endif
+#include "SeedBoxConfig.h"
 
 namespace golden {
 

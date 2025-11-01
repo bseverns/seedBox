@@ -20,7 +20,9 @@ the firmware when you're teaching.
 ## Build with debug breadcrumbs
 
 The firmware now ships with an opt-in log hook that yells whenever the external
-clock state flips. Toggle it on when you compile:
+clock state flips. Toggle it on when you compile (and peek at
+[`include/SeedBoxConfig.h`](../../include/SeedBoxConfig.h) for the canonical
+flag descriptions):
 
 ```bash
 # from repo root

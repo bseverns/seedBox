@@ -4,7 +4,7 @@
 // platform macros (TEENSYDUINO, F_CPU_ACTUAL, etc.) wired up correctly. CI
 // caught that omission the hard way, so this header now codifies the include
 // order everywhere we spin up the hardware graph.
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 
 #ifndef ARDUINO_TEENSY40
 #define ARDUINO_TEENSY40 1

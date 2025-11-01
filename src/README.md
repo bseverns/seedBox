@@ -24,7 +24,7 @@ comment or mini README nearby so the next curious hacker can follow along.
   and IO as you need. It's okay to treat it like a choose-your-own-adventure.
 - **Mirror changes in tests**: Most logic has a friend in `test/`. When you tweak
   behavior, update the matching test so the intent stays obvious.
-- **Keep hardware flags gentle**: Wrap Teensy-only code in `#ifdef SEEDBOX_HW`
+- **Keep hardware flags gentle**: Wrap Teensy-only code in `#if SEEDBOX_HW`
   so the `native` build stays a truthful simulator.
 - **Check quiet mode**: `SeedBoxConfig::kQuietMode` keeps seeds + IO muted until
   you're ready. Disable it per-env in `platformio.ini` when you want hardware to

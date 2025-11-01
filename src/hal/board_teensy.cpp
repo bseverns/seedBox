@@ -1,4 +1,4 @@
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 
 #include "hal/Board.h"
 

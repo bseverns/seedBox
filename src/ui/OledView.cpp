@@ -1,6 +1,6 @@
 #include "ui/OledView.h"
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 #include <Adafruit_SH110X.h>
 #include <Arduino.h>
 #include <algorithm>

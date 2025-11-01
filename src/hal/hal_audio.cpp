@@ -10,7 +10,7 @@
 
 #include "util/Units.h"
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 #include <Arduino.h>
 #include <AudioStream.h>
 #endif
@@ -26,7 +26,7 @@ float g_sample_rate = Units::kSampleRate;
 std::size_t g_frames_per_block = 64;
 std::atomic<uint32_t> g_sample_clock{0};
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 class CallbackStream : public AudioStream {
  public:
   CallbackStream() : AudioStream(0, nullptr) {}
@@ -90,7 +90,7 @@ void init(Callback callback, void *user_data) {
   g_user_data = user_data;
   g_running = false;
   g_sample_clock.store(0, std::memory_order_relaxed);
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   g_sample_rate = AUDIO_SAMPLE_RATE_EXACT;
   g_frames_per_block = AUDIO_BLOCK_SAMPLES;
   (void)streamInstance();
@@ -118,7 +118,7 @@ float sampleRate() { return g_sample_rate; }
 
 std::uint32_t sampleClock() { return static_cast<std::uint32_t>(g_sample_clock.load(std::memory_order_relaxed)); }
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 namespace {
 std::vector<float> &scratch(std::vector<float> &buffer, std::size_t frames) {
   if (buffer.size() != frames) {

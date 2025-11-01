@@ -4,7 +4,7 @@
 #include "app/UiState.h"
 #include "ui/TextFrame.h"
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 #include <Adafruit_SH110X.h>
 #endif
 
@@ -12,7 +12,7 @@ namespace ui {
 
 class OledView {
 public:
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   explicit OledView(Adafruit_SH1107& display);
 #else
   OledView() = default;
@@ -22,7 +22,7 @@ public:
   void tick();
 
 private:
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   void flush();
 
   Adafruit_SH1107* display_{nullptr};

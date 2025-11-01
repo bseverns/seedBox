@@ -173,11 +173,26 @@ mid-gig.
 
 ### Build flags cheat sheet
 
+`include/SeedBoxConfig.h` is the canonical set list. The table below riffs on the
+same switches so you know when to flip them mid-session.
+
 | Flag | Where it matters | What it does |
 | --- | --- | --- |
 | `SEEDBOX_HW` | `src/`, `include/` | Enables Teensy-only IO paths so the firmware talks to real hardware. Leave it off for `native`. |
-| `QUIET_MODE` | `src/util/`, tests | Silences verbose logging *and* forces storage backends into read-only mode so classrooms stay safe. |
-| `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` and re-computes the 64-bit FNV hash stored in `tests/native_golden/golden.json`. |
+| `SEEDBOX_SIM` | Desktop builds, tests | Marks the host build so hardware glue stays stubbed. Pair it with `QUIET_MODE` when running labs without a Teensy. |
+| `QUIET_MODE` | `src/util/`, tests | Silences verbose logging when you want clean terminal output or audio renders in `out/`. |
+| `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` so regressions show up as diffable golden files. |
+| `SEEDBOX_DEBUG_CLOCK_SOURCE` | `src/app/AppState.cpp`, clock docs | Dumps transport decisions over Serial so you can teach clock hand-offs in real time. |
+| `SEEDBOX_DEBUG_UI` | UI experiments (future) | Reserved hook for UI overlays + teaching aids. Wire prototypes here before hard-coding prints elsewhere. |
+
+Want the canonical defaults without spelunking? Run the narrator and paste the
+Markdown table into whatever zine or PR needs it:
+
+```bash
+python scripts/describe_seedbox_config.py --format=markdown
+```
+
+CI runs the same helper so if the table shifts, the bots shout about it.
 
 Any new flag deserves a note in the matching README so the teaching vibes stay
 strong.

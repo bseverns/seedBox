@@ -100,7 +100,7 @@ bool PatternScheduler::densityGate(std::size_t seedIndex, float density) {
 }
 
 void PatternScheduler::recalcSamplesPerTick() {
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   const float safeBpm = bpm_ > 0.f ? bpm_ : 1.f;
   const double beatsPerSecond = static_cast<double>(safeBpm) / 60.0;
   const double ticksPerSecond = beatsPerSecond * 24.0;
@@ -112,7 +112,7 @@ void PatternScheduler::recalcSamplesPerTick() {
 // Hardware builds can bypass that shim and feed the scheduler the real audio
 // sample count via `setSampleClockFn`.
 uint32_t PatternScheduler::latchTickSample() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   if (sampleClockFn_) {
     latchedTickSample_ = sampleClockFn_();
   }

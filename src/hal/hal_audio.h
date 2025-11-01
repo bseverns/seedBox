@@ -36,7 +36,7 @@ SEEDBOX_MAYBE_UNUSED std::size_t framesPerBlock();
 SEEDBOX_MAYBE_UNUSED float sampleRate();
 SEEDBOX_MAYBE_UNUSED std::uint32_t sampleClock();
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 // Simulator hooks to control timing from unit tests.
 SEEDBOX_MAYBE_UNUSED void mockSetSampleRate(float hz);
 SEEDBOX_MAYBE_UNUSED void mockPump(std::size_t frames);

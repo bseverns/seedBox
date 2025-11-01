@@ -8,6 +8,7 @@ say so loudly.
 
 | Script | Job | Notes |
 | --- | --- | --- |
+| `describe_seedbox_config.py` | Reads `include/SeedBoxConfig.h` and prints flag defaults. | CI uses it to prove the docs aren't lying about the toggles; run it locally when writing docs. |
 | `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
 | `native/tap_tempo.py` | Estimates BPM from tap timestamps. | Accepts CLI args or STDIN; prints mean interval, BPM, and optional PPQN correction so workshops can nerd out on timing math. |
 | `native/micro_offset_probe.py` | Audits per-track micro offsets. | Feed it offsets in milliseconds and it yells if any lane drifts beyond your tolerance — perfect for regression gates around swing experiments. |
@@ -27,6 +28,19 @@ say so loudly.
 If a script spits out renders or logs, aim them at `out/` for disposable jams or
 `artifacts/` for golden material. Both paths are already ignored by git, so the
 history stays focused on intent, not binaries.
+
+### Flag crib sheet on demand
+
+Need to prove the README's build flag table still matches reality? Run the
+config narrator and paste its Markdown straight into your doc:
+
+```bash
+python scripts/describe_seedbox_config.py --format=markdown
+```
+
+It scrapes `include/SeedBoxConfig.h`, decodes the inline stories, and prints a
+ready-to-share table. Great for PR descriptions, lab guides, or reminding CI to
+show its work.
 
 ### KiCad / SKiDL setup crib notes
 

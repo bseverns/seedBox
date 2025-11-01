@@ -64,7 +64,7 @@ void ResonatorBank::init(Mode mode) {
 
   voices_.fill(VoiceInternal{});
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   patchCables_.clear();
 
   for (uint8_t i = 0; i < kMaxVoices; ++i) {
@@ -310,7 +310,7 @@ ResonatorBank::VoiceState ResonatorBank::voice(uint8_t voiceIndex) const {
 }
 
 void ResonatorBank::mapVoiceToGraph(uint8_t voiceIndex, VoiceInternal& voicePlan) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   auto &hwVoice = hwVoices_[voiceIndex];
 
   hwVoice.burstEnv.attack(voicePlan.burstMs);
@@ -350,7 +350,7 @@ void ResonatorBank::mapVoiceToGraph(uint8_t voiceIndex, VoiceInternal& voicePlan
 #endif
 }
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 float ResonatorBank::fanoutProbeLevel() const {
   if (voiceFanoutProbe_.available()) {
     return voiceFanoutProbe_.read();

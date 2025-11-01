@@ -9,7 +9,7 @@ explains how we keep the jams coordinated.
 - **Teach as you go.** When you add code, sprinkle comments, diagrams, or docs so
   the next curious hacker can learn from it.
 - **Keep the signal clean.** Native and hardware builds should stay in lockstep,
-  so gate hardware-only paths behind `#ifdef SEEDBOX_HW`.
+  so gate hardware-only paths behind `#if SEEDBOX_HW`.
 - **No memory allocation inside audio callbacks.** Real-time audio is allergic to
   unpredictable latency. Pre-allocate buffers up front or stash work in queues
   outside the callback.

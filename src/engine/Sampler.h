@@ -118,7 +118,7 @@ private:
   uint32_t nextHandle_{1};
   std::vector<Seed> seedCache_{};
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   struct HardwareVoice {
     // RAM-resident sample player (Teensy Audio library).
     AudioPlayMemory ramPlayer;

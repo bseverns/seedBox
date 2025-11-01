@@ -25,6 +25,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Surface build flag defaults
+        run: |
+          echo "SeedBoxConfig.h keeps the canonical build flags:"
+          python scripts/describe_seedbox_config.py --format=markdown
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
