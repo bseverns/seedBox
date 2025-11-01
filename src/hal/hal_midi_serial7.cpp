@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 #include <Arduino.h>
 #include "HardwareConfig.h"
 #endif
@@ -14,7 +14,7 @@ namespace midi {
 namespace serial7 {
 
 namespace {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 Handlers g_handlers{};
 void* g_user_data = nullptr;
 std::uint8_t g_running_status = 0;
@@ -118,7 +118,7 @@ void handleDataByte(std::uint8_t byte) {
 }  // namespace
 
 void begin(const Handlers& handlers, void* user_data) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   // Hang onto the callbacks and prime Serial7 at the canonical 31.25 kbaud.
   g_handlers = handlers;
   g_user_data = user_data;
@@ -133,7 +133,7 @@ void begin(const Handlers& handlers, void* user_data) {
 }
 
 void poll() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   // Byte-by-byte state machine lifted straight from the MIDI spec.  We watch for
   // realtime messages (0xF8+) first since they can interleave anywhere, then
   // feed the running-status parser with the rest.
@@ -176,25 +176,25 @@ void poll() {
 }
 
 void sendClock() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   Serial7.write(0xF8u);
 #endif
 }
 
 void sendStart() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   Serial7.write(0xFAu);
 #endif
 }
 
 void sendStop() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   Serial7.write(0xFCu);
 #endif
 }
 
 void sendControlChange(std::uint8_t channel, std::uint8_t controller, std::uint8_t value) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   const std::uint8_t status = static_cast<std::uint8_t>(0xB0u | (channel & 0x0Fu));
   Serial7.write(status);
   Serial7.write(controller & 0x7Fu);
@@ -207,7 +207,7 @@ void sendControlChange(std::uint8_t channel, std::uint8_t controller, std::uint8
 }
 
 void sendNoteOn(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   const std::uint8_t status = static_cast<std::uint8_t>(0x90u | (channel & 0x0Fu));
   Serial7.write(status);
   Serial7.write(note & 0x7Fu);
@@ -220,7 +220,7 @@ void sendNoteOn(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) 
 }
 
 void sendNoteOff(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   const std::uint8_t status = static_cast<std::uint8_t>(0x80u | (channel & 0x0Fu));
   Serial7.write(status);
   Serial7.write(note & 0x7Fu);
@@ -233,7 +233,7 @@ void sendNoteOff(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity)
 }
 
 void sendAllNotesOff(std::uint8_t channel) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   sendControlChange(channel, 123u, 0u);
 #else
   (void)channel;

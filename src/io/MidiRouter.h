@@ -134,7 +134,7 @@ public:
 
   // Test harness hook: expose the CLI backend so unit tests can queue events and
   // inspect what would have gone out on the wire.
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   class CliBackendAdapter;
   class CliBackend {
   public:
@@ -202,7 +202,7 @@ public:
 #endif
 
 private:
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   class UsbMidiBackend;
   class TrsAMidiBackend;
 #endif
@@ -236,7 +236,7 @@ private:
 
   std::array<PortState, kPortCount> ports_{};
   std::array<std::unique_ptr<Backend>, kPortCount> backends_{};
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   std::array<std::unique_ptr<CliBackend>, kPortCount> cliBackends_{};
 #endif
   std::array<std::array<RouteConfig, kPortCount>, static_cast<std::size_t>(Page::kCount)>

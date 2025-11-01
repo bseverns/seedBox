@@ -4,7 +4,7 @@
 #include "io/Storage.h"
 #include "SeedBoxConfig.h"
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   #include <Arduino.h>
   #include <SdFat.h>
   #include <ArduinoJson.h>
@@ -17,7 +17,7 @@ bool Storage::loadSeedBank(const char* path, std::vector<Seed>& out) {
     out.clear();
     return false;
   }
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   // Eventually this block will crack open `path`, parse JSON, and pour seed
   // genomes into `out`.  For now we acknowledge the call and return true so the
   // UI flow can be rehearsed without a card inserted.
@@ -36,7 +36,7 @@ bool Storage::saveScene(const char* path) {
     (void)path;
     return false;
   }
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   (void)path;
   // Placeholder for future JSON writer that mirrors loadSeedBank.
   return true;

@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 
 // AudioMemoryBudget centralizes the buffer math that keeps the Teensy audio
 // graph fed. Each block equals 128 samples at 44.1 kHz, and we divvy them up

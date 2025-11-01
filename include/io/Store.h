@@ -68,7 +68,7 @@ private:
   std::vector<std::uint8_t> encode(const std::vector<Entry>& entries) const;
 
   std::size_t capacity_{0};
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   mutable std::vector<std::uint8_t> mockEeprom_{};
 #endif
 };

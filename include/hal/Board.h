@@ -83,7 +83,7 @@ public:
 // build returns the scripted simulator shim.
 Board& board();
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 // Native test harness utilities.  `nativeBoard()` exposes the concrete type so
 // unit tests can inject scripted button/encoder events and time jumps without
 // leaking implementation details to production code.

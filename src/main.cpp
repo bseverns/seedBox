@@ -12,7 +12,7 @@
 #include "app/AppState.h"
 #include "hal/Board.h"
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   #include "HardwarePrelude.h"
   #include "io/MidiRouter.h"
   #include "engine/Sampler.h"
@@ -24,7 +24,7 @@
 AppState app(hal::board());
 
 void setup() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   // On real hardware we have to wake the SGTL5000 audio codec before touching
   // any of the custom logic.  Think of this as switching on the studio mixer
   // before routing instruments.
@@ -41,7 +41,7 @@ void setup() {
 }
 
 void loop() {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   app.midi.poll();
 #endif
   // Finally, tick the app.  This pumps the state machine, audio engine, and any

@@ -17,7 +17,7 @@ file to understand the vocabulary before diving into implementation details.
 
 - Keep declarations small and obvious. If something looks magical, add a doc
   comment or link to the doc that explains the trick.
-- Wrap hardware-only details in `#ifdef SEEDBOX_HW` so the native build can still
+- Wrap hardware-only details in `#if SEEDBOX_HW` so the native build can still
   include these headers without drama.
 - When you rename or add a struct field, update the nearby README/test/doc so the
   story stays consistent.

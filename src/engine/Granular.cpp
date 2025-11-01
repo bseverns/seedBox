@@ -16,7 +16,7 @@
 
 namespace {
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 // Teensy shoves DMAMEM symbols into RAM2, which keeps these hulking grain
 // buffers out of the precious tightly-coupled RAM1 pool.  Each voice grabs a
 // 2048-sample window during init and recycles it forever.
@@ -29,7 +29,7 @@ static uint8_t clampVoices(uint8_t voices) {
 }
 }
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
 namespace {
 
 template <typename T, typename = void>
@@ -87,11 +87,11 @@ void GranularEngine::init(Mode mode) {
   sdClips_[0].path = "live-in";
   sdClips_[0].handle = 0;
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   simHwVoices_.fill(SimHardwareVoice{});
 #endif
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   patchCables_.clear();
 
   for (uint8_t i = 0; i < kVoicePoolSize; ++i) {
@@ -302,7 +302,7 @@ void GranularEngine::mapGrainToGraph(uint8_t index, GrainVoice& grain) {
   grain.leftGain = gains.left;
   grain.rightGain = gains.right;
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   auto& hwVoice = hwVoices_[index];
   hwVoice.sdPlayer.stop();
   hwVoice.sourceMixer.gain(0, grain.source == Source::kLiveInput ? 1.0f : 0.0f);
@@ -348,7 +348,7 @@ void GranularEngine::trigger(const Seed& seed, uint32_t whenSamples) {
   mapGrainToGraph(voiceIndex, voices_[voiceIndex]);
 }
 
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
 GranularEngine::SimHardwareVoice GranularEngine::simHardwareVoice(uint8_t index) const {
   if (index >= simHwVoices_.size()) {
     return SimHardwareVoice{};

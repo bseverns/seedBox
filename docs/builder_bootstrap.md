@@ -141,7 +141,7 @@ to this table. Future students can replay your steps.
   the scheduler is firing by watching the OLED snapshots before hunting in DSP
   code.
 - **Native vs. hardware mismatches**: Wrap hardware-only includes with
-  `#ifdef SEEDBOX_HW`. The native build should always compile without Teensy
+  `#if SEEDBOX_HW`. The native build should always compile without Teensy
   headers present.
 
 Document additional war stories here — broken solder joints, OS driver drama,

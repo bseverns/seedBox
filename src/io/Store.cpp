@@ -3,13 +3,13 @@
 #include <array>
 #include <cstring>
 #include <string_view>
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   #include <filesystem>
   #include <fstream>
   #include <iterator>
 #endif
 
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   #include <EEPROM.h>
 #endif
 
@@ -151,7 +151,7 @@ std::vector<std::uint8_t> decompressPresetBlob(const std::vector<std::uint8_t>& 
 namespace seedbox::io {
 
 StoreEeprom::StoreEeprom(std::size_t capacity) {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   const std::size_t hwLen = EEPROM.length();
   capacity_ = capacity ? std::min(capacity, hwLen) : hwLen;
 #else
@@ -223,7 +223,7 @@ bool StoreEeprom::save(std::string_view slot, const std::vector<std::uint8_t>& d
 
 bool StoreEeprom::readRaw(std::vector<std::uint8_t>& raw) const {
   raw.assign(capacity_, 0xFFu);
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   const std::size_t hwLen = EEPROM.length();
   const std::size_t copy = std::min(capacity_, hwLen);
   for (std::size_t i = 0; i < copy; ++i) {
@@ -242,7 +242,7 @@ bool StoreEeprom::writeRaw(const std::vector<std::uint8_t>& raw) {
   if (raw.size() > capacity_) {
     return false;
   }
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   const std::size_t hwLen = EEPROM.length();
   const std::size_t copy = std::min(raw.size(), hwLen);
   for (std::size_t i = 0; i < copy; ++i) {
@@ -334,7 +334,7 @@ std::vector<std::uint8_t> StoreEeprom::encode(const std::vector<Entry>& entries)
 }
 
 StoreSd::StoreSd(std::string basePath) : basePath_(std::move(basePath)) {
-#ifndef SEEDBOX_HW
+#if !SEEDBOX_HW
   if (basePath_.empty()) {
     basePath_ = "presets";
   }
@@ -343,7 +343,7 @@ StoreSd::StoreSd(std::string basePath) : basePath_(std::move(basePath)) {
 }
 
 std::vector<std::string> StoreSd::list() const {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   (void)basePath_;
   return {};
 #else
@@ -363,7 +363,7 @@ std::vector<std::string> StoreSd::list() const {
 }
 
 bool StoreSd::load(std::string_view slot, std::vector<std::uint8_t>& out) const {
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   (void)slot;
   (void)out;
   return false;
@@ -387,7 +387,7 @@ bool StoreSd::save(std::string_view slot, const std::vector<std::uint8_t>& data)
     (void)data;
     return false;
   }
-#ifdef SEEDBOX_HW
+#if SEEDBOX_HW
   (void)slot;
   (void)data;
   return false;
