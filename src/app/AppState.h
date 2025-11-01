@@ -82,7 +82,7 @@ public:
   void initSim();
 
   // Pump one control-tick. In sim builds tests call this manually; on hardware
-  // the main loop does the honours. Either way the scheduler decides whether a
+  // the main loop does the honors. Either way, the scheduler decides whether a
   // seed should trigger on this frame.
   void tick();
 
@@ -181,6 +181,7 @@ private:
   // Helper that hydrates the seeds_ array deterministically from masterSeed_.
   // The implementation leans heavily on comments so students can watch the RNG
   // state machine do its thing.
+
   void primeSeeds(uint32_t masterSeed);
   void updateClockDominance();
   void applyMn42ModeBits(uint8_t value);
@@ -202,6 +203,7 @@ private:
   void processInputEvents();
   bool handleClockButtonEvent(const InputEvents::Event& evt);
   void applyModeTransition(const InputEvents::Event& evt);
+  bool handleSeedPrimeGesture(const InputEvents::Event& evt);
   void dispatchToPage(const InputEvents::Event& evt);
   void handleHomeEvent(const InputEvents::Event& evt);
   void handleSeedsEvent(const InputEvents::Event& evt);
@@ -239,6 +241,7 @@ private:
   SeedLock seedLock_{};
   SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};
   std::vector<uint32_t> tapTempoHistory_{};
+  std::uint64_t lastTapTempoTapUs_{0};
   struct PresetBuffer {
     uint32_t id{0};
     std::vector<Seed> seeds{};
@@ -266,6 +269,8 @@ private:
   seedbox::io::Store* store_{nullptr};
   std::string activePresetSlot_{};
   Page currentPage_{Page::kSeeds};
+  uint8_t quantizeScaleIndex_{0};
+  uint8_t quantizeRoot_{0};
   struct PresetCrossfade {
     std::vector<Seed> from;
     std::vector<Seed> to;

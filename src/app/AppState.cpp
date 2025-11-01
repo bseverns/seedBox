@@ -13,6 +13,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -56,6 +58,35 @@ constexpr std::array<const char*, 4> kDemoSdClips{{"wash", "dust", "vox", "pads"
 void populateSdClips(GranularEngine& engine) {
   for (uint8_t i = 0; i < kDemoSdClips.size(); ++i) {
     engine.registerSdClip(static_cast<uint8_t>(i + 1), kDemoSdClips[i]);
+  }
+}
+
+constexpr std::array<AppState::SeedPrimeMode, 3> kPrimeModes{{
+    AppState::SeedPrimeMode::kLfsr,
+    AppState::SeedPrimeMode::kTapTempo,
+    AppState::SeedPrimeMode::kPreset,
+}};
+
+AppState::SeedPrimeMode rotatePrimeMode(AppState::SeedPrimeMode current, int step) {
+  const int count = static_cast<int>(kPrimeModes.size());
+  auto it = std::find(kPrimeModes.begin(), kPrimeModes.end(), current);
+  const int index = (it == kPrimeModes.end())
+                        ? 0
+                        : static_cast<int>(std::distance(kPrimeModes.begin(), it));
+  int next = index + step;
+  if (next < 0) {
+    next = (next % count) + count;
+  }
+  next %= count;
+  return kPrimeModes[static_cast<std::size_t>(next)];
+}
+
+const char* primeModeLabel(AppState::SeedPrimeMode mode) {
+  switch (mode) {
+    case AppState::SeedPrimeMode::kTapTempo: return "Tap";
+    case AppState::SeedPrimeMode::kPreset: return "Preset";
+    case AppState::SeedPrimeMode::kLfsr:
+    default: return "LFSR";
   }
 }
 
@@ -376,6 +407,8 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   swingPageRequested_ = false;
   swingEditing_ = false;
   previousModeBeforeSwing_ = Mode::HOME;
+  quantizeScaleIndex_ = 0;
+  quantizeRoot_ = 0;
 }
 
 void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
@@ -492,12 +525,34 @@ void AppState::processInputEvents() {
         evt.primaryButton == hal::Board::ButtonID::EncoderSeedBank) {
       handleReseedRequest();
     }
+    if (handleSeedPrimeGesture(evt)) {
+      continue;
+    }
     if (handleClockButtonEvent(evt)) {
       continue;
     }
     applyModeTransition(evt);
     dispatchToPage(evt);
   }
+}
+
+bool AppState::handleSeedPrimeGesture(const InputEvents::Event& evt) {
+  if (evt.type != InputEvents::Type::ButtonPress) {
+    return false;
+  }
+  if (evt.primaryButton != hal::Board::ButtonID::TapTempo) {
+    return false;
+  }
+  if (!input_.buttonDown(hal::Board::ButtonID::AltSeed)) {
+    return false;
+  }
+
+  const bool reverse = input_.buttonDown(hal::Board::ButtonID::Shift);
+  const int step = reverse ? -1 : 1;
+  const SeedPrimeMode nextMode = rotatePrimeMode(seedPrimeMode_, step);
+  setSeedPrimeMode(nextMode);
+  seedPageReseed(masterSeed_, nextMode);
+  return true;
 }
 
 bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
@@ -516,6 +571,22 @@ bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
     return true;
   }
   if (evt.type == InputEvents::Type::ButtonPress) {
+    if (seedPrimeMode_ == SeedPrimeMode::kTapTempo) {
+      if (lastTapTempoTapUs_ != 0 && evt.timestampUs > lastTapTempoTapUs_) {
+        const uint64_t deltaUs = evt.timestampUs - lastTapTempoTapUs_;
+        const uint64_t intervalMs64 = deltaUs / 1000ULL;
+        if (intervalMs64 > 0) {
+          const uint64_t clamped =
+              std::min<uint64_t>(intervalMs64, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
+          const uint32_t intervalMs = static_cast<uint32_t>(clamped);
+          recordTapTempoInterval(intervalMs);
+          scheduler_.setBpm(currentTapTempoBpm());
+        }
+      }
+      lastTapTempoTapUs_ = evt.timestampUs;
+    } else {
+      lastTapTempoTapUs_ = 0;
+    }
     toggleClockProvider();
     if (mode_ == Mode::PERF) {
       transportLatchedRunning_ = !transportLatchedRunning_;
@@ -608,6 +679,54 @@ void AppState::handleSeedsEvent(const InputEvents::Event& evt) {
       setFocusSeed(static_cast<uint8_t>(next));
       displayDirty_ = true;
     }
+  }
+
+  if (evt.encoderDelta == 0) {
+    return;
+  }
+
+  if (evt.type == InputEvents::Type::EncoderHoldTurn &&
+      evt.encoder == hal::Board::EncoderID::ToneTilt) {
+    // Tone/Tilt doubles as the "micro edit" knob on the Seeds page. We lean on
+    // modifier buttons so the detents stay musical: Shift steers pitch,
+    // Alt pushes density, and holding both piggybacks both adjustments.
+    const bool shiftHeld = eventHasButton(evt, hal::Board::ButtonID::Shift);
+    const bool altHeld = eventHasButton(evt, hal::Board::ButtonID::AltSeed);
+    if (shiftHeld || altHeld) {
+      if (seeds_.empty()) {
+        return;
+      }
+      const std::size_t focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+      SeedNudge nudge{};
+      if (shiftHeld) {
+        nudge.pitchSemitones = static_cast<float>(evt.encoderDelta);
+      }
+      if (altHeld) {
+        constexpr float kDensityStep = 0.1f;
+        nudge.densityDelta = static_cast<float>(evt.encoderDelta) * kDensityStep;
+      }
+      if (nudge.pitchSemitones != 0.f || nudge.densityDelta != 0.f) {
+        seedPageNudge(static_cast<uint8_t>(focusIndex), nudge);
+      }
+      return;
+    }
+  }
+
+  if (evt.type == InputEvents::Type::EncoderHoldTurn &&
+      evt.encoder == hal::Board::EncoderID::FxMutate &&
+      eventHasButton(evt, hal::Board::ButtonID::AltSeed)) {
+    // Alt + FX becomes a quantize scale selector. Each detent marches through
+    // the CC map locally so the hardware surface matches the MN-42 remote.
+    constexpr int kScaleCount = 5;
+    int next = static_cast<int>(quantizeScaleIndex_) + static_cast<int>(evt.encoderDelta);
+    next %= kScaleCount;
+    if (next < 0) {
+      next += kScaleCount;
+    }
+    quantizeScaleIndex_ = static_cast<uint8_t>(next);
+    const uint8_t controlValue = static_cast<uint8_t>((quantizeScaleIndex_ * 32u) + (quantizeRoot_ % 12u));
+    applyQuantizeControl(controlValue);
+    return;
   }
 }
 
@@ -1203,7 +1322,15 @@ void AppState::seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode) {
   reseed(masterSeed);
 }
 
-void AppState::setSeedPrimeMode(SeedPrimeMode mode) { seedPrimeMode_ = mode; }
+void AppState::setSeedPrimeMode(SeedPrimeMode mode) {
+  if (seedPrimeMode_ != mode) {
+    seedPrimeMode_ = mode;
+    displayDirty_ = true;
+  } else {
+    seedPrimeMode_ = mode;
+  }
+  lastTapTempoTapUs_ = 0;
+}
 
 void AppState::seedPageToggleLock(uint8_t index) {
   if (seeds_.empty()) {
@@ -1291,8 +1418,14 @@ void AppState::applyQuantizeControl(uint8_t value) {
   if (seedLock_.seedLocked(idx)) {
     return;
   }
+  const uint8_t scaleIndex = static_cast<uint8_t>(value / 32);
+  const uint8_t root = static_cast<uint8_t>(value % 12);
+  const uint8_t sanitizedScaleIndex = std::min<uint8_t>(scaleIndex, static_cast<uint8_t>(4));
+  const uint8_t sanitizedRoot = static_cast<uint8_t>(root % 12);
+  quantizeScaleIndex_ = sanitizedScaleIndex;
+  quantizeRoot_ = sanitizedRoot;
   util::ScaleQuantizer::Scale scale = util::ScaleQuantizer::Scale::kChromatic;
-  switch (scaleIndex) {
+  switch (sanitizedScaleIndex) {
     case 0:
       scale = util::ScaleQuantizer::Scale::kChromatic;
       break;
@@ -1305,13 +1438,16 @@ void AppState::applyQuantizeControl(uint8_t value) {
     case 3:
       scale = util::ScaleQuantizer::Scale::kPentatonicMajor;
       break;
-    default:
+    case 4:
       scale = util::ScaleQuantizer::Scale::kPentatonicMinor;
+      break;
+    default:
+      scale = util::ScaleQuantizer::Scale::kChromatic;
       break;
   }
 
   Seed& seed = seeds_[idx];
-  const float quantized = util::ScaleQuantizer::SnapToScale(seed.pitch, root, scale);
+  const float quantized = util::ScaleQuantizer::SnapToScale(seed.pitch, sanitizedRoot, scale);
   if (quantized != seed.pitch) {
     seed.pitch = quantized;
     scheduler_.updateSeed(idx, seed);
@@ -1385,6 +1521,7 @@ bool AppState::savePreset(std::string_view slot) {
     return false;
   }
   activePresetSlot_ = slotName;
+  setSeedPreset(preset.masterSeed, preset.seeds);
   return true;
 }
 
@@ -1475,6 +1612,27 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
       const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
       writeUiField(uiOut->pageHints[1], primeHint);
     }
+  if (currentPage_ == Page::kStorage) {
+    writeUiField(uiOut->pageHints[0], "GPIO: recall");
+    writeUiField(uiOut->pageHints[1], "Hold GPIO: save");
+  } else {
+    writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
+    if (globalLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg seeds locked");
+    } else if (focusLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg focus locked");
+    } else {
+      writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+    }
+  }
+
+  if (globalLocked) {
+    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
+  } else if (focusLocked) {
+    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
+  } else {
+    const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
+    writeUiField(uiOut->pageHints[1], primeHint);
   }
 
   if (!hasSeeds) {
@@ -1673,6 +1831,7 @@ void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
 
   setFocusSeed(preset.focusSeed);
   seedsPrimed_ = haveSeeds;
+  setSeedPreset(preset.masterSeed, preset.seeds);
   displayDirty_ = true;
 }
 

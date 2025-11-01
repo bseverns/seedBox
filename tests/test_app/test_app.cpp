@@ -121,6 +121,28 @@ void test_shift_long_press_returns_home() {
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
 }
 
+void test_alt_long_press_opens_storage_page() {
+  hal::nativeBoardReset();
+  auto& board = hal::nativeBoard();
+  AppState app(board);
+  app.initSim();
+  TEST_ASSERT_EQUAL(AppState::Page::kSeeds, app.page());
+
+  hal::nativeBoardFeed("btn alt down");
+  hal::nativeBoardFeed("wait 600ms");
+  hal::nativeBoardFeed("btn alt up");
+  runTicks(app, 80);
+
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
+  TEST_ASSERT_EQUAL(AppState::Page::kStorage, app.page());
+
+  AppState::DisplaySnapshot snap{};
+  UiState ui{};
+  app.captureDisplaySnapshot(snap, ui);
+  TEST_ASSERT_EQUAL_STRING("GPIO: recall", ui.pageHints[0].data());
+  TEST_ASSERT_EQUAL_STRING("Hold GPIO: save", ui.pageHints[1].data());
+}
+
 void test_double_tap_moves_to_settings() {
   hal::nativeBoardReset();
   auto& board = hal::nativeBoard();
@@ -244,8 +266,13 @@ void test_scripted_front_panel_walkthrough() {
   pressLockButton(app, clock, true);
   TEST_ASSERT_FALSE(app.isGlobalSeedLocked());
 
-  // Park on the storage page so the reseed button becomes save/recall.
-  app.setPage(AppState::Page::kStorage);
+  // Long-press Alt to drop into the storage page so the reseed button saves/recalls.
+  hal::nativeBoardFeed("btn alt down");
+  hal::nativeBoardFeed("wait 600ms");
+  hal::nativeBoardFeed("btn alt up");
+  runTicks(app, 80);
+  TEST_ASSERT_EQUAL(AppState::Page::kStorage, app.page());
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   const auto savedSeeds = app.seeds();
   pressStorageButton(app, clock, true);
   TEST_ASSERT_EQUAL_STRING("default", app.activePresetSlot().c_str());
@@ -305,6 +332,7 @@ int main(int, char**) {
   RUN_TEST(test_initial_mode_home);
   RUN_TEST(test_seed_button_transitions_to_seeds);
   RUN_TEST(test_shift_long_press_returns_home);
+  RUN_TEST(test_alt_long_press_opens_storage_page);
   RUN_TEST(test_double_tap_moves_to_settings);
   RUN_TEST(test_chord_shift_alt_seed_enters_perf);
   RUN_TEST(test_shift_hold_rotate_moves_focus);
