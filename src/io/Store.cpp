@@ -1,5 +1,8 @@
 #include "io/Store.h"
 #include <algorithm>
+#include <array>
+#include <cstring>
+#include <string_view>
 #ifndef SEEDBOX_HW
   #include <filesystem>
   #include <fstream>
@@ -13,6 +16,133 @@
 namespace {
 constexpr std::uint32_t kMagic = 0x53545231u;  // 'STR1'
 constexpr std::uint8_t kVersion = 1u;
+
+constexpr std::uint8_t kCompressedMarker = 0x00u;
+constexpr std::uint8_t kTokenMarker = 0x1Fu;
+
+constexpr std::array<std::string_view, 39> kPresetTokens{
+    ",\"transportLatch\":false",
+    ",\"followExternal\":false",
+    ",\"debugMeters\":false",
+    "\"engineSelections\":[",
+    ",\"stereoSpread\":",
+    ",\"probability\":",
+    ",\"grainSizeMs\":",
+    "\"clock\":{"bpm":",
+    ",\"windowSkew\":",
+    ",\"resonator\":{",
+    ",\"brightness\":",
+    "\"masterSeed\":",
+    ",\"mutateAmt\":",
+    ",\"transpose\":",
+    ",\"granular\":{",
+    ",\"focusSeed\":",
+    ",\"sampleIdx\":",
+    ",\"feedback\":",
+    ",\"exciteMs\":",
+    ",\"jitterMs\":",
+    ",\"damping\":",
+    ",\"density\":",
+    ",\"sprayMs\":",
+    ",\"sdSlot\":",
+    ",\"spread\":",
+    ",\"source\":",
+    ",\"engine\":",
+    "\"seeds\":[",
+    ",\"pitch\":",
+    ",\"mode\":",
+    ",\"prng\":",
+    ",\"envS\":",
+    ",\"tone\":",
+    ",\"bank\":",
+    ",\"envA\":",
+    ",\"envD\":",
+    ",\"envR\":",
+    "{\"id\":",
+    "},",
+    "}]",
+};
+
+std::vector<std::uint8_t> compressPresetBlob(const std::vector<std::uint8_t>& input) {
+  if (input.empty()) {
+    return input;
+  }
+
+  std::vector<std::uint8_t> encoded;
+  encoded.reserve(input.size());
+
+  std::size_t i = 0;
+  while (i < input.size()) {
+    bool matched = false;
+    for (std::uint8_t tokenIndex = 0; tokenIndex < kPresetTokens.size(); ++tokenIndex) {
+      const std::string_view token = kPresetTokens[tokenIndex];
+      if (token.empty()) {
+        continue;
+      }
+      if (i + token.size() <= input.size() &&
+          std::memcmp(input.data() + static_cast<std::ptrdiff_t>(i), token.data(), token.size()) == 0) {
+        encoded.push_back(kTokenMarker);
+        encoded.push_back(tokenIndex);
+        i += token.size();
+        matched = true;
+        break;
+      }
+    }
+    if (matched) {
+      continue;
+    }
+
+    const std::uint8_t byte = input[i++];
+    if (byte == kTokenMarker) {
+      encoded.push_back(kTokenMarker);
+      encoded.push_back(static_cast<std::uint8_t>(kPresetTokens.size()));
+    }
+    encoded.push_back(byte);
+  }
+
+  if (encoded.size() >= input.size()) {
+    return input;
+  }
+
+  std::vector<std::uint8_t> result;
+  result.reserve(encoded.size() + 1);
+  result.push_back(kCompressedMarker);
+  result.insert(result.end(), encoded.begin(), encoded.end());
+  return result;
+}
+
+std::vector<std::uint8_t> decompressPresetBlob(const std::vector<std::uint8_t>& stored) {
+  if (stored.empty() || stored[0] != kCompressedMarker) {
+    return stored;
+  }
+
+  std::vector<std::uint8_t> decoded;
+  decoded.reserve(stored.size());
+
+  std::size_t i = 1;
+  while (i < stored.size()) {
+    const std::uint8_t byte = stored[i++];
+    if (byte == kTokenMarker) {
+      if (i >= stored.size()) {
+        return {};
+      }
+      const std::uint8_t code = stored[i++];
+      if (code == kPresetTokens.size()) {
+        decoded.push_back(kTokenMarker);
+        continue;
+      }
+      if (code >= kPresetTokens.size()) {
+        return {};
+      }
+      const std::string_view token = kPresetTokens[code];
+      decoded.insert(decoded.end(), token.begin(), token.end());
+      continue;
+    }
+    decoded.push_back(byte);
+  }
+
+  return decoded;
+}
 
 }  // namespace
 
@@ -53,7 +183,11 @@ bool StoreEeprom::load(std::string_view slot, std::vector<std::uint8_t>& out) co
   const auto entries = decode(raw);
   for (const auto& e : entries) {
     if (e.slot == slot) {
-      out = e.data;
+      auto decoded = decompressPresetBlob(e.data);
+      if (decoded.empty() && !e.data.empty() && e.data[0] == kCompressedMarker) {
+        return false;
+      }
+      out = std::move(decoded);
       return true;
     }
   }
@@ -72,10 +206,11 @@ bool StoreEeprom::save(std::string_view slot, const std::vector<std::uint8_t>& d
   }
   auto entries = decode(raw);
   auto it = std::find_if(entries.begin(), entries.end(), [&](const Entry& e) { return e.slot == slot; });
+  const auto compressed = compressPresetBlob(data);
   if (it == entries.end()) {
-    entries.push_back(Entry{std::string(slot), data});
+    entries.push_back(Entry{std::string(slot), compressed});
   } else {
-    it->data = data;
+    it->data = compressed;
   }
   const auto encoded = encode(entries);
   if (encoded.empty()) {
