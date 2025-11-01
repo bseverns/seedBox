@@ -256,6 +256,8 @@ private:
   seedbox::io::Store* store_{nullptr};
   std::string activePresetSlot_{};
   Page currentPage_{Page::kSeeds};
+  uint8_t quantizeScaleIndex_{0};
+  uint8_t quantizeRoot_{0};
   struct PresetCrossfade {
     std::vector<Seed> from;
     std::vector<Seed> to;
