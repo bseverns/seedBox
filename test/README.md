@@ -21,7 +21,9 @@ flowchart TD
 | Folder | Focus | Why you should care |
 | --- | --- | --- |
 | `test_app/` | Covers `AppState`, reseeding rituals, display snapshots. | Stops UI lies before they hit the OLED. |
+| `tests/test_app/` | Scripted surface walkthroughs via the native board shim. | Proves the front panel choreography without touching hardware. |
 | `test_patterns/` | Stresses the scheduler, tick math, and trigger ordering. | Keeps rhythms tight even after wild refactors. |
+| `tests/test_patterns/` | BPM + swing goldens for the clock log. | Documents exactly where each tick lands so grooves stay teachable. |
 | `test_engine/` | Exercises DSP helpers and seed-to-sound flows. | Generates bite-sized reproducible examples for docs. |
 
 Everything uses Unity (the test framework bundled with PlatformIO), which keeps
@@ -48,6 +50,31 @@ Defaults for every switch live in [`include/SeedBoxConfig.h`](../include/SeedBox
 
 Hardware-specific branches in tests are still wrapped in `SEEDBOX_HW`, even if
 we mostly run the suite on laptops.
+
+## Fresh lab notes
+
+- **Front panel story time:** `tests/test_app/test_app.cpp` now contains
+  `test_scripted_front_panel_walkthrough`, a soup-to-nuts rehearsal that hits
+  mode changes, reseeds, locks, and preset recall using nothing but the native
+  board shim. Run it solo with:
+
+  ```bash
+  pio test -e native --filter tests/test_app/test_app.cpp
+  ```
+
+- **Clock goldens:** `tests/test_patterns/test_tick_golden.cpp` captures tick
+  logs for 60/90/120 BPM at multiple swing percentages. Regenerate the
+  `artifacts/pattern_ticks_*.txt` fixtures by flipping `ENABLE_GOLDEN`:
+
+  ```bash
+  pio test -e native -D ENABLE_GOLDEN=1 \
+    --filter tests/test_patterns/test_tick_golden.cpp
+  ```
+
+- **Engine postcards:** `tests/test_engine/test_euclid_burst.cpp` now writes
+  Euclid and Burst display snapshots when `ENABLE_GOLDEN` is set. Peek at
+  `artifacts/engine_snapshots.txt` whenever you need doc-ready screenshots of
+  the status text.
 
 ## Writing new tests without dread
 

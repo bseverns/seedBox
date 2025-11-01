@@ -210,6 +210,12 @@ AppState::AppState(hal::Board& board) : board_(board), input_(board) {
   midiClockIn_.attachScheduler(&scheduler_);
   midiClockOut_.attachScheduler(&scheduler_);
   selectClockProvider(&internalClock_);
+  static bool ioInitialised = false;
+  if (!ioInitialised) {
+    hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
+    ioInitialised = true;
+  }
+  hal::io::setDigitalCallback(&AppState::digitalCallbackThunk, this);
 }
 
 void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx) {
@@ -221,6 +227,13 @@ void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffe
 AppState::~AppState() {
   hal::audio::stop();
   hal::audio::shutdown();
+}
+
+void AppState::digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
+                                    void* ctx) {
+  if (auto* self = static_cast<AppState*>(ctx)) {
+    self->handleDigitalEdge(static_cast<uint8_t>(pin), level, timestamp);
+  }
 }
 
 // initHardware wires up the physical instrument: MIDI ingress, the engine
@@ -333,50 +346,76 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   std::fill(buffer.right, buffer.right + buffer.frames, 0.0f);
 }
 
-void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t) {
-  if (pin != kReseedButtonPin) {
-    return;
-  }
+void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp) {
+  if (pin == kReseedButtonPin) {
+    if (level) {
+      storageButtonHeld_ = true;
+      storageLongPress_ = false;
+      storageButtonPressFrame_ = frame_;
+      if (currentPage_ != Page::kStorage) {
+        reseedRequested_ = true;
+      }
+      return;
+    }
 
-  if (level) {
-    storageButtonHeld_ = true;
-    storageLongPress_ = false;
-    storageButtonPressFrame_ = frame_;
+    if (!storageButtonHeld_) {
+      return;
+    }
+
+    storageButtonHeld_ = false;
+    const uint64_t heldFrames = (frame_ > storageButtonPressFrame_)
+                                    ? (frame_ - storageButtonPressFrame_)
+                                    : 0ULL;
+    const bool longPress = heldFrames >= kStorageLongPressFrames;
+
     if (currentPage_ != Page::kStorage) {
-      reseedRequested_ = true;
+      return;
+    }
+
+    const std::string slotName = activePresetSlot_.empty() ? std::string(kDefaultPresetSlot)
+                                                           : activePresetSlot_;
+    if (longPress) {
+      storageLongPress_ = true;
+      savePreset(slotName);
+    } else {
+      storageLongPress_ = false;
+      recallPreset(slotName, true);
     }
     return;
   }
 
-  if (!storageButtonHeld_) {
+  if (pin != kLockButtonPin) {
     return;
   }
 
-  storageButtonHeld_ = false;
-  const uint64_t heldFrames = (frame_ > storageButtonPressFrame_)
-                                  ? (frame_ - storageButtonPressFrame_)
-                                  : 0ULL;
-  const bool longPress = heldFrames >= kStorageLongPressFrames;
-
-  if (currentPage_ != Page::kStorage) {
+  if (level) {
+    lockButtonHeld_ = true;
+    lockButtonPressTimestamp_ = timestamp;
     return;
   }
 
-  const std::string slotName = activePresetSlot_.empty() ? std::string(kDefaultPresetSlot)
-                                                         : activePresetSlot_;
+  if (!lockButtonHeld_) {
+    return;
+  }
+
+  lockButtonHeld_ = false;
+  const uint32_t heldUs = (timestamp >= lockButtonPressTimestamp_)
+                              ? (timestamp - lockButtonPressTimestamp_)
+                              : 0u;
+  const bool longPress = heldUs >= kLockLongPressUs;
   if (longPress) {
-    storageLongPress_ = true;
-    savePreset(slotName);
+    seedPageToggleGlobalLock();
   } else {
-    storageLongPress_ = false;
-    recallPreset(slotName, true);
+    seedPageToggleLock(focusSeed_);
   }
+  displayDirty_ = true;
 }
 
 // tick is the heartbeat. Every call either primes seeds (first-run), lets the
 // internal scheduler drive things when we own the transport, or just counts
 // frames so the OLED can display a ticking counter.
 void AppState::tick() {
+  hal::io::poll();
   board_.poll();
   input_.update();
   processInputEvents();
