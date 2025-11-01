@@ -13,6 +13,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -56,6 +58,35 @@ constexpr std::array<const char*, 4> kDemoSdClips{{"wash", "dust", "vox", "pads"
 void populateSdClips(GranularEngine& engine) {
   for (uint8_t i = 0; i < kDemoSdClips.size(); ++i) {
     engine.registerSdClip(static_cast<uint8_t>(i + 1), kDemoSdClips[i]);
+  }
+}
+
+constexpr std::array<AppState::SeedPrimeMode, 3> kPrimeModes{{
+    AppState::SeedPrimeMode::kLfsr,
+    AppState::SeedPrimeMode::kTapTempo,
+    AppState::SeedPrimeMode::kPreset,
+}};
+
+AppState::SeedPrimeMode rotatePrimeMode(AppState::SeedPrimeMode current, int step) {
+  const int count = static_cast<int>(kPrimeModes.size());
+  auto it = std::find(kPrimeModes.begin(), kPrimeModes.end(), current);
+  const int index = (it == kPrimeModes.end())
+                        ? 0
+                        : static_cast<int>(std::distance(kPrimeModes.begin(), it));
+  int next = index + step;
+  if (next < 0) {
+    next = (next % count) + count;
+  }
+  next %= count;
+  return kPrimeModes[static_cast<std::size_t>(next)];
+}
+
+const char* primeModeLabel(AppState::SeedPrimeMode mode) {
+  switch (mode) {
+    case AppState::SeedPrimeMode::kTapTempo: return "Tap";
+    case AppState::SeedPrimeMode::kPreset: return "Preset";
+    case AppState::SeedPrimeMode::kLfsr:
+    default: return "LFSR";
   }
 }
 
@@ -447,12 +478,34 @@ void AppState::processInputEvents() {
         evt.primaryButton == hal::Board::ButtonID::EncoderSeedBank) {
       handleReseedRequest();
     }
+    if (handleSeedPrimeGesture(evt)) {
+      continue;
+    }
     if (handleClockButtonEvent(evt)) {
       continue;
     }
     applyModeTransition(evt);
     dispatchToPage(evt);
   }
+}
+
+bool AppState::handleSeedPrimeGesture(const InputEvents::Event& evt) {
+  if (evt.type != InputEvents::Type::ButtonPress) {
+    return false;
+  }
+  if (evt.primaryButton != hal::Board::ButtonID::TapTempo) {
+    return false;
+  }
+  if (!input_.buttonDown(hal::Board::ButtonID::AltSeed)) {
+    return false;
+  }
+
+  const bool reverse = input_.buttonDown(hal::Board::ButtonID::Shift);
+  const int step = reverse ? -1 : 1;
+  const SeedPrimeMode nextMode = rotatePrimeMode(seedPrimeMode_, step);
+  setSeedPrimeMode(nextMode);
+  seedPageReseed(masterSeed_, nextMode);
+  return true;
 }
 
 bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
@@ -465,6 +518,22 @@ bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
     return true;
   }
   if (evt.type == InputEvents::Type::ButtonPress) {
+    if (seedPrimeMode_ == SeedPrimeMode::kTapTempo) {
+      if (lastTapTempoTapUs_ != 0 && evt.timestampUs > lastTapTempoTapUs_) {
+        const uint64_t deltaUs = evt.timestampUs - lastTapTempoTapUs_;
+        const uint64_t intervalMs64 = deltaUs / 1000ULL;
+        if (intervalMs64 > 0) {
+          const uint64_t clamped =
+              std::min<uint64_t>(intervalMs64, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
+          const uint32_t intervalMs = static_cast<uint32_t>(clamped);
+          recordTapTempoInterval(intervalMs);
+          scheduler_.setBpm(currentTapTempoBpm());
+        }
+      }
+      lastTapTempoTapUs_ = evt.timestampUs;
+    } else {
+      lastTapTempoTapUs_ = 0;
+    }
     toggleClockProvider();
     if (mode_ == Mode::PERF) {
       transportLatchedRunning_ = !transportLatchedRunning_;
@@ -1081,7 +1150,15 @@ void AppState::seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode) {
   reseed(masterSeed);
 }
 
-void AppState::setSeedPrimeMode(SeedPrimeMode mode) { seedPrimeMode_ = mode; }
+void AppState::setSeedPrimeMode(SeedPrimeMode mode) {
+  if (seedPrimeMode_ != mode) {
+    seedPrimeMode_ = mode;
+    displayDirty_ = true;
+  } else {
+    seedPrimeMode_ = mode;
+  }
+  lastTapTempoTapUs_ = 0;
+}
 
 void AppState::seedPageToggleLock(uint8_t index) {
   if (seeds_.empty()) {
@@ -1261,6 +1338,7 @@ bool AppState::savePreset(std::string_view slot) {
     return false;
   }
   activePresetSlot_ = slotName;
+  setSeedPreset(preset.masterSeed, preset.seeds);
   return true;
 }
 
@@ -1344,7 +1422,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
-    writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
+    const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
+    writeUiField(uiOut->pageHints[1], primeHint);
   }
 
   if (!hasSeeds) {
@@ -1543,6 +1622,7 @@ void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
 
   setFocusSeed(preset.focusSeed);
   seedsPrimed_ = haveSeeds;
+  setSeedPreset(preset.masterSeed, preset.seeds);
   displayDirty_ = true;
 }
 
