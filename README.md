@@ -5,7 +5,7 @@
 | CI (native + Teensy) | [![CI](https://github.com/bseverns/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml) |
 
 SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
-companion project to the MOARkNOBS mythos: a Teensy 4.0 instrument that can
+companion project to the MOARkNOBS mythos: a Teensy(IMXRT1062)-based instrument that can
 also run a "pretend hardware" build on your laptop. You can poke at rhythm
 engines, reseed algorithms, or display sketches without needing a soldered rig.
 
