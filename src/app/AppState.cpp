@@ -522,6 +522,15 @@ void AppState::dispatchToPage(const InputEvents::Event& evt) {
 }
 
 namespace {
+const char* primeModeLabel(AppState::SeedPrimeMode mode) {
+  switch (mode) {
+    case AppState::SeedPrimeMode::kTapTempo: return "Tap";
+    case AppState::SeedPrimeMode::kPreset: return "Prst";
+    case AppState::SeedPrimeMode::kLfsr:
+    default: return "LFSR";
+  }
+}
+
 bool eventHasButton(const InputEvents::Event& evt, hal::Board::ButtonID id) {
   return std::find(evt.buttons.begin(), evt.buttons.end(), id) != evt.buttons.end();
 }
@@ -585,7 +594,7 @@ void AppState::handleSeedsEvent(const InputEvents::Event& evt) {
       eventHasButton(evt, hal::Board::ButtonID::AltSeed)) {
     // Alt + FX becomes a quantize scale selector. Each detent marches through
     // the CC map locally so the hardware surface matches the MN-42 remote.
-    constexpr int kScaleCount = 4;
+    constexpr int kScaleCount = 5;
     int next = static_cast<int>(quantizeScaleIndex_) + static_cast<int>(evt.encoderDelta);
     next %= kScaleCount;
     if (next < 0) {
@@ -1217,10 +1226,12 @@ void AppState::applyQuantizeControl(uint8_t value) {
   }
   const uint8_t scaleIndex = static_cast<uint8_t>(value / 32);
   const uint8_t root = static_cast<uint8_t>(value % 12);
-  quantizeScaleIndex_ = static_cast<uint8_t>(std::min<uint8_t>(scaleIndex, 3));
-  quantizeRoot_ = static_cast<uint8_t>(root % 12);
+  const uint8_t sanitizedScaleIndex = std::min<uint8_t>(scaleIndex, static_cast<uint8_t>(4));
+  const uint8_t sanitizedRoot = static_cast<uint8_t>(root % 12);
+  quantizeScaleIndex_ = sanitizedScaleIndex;
+  quantizeRoot_ = sanitizedRoot;
   util::ScaleQuantizer::Scale scale = util::ScaleQuantizer::Scale::kChromatic;
-  switch (scaleIndex) {
+  switch (sanitizedScaleIndex) {
     case 0:
       scale = util::ScaleQuantizer::Scale::kChromatic;
       break;
@@ -1233,13 +1244,16 @@ void AppState::applyQuantizeControl(uint8_t value) {
     case 3:
       scale = util::ScaleQuantizer::Scale::kPentatonicMajor;
       break;
-    default:
+    case 4:
       scale = util::ScaleQuantizer::Scale::kPentatonicMinor;
+      break;
+    default:
+      scale = util::ScaleQuantizer::Scale::kChromatic;
       break;
   }
 
   Seed& seed = seeds_[idx];
-  const float quantized = util::ScaleQuantizer::SnapToScale(seed.pitch, root, scale);
+  const float quantized = util::ScaleQuantizer::SnapToScale(seed.pitch, sanitizedRoot, scale);
   if (quantized != seed.pitch) {
     seed.pitch = quantized;
     scheduler_.updateSeed(idx, seed);
@@ -1388,7 +1402,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[0], "Pg focus locked");
   } else {
-    writeUiField(uiOut->pageHints[0], "Tone+Shift:pitch");
+    writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
   }
 
   if (globalLocked) {
@@ -1396,7 +1410,9 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
-    writeUiField(uiOut->pageHints[1], "Alt+Tone=d/Fx=sc");
+    const auto primeHint =
+        formatScratch(scratch, "Alt+Tap:%s Fx:sc", primeModeLabel(seedPrimeMode_));
+    writeUiField(uiOut->pageHints[1], primeHint);
   }
 
   if (!hasSeeds) {
