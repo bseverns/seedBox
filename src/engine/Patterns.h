@@ -12,7 +12,6 @@
 #include <vector>
 #include <cstddef>
 #include <cstdint>
-#include <cstddef>
 #include "Seed.h"
 #include "util/Annotations.h"
 
@@ -22,6 +21,7 @@ public:
   // Define the global tempo.  We keep the unit in BPM because it lines up with
   // the incoming MIDI clock rate.
   SEEDBOX_MAYBE_UNUSED void setBpm(float bpm);
+  float bpm() const { return bpm_; }
 
   // Hardware builds can feed us a real sample clock so the scheduler stays in
   // sync with the audio ISR.  Native builds leave this null and lean on the

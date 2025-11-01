@@ -79,8 +79,8 @@ like a zine.
 SeedBox now boots with `QUIET_MODE=1`. That means:
 
 - Seeds stay unprimed until you explicitly compile with quiet mode off.
-- Storage helpers refuse to write, keeping classrooms safe from surprise SD
-  scribbles.
+- Storage backends (`StoreEeprom`, `StoreSd`) refuse to write, keeping
+  classrooms safe from surprise EEPROM/SD scribbles.
 - Hardware IO (USB/TRS MIDI, seed persistence) is stubbed so the rig wakes up
   silent.
 
@@ -98,6 +98,30 @@ build_flags =
 Or, for a one-off build, tack on `--project-option "build_flags += -D QUIET_MODE=0"`
 to your `pio run` invocation. The SparkFun Qwiic OLED will remind you it's snoozing until you
 do.
+
+## Presets, Stores, and the "don't fry the workshop" policy
+
+SeedBox finally ships with a storage contract that mirrors the rest of the
+teaching vibe:
+
+- **`include/io/Store.h` is the promise.** It's a tiny interface (`list`,
+  `load`, `save`) so lesson plans can swap between a null store, EEPROM, or SD
+  without rewiring UI code. Native builds default to an in-memory EEPROM image
+  so tests stay deterministic.
+- **`StoreEeprom` & `StoreSd` follow the quiet-mode gospel.** Reads are always
+  allowed, but writes short-circuit while `QUIET_MODE=1`. No more classroom rigs
+  unexpectedly overwriting students' presets.
+- **Preset snapshots live in `app/Preset.*`.** We serialize the whole scene —
+  clock settings, routing, seed genomes, even the current page — to a lean JSON
+  blob that all stores understand.
+- **Front panel flow:** short press on the storage page recalls the active slot,
+  long press saves. Crossfades happen over ~1 second so switching scenes never
+  rips the mix apart mid-demo.
+
+Treat the docs like a zine: the new
+[`docs/roadmaps/storage.md`](docs/roadmaps/storage.md) entry riffs on future
+ideas (multi-slot banks, SD librarians, etc.) while this README keeps the how-to
+front and center.
 
 ## High-level flow (aka how seeds become sound)
 
@@ -135,7 +159,7 @@ mid-gig.
 | Flag | Where it matters | What it does |
 | --- | --- | --- |
 | `SEEDBOX_HW` | `src/`, `include/` | Enables Teensy-only IO paths so the firmware talks to real hardware. Leave it off for `native`. |
-| `QUIET_MODE` | `src/util/`, tests | Silences verbose logging when you want clean terminal output or audio renders in `out/`. |
+| `QUIET_MODE` | `src/util/`, tests | Silences verbose logging *and* forces storage backends into read-only mode so classrooms stay safe. |
 | `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` so regressions show up as diffable golden files. |
 
 Any new flag deserves a note in the matching README so the teaching vibes stay

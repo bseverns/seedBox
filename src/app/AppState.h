@@ -8,11 +8,15 @@
 // documentation all poke through this interface.  That means generous comments
 // are fair game — we're not hiding cleverness, we're teaching it.
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <vector>
 #include "Seed.h"
+#include "app/Preset.h"
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
 #include "util/Annotations.h"
+#include "io/Store.h"
 #ifdef SEEDBOX_HW
 #include "io/MidiRouter.h"
 #endif
@@ -33,6 +37,14 @@ using PinNumber = std::uint8_t;
 // what control hooks exist without spelunking the implementation.
 class AppState {
 public:
+  enum class Page : std::uint8_t {
+    kSeeds = static_cast<std::uint8_t>(seedbox::PageId::kSeeds),
+    kStorage = static_cast<std::uint8_t>(seedbox::PageId::kStorage),
+    kClock = static_cast<std::uint8_t>(seedbox::PageId::kClock),
+  };
+
+  static constexpr std::uint32_t kPresetCrossfadeTicks = 48;
+
   ~AppState();
   // Boot the full hardware stack. We spin up MIDI routing, initialise the
   // engine router in hardware mode, and prime the deterministic seed table so
@@ -84,6 +96,17 @@ public:
 
   const Seed* debugScheduledSeed(uint8_t index) const;
 
+  void attachStore(seedbox::io::Store* store) { store_ = store; }
+  seedbox::io::Store* store() const { return store_; }
+
+  void setPage(Page page);
+  Page page() const { return currentPage_; }
+
+  bool savePreset(std::string_view slot);
+  bool recallPreset(std::string_view slot, bool crossfade = true);
+  std::vector<std::string> storedPresets() const;
+  const std::string& activePresetSlot() const { return activePresetSlot_; }
+
   // MIDI ingress points. Each handler maps 1:1 with incoming transport/clock
   // events so lessons about external sync can point here directly.
   void onExternalClockTick();
@@ -118,6 +141,11 @@ private:
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
+  void stepPresetCrossfade();
+  void clearPresetCrossfade();
+  seedbox::Preset snapshotPreset(std::string_view slot) const;
+  void applyPreset(const seedbox::Preset& preset, bool crossfade);
+  Seed blendSeeds(const Seed& from, const Seed& to, float t) const;
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
@@ -141,4 +169,16 @@ private:
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
+  seedbox::io::Store* store_{nullptr};
+  std::string activePresetSlot_{};
+  Page currentPage_{Page::kSeeds};
+  struct PresetCrossfade {
+    std::vector<Seed> from;
+    std::vector<Seed> to;
+    std::uint32_t remaining{0};
+    std::uint32_t total{0};
+  } presetCrossfade_{};
+  bool storageButtonHeld_{false};
+  bool storageLongPress_{false};
+  uint64_t storageButtonPressFrame_{0};
 };

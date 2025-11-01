@@ -1,0 +1,271 @@
+#include "io/Store.h"
+#include <algorithm>
+#ifndef SEEDBOX_HW
+  #include <filesystem>
+  #include <fstream>
+  #include <iterator>
+#endif
+
+#ifdef SEEDBOX_HW
+  #include <EEPROM.h>
+#endif
+
+namespace {
+constexpr std::uint32_t kMagic = 0x53545231u;  // 'STR1'
+constexpr std::uint8_t kVersion = 1u;
+
+}  // namespace
+
+namespace seedbox::io {
+
+StoreEeprom::StoreEeprom(std::size_t capacity) {
+#ifdef SEEDBOX_HW
+  const std::size_t hwLen = EEPROM.length();
+  capacity_ = capacity ? std::min(capacity, hwLen) : hwLen;
+#else
+  capacity_ = capacity ? capacity : static_cast<std::size_t>(1024);
+  mockEeprom_.assign(capacity_, 0xFFu);
+#endif
+  if (capacity_ == 0) {
+    capacity_ = 1;  // never let encode math divide by zero
+  }
+}
+
+std::vector<std::string> StoreEeprom::list() const {
+  std::vector<std::uint8_t> raw;
+  if (!readRaw(raw)) {
+    return {};
+  }
+  const auto entries = decode(raw);
+  std::vector<std::string> names;
+  names.reserve(entries.size());
+  for (const auto& e : entries) {
+    names.push_back(e.slot);
+  }
+  return names;
+}
+
+bool StoreEeprom::load(std::string_view slot, std::vector<std::uint8_t>& out) const {
+  std::vector<std::uint8_t> raw;
+  if (!readRaw(raw)) {
+    return false;
+  }
+  const auto entries = decode(raw);
+  for (const auto& e : entries) {
+    if (e.slot == slot) {
+      out = e.data;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StoreEeprom::save(std::string_view slot, const std::vector<std::uint8_t>& data) {
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    (void)slot;
+    (void)data;
+    return false;
+  }
+  std::vector<std::uint8_t> raw;
+  if (!readRaw(raw)) {
+    return false;
+  }
+  auto entries = decode(raw);
+  auto it = std::find_if(entries.begin(), entries.end(), [&](const Entry& e) { return e.slot == slot; });
+  if (it == entries.end()) {
+    entries.push_back(Entry{std::string(slot), data});
+  } else {
+    it->data = data;
+  }
+  const auto encoded = encode(entries);
+  if (encoded.empty()) {
+    return false;
+  }
+  return writeRaw(encoded);
+}
+
+bool StoreEeprom::readRaw(std::vector<std::uint8_t>& raw) const {
+  raw.assign(capacity_, 0xFFu);
+#ifdef SEEDBOX_HW
+  const std::size_t hwLen = EEPROM.length();
+  const std::size_t copy = std::min(capacity_, hwLen);
+  for (std::size_t i = 0; i < copy; ++i) {
+    raw[i] = EEPROM.read(static_cast<int>(i));
+  }
+#else
+  if (mockEeprom_.size() != capacity_) {
+    mockEeprom_.assign(capacity_, 0xFFu);
+  }
+  std::copy(mockEeprom_.begin(), mockEeprom_.begin() + std::min(capacity_, mockEeprom_.size()), raw.begin());
+#endif
+  return true;
+}
+
+bool StoreEeprom::writeRaw(const std::vector<std::uint8_t>& raw) {
+  if (raw.size() > capacity_) {
+    return false;
+  }
+#ifdef SEEDBOX_HW
+  const std::size_t hwLen = EEPROM.length();
+  const std::size_t copy = std::min(raw.size(), hwLen);
+  for (std::size_t i = 0; i < copy; ++i) {
+    EEPROM.write(static_cast<int>(i), raw[i]);
+  }
+  // Clear any trailing bytes beyond new payload so old junk doesn't stick
+  for (std::size_t i = copy; i < std::min(capacity_, hwLen); ++i) {
+    EEPROM.write(static_cast<int>(i), 0xFFu);
+  }
+#else
+  mockEeprom_.assign(capacity_, 0xFFu);
+  std::copy(raw.begin(), raw.end(), mockEeprom_.begin());
+#endif
+  return true;
+}
+
+std::vector<StoreEeprom::Entry> StoreEeprom::decode(const std::vector<std::uint8_t>& raw) const {
+  std::vector<Entry> entries;
+  if (raw.size() < 6) {
+    return entries;
+  }
+  const std::uint32_t magic = static_cast<std::uint32_t>(raw[0]) |
+                              (static_cast<std::uint32_t>(raw[1]) << 8u) |
+                              (static_cast<std::uint32_t>(raw[2]) << 16u) |
+                              (static_cast<std::uint32_t>(raw[3]) << 24u);
+  if (magic != kMagic) {
+    return entries;
+  }
+  const std::uint8_t version = raw[4];
+  if (version != kVersion) {
+    return entries;
+  }
+  const std::uint8_t count = raw[5];
+  std::size_t offset = 6;
+  for (std::uint8_t i = 0; i < count; ++i) {
+    if (offset >= raw.size()) {
+      break;
+    }
+    const std::uint8_t nameLen = raw[offset++];
+    if (nameLen == 0 || offset + nameLen > raw.size()) {
+      break;
+    }
+    const std::string slot(reinterpret_cast<const char*>(&raw[offset]), nameLen);
+    offset += nameLen;
+    if (offset + 2 > raw.size()) {
+      break;
+    }
+    const std::uint16_t dataLen = static_cast<std::uint16_t>(raw[offset]) |
+                                  (static_cast<std::uint16_t>(raw[offset + 1]) << 8u);
+    offset += 2;
+    if (offset + dataLen > raw.size()) {
+      break;
+    }
+    Entry entry{slot, {}};
+    entry.data.insert(entry.data.end(), raw.begin() + static_cast<std::ptrdiff_t>(offset),
+                      raw.begin() + static_cast<std::ptrdiff_t>(offset + dataLen));
+    entries.push_back(std::move(entry));
+    offset += dataLen;
+  }
+  return entries;
+}
+
+std::vector<std::uint8_t> StoreEeprom::encode(const std::vector<Entry>& entries) const {
+  std::vector<std::uint8_t> payload;
+  payload.reserve(capacity_);
+  payload.push_back(static_cast<std::uint8_t>(kMagic & 0xFFu));
+  payload.push_back(static_cast<std::uint8_t>((kMagic >> 8u) & 0xFFu));
+  payload.push_back(static_cast<std::uint8_t>((kMagic >> 16u) & 0xFFu));
+  payload.push_back(static_cast<std::uint8_t>((kMagic >> 24u) & 0xFFu));
+  payload.push_back(kVersion);
+  payload.push_back(static_cast<std::uint8_t>(std::min<std::size_t>(entries.size(), 0xFFu)));
+  for (std::size_t i = 0; i < entries.size(); ++i) {
+    const Entry& entry = entries[i];
+    const std::size_t nameLen = std::min<std::size_t>(entry.slot.size(), 0xFEu);
+    const std::size_t dataLen = std::min<std::size_t>(entry.data.size(), 0xFFFFu);
+    if (payload.size() + 1 + nameLen + 2 + dataLen > capacity_) {
+      return {};
+    }
+    payload.push_back(static_cast<std::uint8_t>(nameLen));
+    payload.insert(payload.end(), entry.slot.begin(), entry.slot.begin() + static_cast<std::ptrdiff_t>(nameLen));
+    payload.push_back(static_cast<std::uint8_t>(dataLen & 0xFFu));
+    payload.push_back(static_cast<std::uint8_t>((dataLen >> 8u) & 0xFFu));
+    payload.insert(payload.end(), entry.data.begin(), entry.data.begin() + static_cast<std::ptrdiff_t>(dataLen));
+  }
+  if (payload.size() < capacity_) {
+    payload.resize(capacity_, 0xFFu);
+  }
+  return payload;
+}
+
+StoreSd::StoreSd(std::string basePath) : basePath_(std::move(basePath)) {
+#ifndef SEEDBOX_HW
+  if (basePath_.empty()) {
+    basePath_ = "presets";
+  }
+  std::filesystem::create_directories(basePath_);
+#endif
+}
+
+std::vector<std::string> StoreSd::list() const {
+#ifdef SEEDBOX_HW
+  (void)basePath_;
+  return {};
+#else
+  std::vector<std::string> names;
+  if (basePath_.empty()) {
+    return names;
+  }
+  for (const auto& dirEntry : std::filesystem::directory_iterator(basePath_)) {
+    if (!dirEntry.is_regular_file()) {
+      continue;
+    }
+    names.push_back(dirEntry.path().stem().string());
+  }
+  std::sort(names.begin(), names.end());
+  return names;
+#endif
+}
+
+bool StoreSd::load(std::string_view slot, std::vector<std::uint8_t>& out) const {
+#ifdef SEEDBOX_HW
+  (void)slot;
+  (void)out;
+  return false;
+#else
+  if (basePath_.empty()) {
+    return false;
+  }
+  std::filesystem::path file = std::filesystem::path(basePath_) / (std::string(slot) + ".json");
+  std::ifstream in(file, std::ios::binary);
+  if (!in.good()) {
+    return false;
+  }
+  out.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+  return true;
+#endif
+}
+
+bool StoreSd::save(std::string_view slot, const std::vector<std::uint8_t>& data) {
+  if constexpr (SeedBoxConfig::kQuietMode) {
+    (void)slot;
+    (void)data;
+    return false;
+  }
+#ifdef SEEDBOX_HW
+  (void)slot;
+  (void)data;
+  return false;
+#else
+  if (basePath_.empty()) {
+    return false;
+  }
+  std::filesystem::path file = std::filesystem::path(basePath_) / (std::string(slot) + ".json");
+  std::ofstream out(file, std::ios::binary | std::ios::trunc);
+  if (!out.good()) {
+    return false;
+  }
+  out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+  return out.good();
+#endif
+}
+
+}  // namespace seedbox::io
