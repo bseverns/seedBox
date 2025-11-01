@@ -1438,6 +1438,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     } else {
       writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
     }
+  }
 
   if (globalLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
