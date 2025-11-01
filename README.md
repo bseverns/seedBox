@@ -80,7 +80,9 @@ SeedBox now boots with `QUIET_MODE=1`. That means:
 
 - Seeds stay unprimed until you explicitly compile with quiet mode off.
 - Storage backends (`StoreEeprom`, `StoreSd`) refuse to write, keeping
-  classrooms safe from surprise EEPROM/SD scribbles.
+  classrooms safe from surprise EEPROM/SD scribbles. They still answer `list`
+  and `load` so lessons can browse presets even while the write protect light is
+  flashing.
 - Hardware IO (USB/TRS MIDI, seed persistence) is stubbed so the rig wakes up
   silent.
 
@@ -160,7 +162,7 @@ mid-gig.
 | --- | --- | --- |
 | `SEEDBOX_HW` | `src/`, `include/` | Enables Teensy-only IO paths so the firmware talks to real hardware. Leave it off for `native`. |
 | `QUIET_MODE` | `src/util/`, tests | Silences verbose logging *and* forces storage backends into read-only mode so classrooms stay safe. |
-| `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` so regressions show up as diffable golden files. |
+| `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` and re-computes the 64-bit FNV hash stored in `tests/native_golden/golden.json`. |
 
 Any new flag deserves a note in the matching README so the teaching vibes stay
 strong.

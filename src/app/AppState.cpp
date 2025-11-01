@@ -103,13 +103,10 @@ float lerp(float a, float b, float t) {
 }
 
 seedbox::io::Store* ensureStore(seedbox::io::Store* current) {
+  // Quiet mode still deserves a live store so reads work in lessons; the backend
+  // itself is responsible for short-circuiting writes when QUIET_MODE stays on.
   if (current) {
     return current;
-  }
-
-  if constexpr (SeedBoxConfig::kQuietMode) {
-    static seedbox::io::StoreNull nullStore;
-    return &nullStore;
   }
 
 #ifdef SEEDBOX_HW
