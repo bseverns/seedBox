@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <initializer_list>
@@ -35,6 +36,8 @@
 
 namespace {
 constexpr uint8_t kEngineCycleCc = 20;
+constexpr uint32_t kStorageLongPressFrames = 60;
+constexpr std::string_view kDefaultPresetSlot = "default";
 
 constexpr hal::io::PinNumber kReseedButtonPin = 2;
 constexpr hal::io::PinNumber kLockButtonPin = 3;
@@ -122,6 +125,26 @@ const char* engineLongName(uint8_t engine) {
     default: return "Unknown";
   }
 }
+
+float lerp(float a, float b, float t) {
+  return a + (b - a) * t;
+}
+
+seedbox::io::Store* ensureStore(seedbox::io::Store* current) {
+  // Quiet mode still deserves a live store so reads work in lessons; the backend
+  // itself is responsible for short-circuiting writes when QUIET_MODE stays on.
+  if (current) {
+    return current;
+  }
+
+#ifdef SEEDBOX_HW
+  static seedbox::io::StoreEeprom hwStore;
+  return &hwStore;
+#else
+  static seedbox::io::StoreEeprom simStore(4096);
+  return &simStore;
+#endif
+}
 }
 
 constexpr std::uint32_t buttonMask(hal::Board::ButtonID id) {
@@ -207,6 +230,7 @@ AppState::~AppState() {
 // behaves the same.
 void AppState::initHardware() {
 #ifdef SEEDBOX_HW
+  store_ = ensureStore(store_);
   // Lock in the entire audio buffer pool before any engine spins up. We slam
   // all four line items from AudioMemoryBudget into one call so individual
   // init() routines can't accidentally stomp the global allocator mid-set.
@@ -267,6 +291,7 @@ void AppState::initHardware() {
 // rest of the wiring is identical so deterministic behaviour survives unit
 // tests and lecture demos.
 void AppState::initSim() {
+  store_ = ensureStore(store_);
   hal::audio::init(&AppState::audioCallbackTrampoline, this);
   hal::audio::stop();
   hal::io::writeDigital(kStatusLedPin, false);
@@ -288,6 +313,12 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
   audioCallbackCount_ = 0;
+  clearPresetCrossfade();
+  activePresetSlot_.clear();
+  currentPage_ = Page::kSeeds;
+  storageButtonHeld_ = false;
+  storageLongPress_ = false;
+  storageButtonPressFrame_ = frame_;
   mode_ = Mode::HOME;
   input_.clear();
   swingPageRequested_ = false;
@@ -302,24 +333,43 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   std::fill(buffer.right, buffer.right + buffer.frames, 0.0f);
 }
 
-void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp) {
-  if (pin == kReseedButtonPin && level) {
-    reseedRequested_ = true;
+void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t) {
+  if (pin != kReseedButtonPin) {
     return;
   }
-  if (pin == kLockButtonPin) {
-    if (level) {
-      lockButtonHeld_ = true;
-      lockButtonPressTimestamp_ = timestamp;
-    } else if (lockButtonHeld_) {
-      const uint32_t elapsed = timestamp - lockButtonPressTimestamp_;
-      if (elapsed >= kLockLongPressUs) {
-        seedPageToggleGlobalLock();
-      } else {
-        seedPageToggleLock(focusSeed_);
-      }
-      lockButtonHeld_ = false;
+
+  if (level) {
+    storageButtonHeld_ = true;
+    storageLongPress_ = false;
+    storageButtonPressFrame_ = frame_;
+    if (currentPage_ != Page::kStorage) {
+      reseedRequested_ = true;
     }
+    return;
+  }
+
+  if (!storageButtonHeld_) {
+    return;
+  }
+
+  storageButtonHeld_ = false;
+  const uint64_t heldFrames = (frame_ > storageButtonPressFrame_)
+                                  ? (frame_ - storageButtonPressFrame_)
+                                  : 0ULL;
+  const bool longPress = heldFrames >= kStorageLongPressFrames;
+
+  if (currentPage_ != Page::kStorage) {
+    return;
+  }
+
+  const std::string slotName = activePresetSlot_.empty() ? std::string(kDefaultPresetSlot)
+                                                         : activePresetSlot_;
+  if (longPress) {
+    storageLongPress_ = true;
+    savePreset(slotName);
+  } else {
+    storageLongPress_ = false;
+    recallPreset(slotName, true);
   }
 }
 
@@ -345,6 +395,7 @@ void AppState::tick() {
     }
     clock_->onTick();
   }
+  stepPresetCrossfade();
   ++frame_;
   captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
@@ -979,6 +1030,8 @@ void AppState::handleTransportGate(uint8_t value) {
 
 void AppState::reseed(uint32_t masterSeed) {
   primeSeeds(masterSeed);
+  clearPresetCrossfade();
+  activePresetSlot_.clear();
   engines_.reseed(masterSeed_);
   const bool hardwareMode = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
@@ -1140,6 +1193,58 @@ void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
   displayDirty_ = true;
 }
 
+void AppState::setPage(Page page) {
+  if (currentPage_ == page) {
+    return;
+  }
+  currentPage_ = page;
+  displayDirty_ = true;
+}
+
+std::vector<std::string> AppState::storedPresets() const {
+  if (!store_) {
+    return {};
+  }
+  return store_->list();
+}
+
+bool AppState::savePreset(std::string_view slot) {
+  if (!store_) {
+    return false;
+  }
+  const std::string slotName = slot.empty() ? std::string(kDefaultPresetSlot) : std::string(slot);
+  seedbox::Preset preset = snapshotPreset(slotName);
+  const auto bytes = preset.serialize();
+  if (bytes.empty()) {
+    return false;
+  }
+  if (!store_->save(slotName, bytes)) {
+    return false;
+  }
+  activePresetSlot_ = slotName;
+  return true;
+}
+
+bool AppState::recallPreset(std::string_view slot, bool crossfade) {
+  if (!store_) {
+    return false;
+  }
+  const std::string slotName = slot.empty() ? std::string(kDefaultPresetSlot) : std::string(slot);
+  std::vector<std::uint8_t> bytes;
+  if (!store_->load(slotName, bytes)) {
+    return false;
+  }
+  seedbox::Preset preset{};
+  if (!seedbox::Preset::deserialize(bytes, preset)) {
+    return false;
+  }
+  if (preset.slot.empty()) {
+    preset.slot = slotName;
+  }
+  applyPreset(preset, crossfade);
+  return true;
+}
+
 void AppState::captureDisplaySnapshot(DisplaySnapshot& out) const {
   captureDisplaySnapshot(out, nullptr);
 }
@@ -1289,4 +1394,159 @@ const Seed* AppState::debugScheduledSeed(uint8_t index) const {
   // Straight-through view into the scheduler's copy of a seed.  Gives us a
   // stable reference for debugging displays + tests.
   return scheduler_.seedForDebug(static_cast<size_t>(index));
+}
+
+seedbox::Preset AppState::snapshotPreset(std::string_view slot) const {
+  seedbox::Preset preset;
+  preset.slot = slot.empty() ? std::string(kDefaultPresetSlot) : std::string(slot);
+  preset.masterSeed = masterSeed_;
+  preset.focusSeed = focusSeed_;
+  preset.clock.bpm = scheduler_.bpm();
+  preset.clock.followExternal = followExternalClockEnabled_;
+  preset.clock.debugMeters = debugMetersEnabled_;
+  preset.clock.transportLatch = transportLatchEnabled_;
+  preset.page = static_cast<seedbox::PageId>(currentPage_);
+  preset.seeds = seeds_;
+  preset.engineSelections = seedEngineSelections_;
+  if (preset.engineSelections.size() < preset.seeds.size()) {
+    preset.engineSelections.resize(preset.seeds.size(), 0);
+    for (std::size_t i = 0; i < preset.seeds.size(); ++i) {
+      preset.engineSelections[i] = preset.seeds[i].engine;
+    }
+  }
+  return preset;
+}
+
+Seed AppState::blendSeeds(const Seed& from, const Seed& to, float t) const {
+  const float mix = std::clamp(t, 0.0f, 1.0f);
+  Seed blended = from;
+  blended.id = to.id;
+  blended.prng = to.prng;
+  blended.pitch = lerp(from.pitch, to.pitch, mix);
+  blended.envA = lerp(from.envA, to.envA, mix);
+  blended.envD = lerp(from.envD, to.envD, mix);
+  blended.envS = lerp(from.envS, to.envS, mix);
+  blended.envR = lerp(from.envR, to.envR, mix);
+  blended.density = lerp(from.density, to.density, mix);
+  blended.probability = lerp(from.probability, to.probability, mix);
+  blended.jitterMs = lerp(from.jitterMs, to.jitterMs, mix);
+  blended.tone = lerp(from.tone, to.tone, mix);
+  blended.spread = lerp(from.spread, to.spread, mix);
+  blended.engine = (mix < 0.5f) ? from.engine : to.engine;
+  blended.sampleIdx = (mix < 0.5f) ? from.sampleIdx : to.sampleIdx;
+  blended.mutateAmt = lerp(from.mutateAmt, to.mutateAmt, mix);
+
+  blended.granular.grainSizeMs = lerp(from.granular.grainSizeMs, to.granular.grainSizeMs, mix);
+  blended.granular.sprayMs = lerp(from.granular.sprayMs, to.granular.sprayMs, mix);
+  blended.granular.transpose = lerp(from.granular.transpose, to.granular.transpose, mix);
+  blended.granular.windowSkew = lerp(from.granular.windowSkew, to.granular.windowSkew, mix);
+  blended.granular.stereoSpread = lerp(from.granular.stereoSpread, to.granular.stereoSpread, mix);
+  blended.granular.source = (mix < 0.5f) ? from.granular.source : to.granular.source;
+  blended.granular.sdSlot = (mix < 0.5f) ? from.granular.sdSlot : to.granular.sdSlot;
+
+  blended.resonator.exciteMs = lerp(from.resonator.exciteMs, to.resonator.exciteMs, mix);
+  blended.resonator.damping = lerp(from.resonator.damping, to.resonator.damping, mix);
+  blended.resonator.brightness = lerp(from.resonator.brightness, to.resonator.brightness, mix);
+  blended.resonator.feedback = lerp(from.resonator.feedback, to.resonator.feedback, mix);
+  blended.resonator.mode = (mix < 0.5f) ? from.resonator.mode : to.resonator.mode;
+  blended.resonator.bank = (mix < 0.5f) ? from.resonator.bank : to.resonator.bank;
+  return blended;
+}
+
+void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
+  activePresetSlot_ = preset.slot.empty() ? std::string(kDefaultPresetSlot) : preset.slot;
+  masterSeed_ = preset.masterSeed;
+  followExternalClockEnabled_ = preset.clock.followExternal;
+  debugMetersEnabled_ = preset.clock.debugMeters;
+  const bool previousLatch = transportLatchEnabled_;
+  transportLatchEnabled_ = preset.clock.transportLatch;
+  if (!transportLatchEnabled_) {
+    transportLatchedRunning_ = false;
+    transportGateHeld_ = false;
+  } else if (!previousLatch) {
+    transportLatchedRunning_ = externalTransportRunning_;
+  }
+  scheduler_.setBpm(preset.clock.bpm);
+  updateClockDominance();
+  currentPage_ = static_cast<Page>(preset.page);
+  storageButtonHeld_ = false;
+  storageLongPress_ = false;
+
+  if (!preset.engineSelections.empty()) {
+    seedEngineSelections_ = preset.engineSelections;
+  }
+  if (seedEngineSelections_.size() < preset.seeds.size()) {
+    seedEngineSelections_.resize(preset.seeds.size(), 0);
+    for (std::size_t i = 0; i < preset.seeds.size(); ++i) {
+      seedEngineSelections_[i] = preset.seeds[i].engine;
+    }
+  }
+
+  const bool haveSeeds = !preset.seeds.empty();
+  bool doCrossfade = crossfade && haveSeeds && !seeds_.empty() && preset.seeds.size() == seeds_.size();
+  if (doCrossfade) {
+    presetCrossfade_.from = seeds_;
+    presetCrossfade_.to = preset.seeds;
+    presetCrossfade_.total = kPresetCrossfadeTicks;
+    presetCrossfade_.remaining = kPresetCrossfadeTicks;
+  } else {
+    seeds_ = preset.seeds;
+    clearPresetCrossfade();
+    scheduler_ = PatternScheduler{};
+    scheduler_.setBpm(preset.clock.bpm);
+    scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
+    const bool hardwareMode = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
+    scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
+    for (const Seed& s : seeds_) {
+      scheduler_.addSeed(s);
+    }
+  }
+
+  setFocusSeed(preset.focusSeed);
+  seedsPrimed_ = haveSeeds;
+  displayDirty_ = true;
+}
+
+void AppState::stepPresetCrossfade() {
+  if (presetCrossfade_.remaining == 0 || presetCrossfade_.total == 0) {
+    return;
+  }
+  if (presetCrossfade_.from.size() != presetCrossfade_.to.size() ||
+      presetCrossfade_.to.size() != seeds_.size()) {
+    seeds_ = presetCrossfade_.to;
+    clearPresetCrossfade();
+    const float currentBpm = scheduler_.bpm();
+    scheduler_ = PatternScheduler{};
+    scheduler_.setBpm(currentBpm);
+    scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
+    const bool hardwareMode = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
+    scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
+    for (const Seed& s : seeds_) {
+      scheduler_.addSeed(s);
+    }
+    return;
+  }
+
+  const float total = static_cast<float>(presetCrossfade_.total);
+  const float remaining = static_cast<float>(presetCrossfade_.remaining);
+  const float mix = (total <= 0.f) ? 1.0f : (1.0f - (remaining / total));
+  for (std::size_t i = 0; i < seeds_.size(); ++i) {
+    seeds_[i] = blendSeeds(presetCrossfade_.from[i], presetCrossfade_.to[i], mix);
+    scheduler_.updateSeed(i, seeds_[i]);
+  }
+
+  if (presetCrossfade_.remaining > 0) {
+    --presetCrossfade_.remaining;
+  }
+  if (presetCrossfade_.remaining == 0) {
+    seeds_ = presetCrossfade_.to;
+    for (std::size_t i = 0; i < seeds_.size(); ++i) {
+      scheduler_.updateSeed(i, seeds_[i]);
+    }
+    clearPresetCrossfade();
+  }
+}
+
+void AppState::clearPresetCrossfade() {
+  presetCrossfade_ = {};
 }

@@ -9,12 +9,16 @@
 // are fair game — we're not hiding cleverness, we're teaching it.
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <vector>
 #include "SeedLock.h"
 #include "Seed.h"
+#include "app/Preset.h"
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
 #include "util/Annotations.h"
+#include "io/Store.h"
 #include "app/UiState.h"
 #include "hal/Board.h"
 #include "app/InputEvents.h"
@@ -36,6 +40,14 @@ struct StereoBufferView;
 // what control hooks exist without spelunking the implementation.
 class AppState {
 public:
+  enum class Page : std::uint8_t {
+    kSeeds = static_cast<std::uint8_t>(seedbox::PageId::kSeeds),
+    kStorage = static_cast<std::uint8_t>(seedbox::PageId::kStorage),
+    kClock = static_cast<std::uint8_t>(seedbox::PageId::kClock),
+  };
+
+  static constexpr std::uint32_t kPresetCrossfadeTicks = 48;
+
   enum class SeedPrimeMode : uint8_t { kLfsr = 0, kTapTempo, kPreset };
   struct SeedNudge {
     float pitchSemitones{0.f};
@@ -126,6 +138,17 @@ public:
 
   const Seed* debugScheduledSeed(uint8_t index) const;
 
+  void attachStore(seedbox::io::Store* store) { store_ = store; }
+  seedbox::io::Store* store() const { return store_; }
+
+  void setPage(Page page);
+  Page page() const { return currentPage_; }
+
+  bool savePreset(std::string_view slot);
+  bool recallPreset(std::string_view slot, bool crossfade = true);
+  std::vector<std::string> storedPresets() const;
+  const std::string& activePresetSlot() const { return activePresetSlot_; }
+
   // MIDI ingress points. Each handler maps 1:1 with incoming transport/clock
   // events so lessons about external sync can point here directly.
   void onExternalClockTick();
@@ -160,6 +183,11 @@ private:
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
+  void stepPresetCrossfade();
+  void clearPresetCrossfade();
+  seedbox::Preset snapshotPreset(std::string_view slot) const;
+  void applyPreset(const seedbox::Preset& preset, bool crossfade);
+  Seed blendSeeds(const Seed& from, const Seed& to, float t) const;
   std::vector<Seed> buildLfsrSeeds(uint32_t masterSeed, std::size_t count);
   std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
   std::vector<Seed> buildPresetSeeds(std::size_t count);
@@ -219,6 +247,18 @@ private:
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
+  seedbox::io::Store* store_{nullptr};
+  std::string activePresetSlot_{};
+  Page currentPage_{Page::kSeeds};
+  struct PresetCrossfade {
+    std::vector<Seed> from;
+    std::vector<Seed> to;
+    std::uint32_t remaining{0};
+    std::uint32_t total{0};
+  } presetCrossfade_{};
+  bool storageButtonHeld_{false};
+  bool storageLongPress_{false};
+  uint64_t storageButtonPressFrame_{0};
   bool lockButtonHeld_{false};
   uint32_t lockButtonPressTimestamp_{0};
   float swingPercent_{0.0f};
