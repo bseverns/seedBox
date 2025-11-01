@@ -21,6 +21,7 @@
 #include "io/Store.h"
 #include "app/UiState.h"
 #include "hal/Board.h"
+#include "hal/hal_io.h"
 #include "app/InputEvents.h"
 #include "app/Clock.h"
 #if SEEDBOX_HW
@@ -208,6 +209,8 @@ private:
   static const char* modeLabel(Mode mode);
   void selectClockProvider(ClockProvider* provider);
   void toggleClockProvider();
+  static void digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
+                                   void* ctx);
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
