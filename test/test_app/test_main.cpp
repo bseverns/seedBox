@@ -11,6 +11,11 @@ void test_mn42_hello_resends_ack();
 void test_simulator_audio_reports_48k();
 void test_preset_round_trip_via_eeprom_store();
 void test_init_sim_attaches_default_store();
+void test_seed_lock_survives_reseed_and_engine_swap();
+void test_global_lock_blocks_reseed_changes();
+void test_quantize_control_snaps_pitch_to_scale();
+void test_ascii_frame_matches_boot_snapshot();
+void test_ascii_renderer_tracks_engine_swaps();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -25,5 +30,10 @@ int main(int, char**) {
   RUN_TEST(test_simulator_audio_reports_48k);
   RUN_TEST(test_preset_round_trip_via_eeprom_store);
   RUN_TEST(test_init_sim_attaches_default_store);
+  RUN_TEST(test_seed_lock_survives_reseed_and_engine_swap);
+  RUN_TEST(test_global_lock_blocks_reseed_changes);
+  RUN_TEST(test_quantize_control_snaps_pitch_to_scale);
+  RUN_TEST(test_ascii_frame_matches_boot_snapshot);
+  RUN_TEST(test_ascii_renderer_tracks_engine_swaps);
   return UNITY_END();
 }

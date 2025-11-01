@@ -124,6 +124,21 @@ Treat the docs like a zine: the new
 [`docs/roadmaps/storage.md`](docs/roadmaps/storage.md) entry riffs on future
 ideas (multi-slot banks, SD librarians, etc.) while this README keeps the how-to
 front and center.
+## MIDI routing cheat sheet (hardware heads-up)
+
+- **Two backends, one facade.** `MidiRouter` now spins up both USB and TRS-A
+  backends (plus a CLI twin for tests) and publishes what each port can do. Peek
+  at [`docs/interop_mn42.md`](docs/interop_mn42.md) for the routing matrix and
+  handshake lore.
+- **Per-page routes.** PERF mode mirrors clock + transport out of both ports so
+  MN42 rigs stay in sync, while EDIT/HACK pages default to CC-only to keep lab
+  experiments tame.
+- **Channel map defaults.** TRS traffic gets funneled onto MN42's home channel
+  by default; tweak `MidiRouter::ChannelMap` if your controller wants something
+  wilder.
+- **Panic button for free.** Call `MidiRouter::panic()` when a synth wedges —
+  it sprays All Notes Off only on channels that are actually stuck, thanks to a
+  tiny note guard.
 
 ## High-level flow (aka how seeds become sound)
 
