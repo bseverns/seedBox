@@ -259,8 +259,6 @@ private:
   bool mn42HelloSeen_{false};
   bool swingPageRequested_{false};
   bool swingEditing_{false};
-  uint8_t quantizeScaleIndex_{0};
-  uint8_t quantizeRoot_{0};
   DisplaySnapshot displayCache_{};
   UiState uiStateCache_{};
   bool displayDirty_{false};

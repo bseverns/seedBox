@@ -157,15 +157,6 @@ const char* engineLongName(uint8_t engine) {
   }
 }
 
-const char* primeModeLabel(AppState::SeedPrimeMode mode) {
-  switch (mode) {
-    case AppState::SeedPrimeMode::kTapTempo: return "tap";
-    case AppState::SeedPrimeMode::kPreset: return "preset";
-    case AppState::SeedPrimeMode::kLfsr:
-    default: return "random";
-  }
-}
-
 float lerp(float a, float b, float t) {
   return a + (b - a) * t;
 }
@@ -1410,20 +1401,16 @@ void AppState::applyQuantizeControl(uint8_t value) {
   if (seeds_.empty()) {
     return;
   }
-  const uint8_t scaleIndex = static_cast<uint8_t>(value / 32);
-  const uint8_t root = static_cast<uint8_t>(value % 12);
-  quantizeScaleIndex_ = scaleIndex;
-  quantizeRoot_ = root;
+  const uint8_t rawScaleIndex = static_cast<uint8_t>(value / 32);
+  const uint8_t rawRoot = static_cast<uint8_t>(value % 12);
+  const uint8_t sanitizedScaleIndex = std::min<uint8_t>(rawScaleIndex, static_cast<uint8_t>(4));
+  const uint8_t sanitizedRoot = static_cast<uint8_t>(rawRoot % 12);
+  quantizeScaleIndex_ = sanitizedScaleIndex;
+  quantizeRoot_ = sanitizedRoot;
   const std::size_t idx = static_cast<std::size_t>(focusSeed_) % seeds_.size();
   if (seedLock_.seedLocked(idx)) {
     return;
   }
-  const uint8_t scaleIndex = static_cast<uint8_t>(value / 32);
-  const uint8_t root = static_cast<uint8_t>(value % 12);
-  const uint8_t sanitizedScaleIndex = std::min<uint8_t>(scaleIndex, static_cast<uint8_t>(4));
-  const uint8_t sanitizedRoot = static_cast<uint8_t>(root % 12);
-  quantizeScaleIndex_ = sanitizedScaleIndex;
-  quantizeRoot_ = sanitizedRoot;
   util::ScaleQuantizer::Scale scale = util::ScaleQuantizer::Scale::kChromatic;
   switch (sanitizedScaleIndex) {
     case 0:
@@ -1597,40 +1584,17 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   if (mode_ == Mode::SWING) {
     writeUiField(uiOut->pageHints[0], "Tap: exit swing");
     writeUiField(uiOut->pageHints[1], "Seed:5% Den:1%");
-  } else {
-    if (currentPage_ == Page::kStorage) {
-      writeUiField(uiOut->pageHints[0], "GPIO: recall");
-      writeUiField(uiOut->pageHints[1], "Hold GPIO: save");
-    } else if (globalLocked) {
-      writeUiField(uiOut->pageHints[0], "Pg seeds locked");
-      writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
-    } else if (focusLocked) {
-      writeUiField(uiOut->pageHints[0], "Pg focus locked");
-      writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
-    } else {
-      writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
-      const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
-      writeUiField(uiOut->pageHints[1], primeHint);
-    }
-  if (currentPage_ == Page::kStorage) {
+  } else if (currentPage_ == Page::kStorage) {
     writeUiField(uiOut->pageHints[0], "GPIO: recall");
     writeUiField(uiOut->pageHints[1], "Hold GPIO: save");
-  } else {
-    writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
-    if (globalLocked) {
-      writeUiField(uiOut->pageHints[0], "Pg seeds locked");
-    } else if (focusLocked) {
-      writeUiField(uiOut->pageHints[0], "Pg focus locked");
-    } else {
-      writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
-    }
-  }
-
-  if (globalLocked) {
+  } else if (globalLocked) {
+    writeUiField(uiOut->pageHints[0], "Pg seeds locked");
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
   } else if (focusLocked) {
+    writeUiField(uiOut->pageHints[0], "Pg focus locked");
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
+    writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
     const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
     writeUiField(uiOut->pageHints[1], primeHint);
   }
