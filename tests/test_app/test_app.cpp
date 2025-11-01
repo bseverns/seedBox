@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "app/AppState.h"
+#include "app/UiState.h"
 #include "hal/Board.h"
 #include "hal/hal_io.h"
 
@@ -263,6 +264,40 @@ void test_scripted_front_panel_walkthrough() {
   TEST_ASSERT_TRUE(statusContains(snap, "HOME"));
 }
 
+void test_tap_long_press_opens_swing_editor() {
+  hal::nativeBoardReset();
+  auto& board = hal::nativeBoard();
+  AppState app(board);
+  app.initSim();
+
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
+
+  hal::nativeBoardFeed("btn tap down");
+  hal::nativeBoardFeed("wait 520ms");
+  hal::nativeBoardFeed("btn tap up");
+  runTicks(app, 96);
+  TEST_ASSERT_EQUAL(AppState::Mode::SWING, app.mode());
+
+  AppState::DisplaySnapshot snap{};
+  UiState ui{};
+  app.captureDisplaySnapshot(snap, ui);
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, app.swingPercent());
+  TEST_ASSERT_EQUAL_STRING("Tap: exit swing", ui.pageHints[0].data());
+  TEST_ASSERT_EQUAL_STRING("Seed:5% Den:1%", ui.pageHints[1].data());
+
+  hal::nativeBoardFeed("enc seed 1");
+  hal::nativeBoardFeed("enc density -2");
+  runTicks(app, 8);
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.03f, app.swingPercent());
+
+  hal::nativeBoardFeed("btn tap down");
+  hal::nativeBoardFeed("wait 40ms");
+  hal::nativeBoardFeed("btn tap up");
+  runTicks(app, 32);
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
+  TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.03f, app.swingPercent());
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -274,6 +309,7 @@ int main(int, char**) {
   RUN_TEST(test_chord_shift_alt_seed_enters_perf);
   RUN_TEST(test_shift_hold_rotate_moves_focus);
   RUN_TEST(test_scripted_front_panel_walkthrough);
+  RUN_TEST(test_tap_long_press_opens_swing_editor);
   return UNITY_END();
 }
 

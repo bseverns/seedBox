@@ -66,6 +66,7 @@ public:
     PERF,
     SETTINGS,
     UTIL,
+    SWING,
   };
 
   explicit AppState(hal::Board& board = hal::board());
@@ -166,6 +167,7 @@ public:
   bool mn42HelloSeen() const { return mn42HelloSeen_; }
   Mode mode() const { return mode_; }
   bool swingPageRequested() const { return swingPageRequested_; }
+  float swingPercent() const { return swingPercent_; }
 
 #if SEEDBOX_HW
   MidiRouter midi;
@@ -205,10 +207,15 @@ private:
   void handlePerfEvent(const InputEvents::Event& evt);
   void handleSettingsEvent(const InputEvents::Event& evt);
   void handleUtilEvent(const InputEvents::Event& evt);
+  void handleSwingEvent(const InputEvents::Event& evt);
   void handleReseedRequest();
   static const char* modeLabel(Mode mode);
   void selectClockProvider(ClockProvider* provider);
   void toggleClockProvider();
+  void enterSwingMode();
+  void exitSwingMode(Mode targetMode);
+  void adjustSwing(float delta);
+  void applySwingPercent(float value);
   static void digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
                                    void* ctx);
 
@@ -217,6 +224,7 @@ private:
   hal::Board& board_;
   InputEvents input_;
   Mode mode_{Mode::HOME};
+  Mode previousModeBeforeSwing_{Mode::HOME};
   uint32_t frame_{0};
   std::vector<Seed> seeds_{};
   InternalClock internalClock_{};
@@ -245,6 +253,7 @@ private:
   bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
   bool swingPageRequested_{false};
+  bool swingEditing_{false};
   DisplaySnapshot displayCache_{};
   UiState uiStateCache_{};
   bool displayDirty_{false};

@@ -166,7 +166,7 @@ struct ModeTransition {
   AppState::Mode to;
 };
 
-constexpr std::array<ModeTransition, 18> kModeTransitions{{
+constexpr std::array<ModeTransition, 25> kModeTransitions{{
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderSeedBank),
      AppState::Mode::SEEDS},
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderDensity),
@@ -174,6 +174,14 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderToneTilt),
      AppState::Mode::PERF},
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderFxMutate),
+     AppState::Mode::UTIL},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderSeedBank),
+     AppState::Mode::SEEDS},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderDensity),
+     AppState::Mode::ENGINE},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderToneTilt),
+     AppState::Mode::PERF},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderFxMutate),
      AppState::Mode::UTIL},
     {AppState::Mode::HOME, InputEvents::Type::ButtonDoublePress, buttonMask(hal::Board::ButtonID::TapTempo),
      AppState::Mode::SETTINGS},
@@ -184,6 +192,8 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
     {AppState::Mode::PERF, InputEvents::Type::ButtonDoublePress, buttonMask(hal::Board::ButtonID::TapTempo),
      AppState::Mode::SETTINGS},
     {AppState::Mode::UTIL, InputEvents::Type::ButtonDoublePress, buttonMask(hal::Board::ButtonID::TapTempo),
+     AppState::Mode::SETTINGS},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonDoublePress, buttonMask(hal::Board::ButtonID::TapTempo),
      AppState::Mode::SETTINGS},
     {AppState::Mode::SETTINGS, InputEvents::Type::ButtonDoublePress, buttonMask(hal::Board::ButtonID::TapTempo),
      AppState::Mode::HOME},
@@ -199,10 +209,14 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
      AppState::Mode::HOME},
     {AppState::Mode::HOME, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::Shift),
      AppState::Mode::HOME},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::Shift),
+     AppState::Mode::HOME},
     {AppState::Mode::SETTINGS, InputEvents::Type::ButtonChord,
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::PERF},
     {AppState::Mode::PERF, InputEvents::Type::ButtonChord,
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::SETTINGS},
+    {AppState::Mode::SWING, InputEvents::Type::ButtonChord,
+     buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::PERF},
 }};
 
 AppState::AppState(hal::Board& board) : board_(board), input_(board) {
@@ -210,6 +224,7 @@ AppState::AppState(hal::Board& board) : board_(board), input_(board) {
   midiClockIn_.attachScheduler(&scheduler_);
   midiClockOut_.attachScheduler(&scheduler_);
   selectClockProvider(&internalClock_);
+  applySwingPercent(swingPercent_);
   static bool ioInitialised = false;
   if (!ioInitialised) {
     hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
@@ -321,6 +336,7 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   ClockProvider* provider = followExternalClockEnabled_ ? static_cast<ClockProvider*>(&midiClockIn_)
                                                         : static_cast<ClockProvider*>(&internalClock_);
   selectClockProvider(provider);
+  applySwingPercent(swingPercent_);
   reseed(masterSeed_);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
   captureDisplaySnapshot(displayCache_, uiStateCache_);
@@ -335,6 +351,8 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   mode_ = Mode::HOME;
   input_.clear();
   swingPageRequested_ = false;
+  swingEditing_ = false;
+  previousModeBeforeSwing_ = Mode::HOME;
 }
 
 void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
@@ -419,6 +437,10 @@ void AppState::tick() {
   board_.poll();
   input_.update();
   processInputEvents();
+  if (swingPageRequested_) {
+    swingPageRequested_ = false;
+    enterSwingMode();
+  }
   if (reseedRequested_) {
     uint32_t base = masterSeed_ ? masterSeed_ : 0x5EEDB0B1u;
     const uint32_t nextSeed = RNG::xorshift(base);
@@ -459,7 +481,13 @@ bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
   if (evt.primaryButton != hal::Board::ButtonID::TapTempo) {
     return false;
   }
+  if (mode_ == Mode::SWING && evt.type == InputEvents::Type::ButtonPress) {
+    return false;
+  }
   if (evt.type == InputEvents::Type::ButtonLongPress) {
+    if (mode_ == Mode::SWING) {
+      return true;
+    }
     swingPageRequested_ = true;
     displayDirty_ = true;
     return true;
@@ -487,7 +515,12 @@ void AppState::applyModeTransition(const InputEvents::Event& evt) {
 
   for (const auto& transition : kModeTransitions) {
     if (transition.from == mode_ && transition.trigger == evt.type && transition.buttons == mask) {
+      const Mode fromMode = mode_;
       if (mode_ != transition.to) {
+        if (fromMode == Mode::SWING && transition.to != Mode::SWING) {
+          swingEditing_ = false;
+          previousModeBeforeSwing_ = transition.to;
+        }
         mode_ = transition.to;
         displayDirty_ = true;
       }
@@ -502,13 +535,14 @@ void AppState::dispatchToPage(const InputEvents::Event& evt) {
     Mode mode;
     ModeHandler handler;
   };
-  static constexpr std::array<ModeDispatch, 6> kModeHandlers{{
+  static constexpr std::array<ModeDispatch, 7> kModeHandlers{{
       {Mode::HOME, &AppState::handleHomeEvent},
       {Mode::SEEDS, &AppState::handleSeedsEvent},
       {Mode::ENGINE, &AppState::handleEngineEvent},
       {Mode::PERF, &AppState::handlePerfEvent},
       {Mode::SETTINGS, &AppState::handleSettingsEvent},
       {Mode::UTIL, &AppState::handleUtilEvent},
+      {Mode::SWING, &AppState::handleSwingEvent},
   }};
 
   for (const auto& entry : kModeHandlers) {
@@ -584,6 +618,28 @@ void AppState::handleUtilEvent(const InputEvents::Event& evt) {
   }
 }
 
+void AppState::handleSwingEvent(const InputEvents::Event& evt) {
+  if (evt.type == InputEvents::Type::EncoderTurn || evt.type == InputEvents::Type::EncoderHoldTurn) {
+    float step = 0.0f;
+    switch (evt.encoder) {
+      case hal::Board::EncoderID::SeedBank: step = 0.05f; break;
+      case hal::Board::EncoderID::Density: step = 0.01f; break;
+      default: break;
+    }
+    if (step != 0.0f && evt.encoderDelta != 0) {
+      adjustSwing(step * static_cast<float>(evt.encoderDelta));
+    }
+  }
+
+  if (evt.type == InputEvents::Type::ButtonPress && evt.primaryButton == hal::Board::ButtonID::TapTempo) {
+    Mode target = previousModeBeforeSwing_;
+    if (target == Mode::SWING) {
+      target = Mode::HOME;
+    }
+    exitSwingMode(target);
+  }
+}
+
 void AppState::handleReseedRequest() {
   reseedRequested_ = true;
   displayDirty_ = true;
@@ -597,7 +653,43 @@ const char* AppState::modeLabel(Mode mode) {
     case Mode::PERF: return "PERF";
     case Mode::SETTINGS: return "SET";
     case Mode::UTIL: return "UTIL";
+    case Mode::SWING: return "SWING";
     default: return "?";
+  }
+}
+
+void AppState::enterSwingMode() {
+  if (mode_ != Mode::SWING) {
+    previousModeBeforeSwing_ = mode_;
+  }
+  swingEditing_ = true;
+  mode_ = Mode::SWING;
+  applySwingPercent(swingPercent_);
+  displayDirty_ = true;
+}
+
+void AppState::exitSwingMode(Mode targetMode) {
+  swingEditing_ = false;
+  previousModeBeforeSwing_ = targetMode;
+  mode_ = targetMode;
+  displayDirty_ = true;
+}
+
+void AppState::adjustSwing(float delta) {
+  applySwingPercent(swingPercent_ + delta);
+}
+
+void AppState::applySwingPercent(float value) {
+  const float clamped = std::clamp(value, 0.0f, 0.99f);
+  const bool changed = std::fabs(clamped - swingPercent_) > 1e-5f;
+  swingPercent_ = clamped;
+  internalClock_.setSwing(clamped);
+  midiClockOut_.setSwing(clamped);
+  if (clock_) {
+    clock_->setSwing(clamped);
+  }
+  if (changed) {
+    displayDirty_ = true;
   }
 }
 
@@ -654,6 +746,7 @@ void AppState::selectClockProvider(ClockProvider* provider) {
   }
 
   alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
+  applySwingPercent(swingPercent_);
 }
 
 void AppState::toggleClockProvider() {
@@ -1313,7 +1406,9 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const bool anyLockActive = globalLocked || focusLocked;
 
   uiOut->mode = UiState::Mode::kPerformance;
-  if (anyLockActive) {
+  if (mode_ == Mode::SWING) {
+    uiOut->mode = UiState::Mode::kEdit;
+  } else if (anyLockActive) {
     uiOut->mode = UiState::Mode::kEdit;
   }
   if (debugMetersEnabled_) {
@@ -1331,20 +1426,25 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     writeUiField(uiOut->engineName, "Idle");
   }
 
-  if (globalLocked) {
-    writeUiField(uiOut->pageHints[0], "Pg seeds locked");
-  } else if (focusLocked) {
-    writeUiField(uiOut->pageHints[0], "Pg focus locked");
+  if (mode_ == Mode::SWING) {
+    writeUiField(uiOut->pageHints[0], "Tap: exit swing");
+    writeUiField(uiOut->pageHints[1], "Seed:5% Den:1%");
   } else {
-    writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
-  }
+    if (globalLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg seeds locked");
+    } else if (focusLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg focus locked");
+    } else {
+      writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+    }
 
-  if (globalLocked) {
-    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
-  } else if (focusLocked) {
-    writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
-  } else {
-    writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
+    if (globalLocked) {
+      writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
+    } else if (focusLocked) {
+      writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
+    } else {
+      writeUiField(uiOut->pageHints[1], "Pg+Md: lock seed");
+    }
   }
 
   if (!hasSeeds) {
