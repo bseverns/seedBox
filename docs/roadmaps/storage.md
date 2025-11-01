@@ -19,9 +19,10 @@ implementation stands and how we expect it to grow.
 - **Preset schema (`app/Preset.*`).** JSON payload that captures: clock data,
   router selections, seed genomes, seed-engine overrides, and the current UI
   page. Small enough for EEPROM, explicit enough for classroom walkthroughs.
-- **UI flow.** Storage page on the front panel uses the reseed button: short
-  press recalls the active slot, long press saves it. Crossfades stretch over 48
-  ticks so transitions feel musical, not jarring.
+- **UI flow.** Long-press the Alt button to pop into the storage page; once the
+  OLED screams the GPIO hint, the reseed button short press recalls the active
+  slot and a long press saves it. Crossfades stretch over 48 ticks so transitions
+  feel musical, not jarring.
 
 ## Near-future riffs
 

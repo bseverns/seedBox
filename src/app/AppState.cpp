@@ -197,7 +197,7 @@ struct ModeTransition {
   AppState::Mode to;
 };
 
-constexpr std::array<ModeTransition, 18> kModeTransitions{{
+constexpr std::array<ModeTransition, 24> kModeTransitions{{
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderSeedBank),
      AppState::Mode::SEEDS},
     {AppState::Mode::HOME, InputEvents::Type::ButtonPress, buttonMask(hal::Board::ButtonID::EncoderDensity),
@@ -229,6 +229,18 @@ constexpr std::array<ModeTransition, 18> kModeTransitions{{
     {AppState::Mode::SETTINGS, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::Shift),
      AppState::Mode::HOME},
     {AppState::Mode::HOME, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::Shift),
+     AppState::Mode::HOME},
+    {AppState::Mode::HOME, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::SEEDS, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::ENGINE, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::PERF, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::UTIL, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
+     AppState::Mode::HOME},
+    {AppState::Mode::SETTINGS, InputEvents::Type::ButtonLongPress, buttonMask(hal::Board::ButtonID::AltSeed),
      AppState::Mode::HOME},
     {AppState::Mode::SETTINGS, InputEvents::Type::ButtonChord,
      buttonMask({hal::Board::ButtonID::Shift, hal::Board::ButtonID::AltSeed}), AppState::Mode::PERF},
@@ -556,6 +568,12 @@ void AppState::applyModeTransition(const InputEvents::Event& evt) {
 
   for (const auto& transition : kModeTransitions) {
     if (transition.from == mode_ && transition.trigger == evt.type && transition.buttons == mask) {
+      if (transition.trigger == InputEvents::Type::ButtonLongPress &&
+          transition.buttons == buttonMask(hal::Board::ButtonID::AltSeed)) {
+        setPage(Page::kStorage);
+        storageButtonHeld_ = false;
+        storageLongPress_ = false;
+      }
       if (mode_ != transition.to) {
         mode_ = transition.to;
         displayDirty_ = true;
@@ -1409,13 +1427,17 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     writeUiField(uiOut->engineName, "Idle");
   }
 
-  if (globalLocked) {
-    writeUiField(uiOut->pageHints[0], "Pg seeds locked");
-  } else if (focusLocked) {
-    writeUiField(uiOut->pageHints[0], "Pg focus locked");
+  if (currentPage_ == Page::kStorage) {
+    writeUiField(uiOut->pageHints[0], "GPIO: recall");
+    writeUiField(uiOut->pageHints[1], "Hold GPIO: save");
   } else {
-    writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
-  }
+    if (globalLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg seeds locked");
+    } else if (focusLocked) {
+      writeUiField(uiOut->pageHints[0], "Pg focus locked");
+    } else {
+      writeUiField(uiOut->pageHints[0], "Pg cycle seeds");
+    }
 
   if (globalLocked) {
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock all");
