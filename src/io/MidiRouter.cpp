@@ -255,15 +255,21 @@ MidiRouter::CliBackend::CliBackend(MidiRouter& router, Port port)
     : router_(router), port_(port) {}
 
 void MidiRouter::CliBackend::pushClock() {
-  queue_.push_back({Event::Type::kClock});
+  Event ev{};
+  ev.type = Event::Type::kClock;
+  queue_.push_back(ev);
 }
 
 void MidiRouter::CliBackend::pushStart() {
-  queue_.push_back({Event::Type::kStart});
+  Event ev{};
+  ev.type = Event::Type::kStart;
+  queue_.push_back(ev);
 }
 
 void MidiRouter::CliBackend::pushStop() {
-  queue_.push_back({Event::Type::kStop});
+  Event ev{};
+  ev.type = Event::Type::kStop;
+  queue_.push_back(ev);
 }
 
 void MidiRouter::CliBackend::pushControlChange(std::uint8_t channel, std::uint8_t controller,
@@ -314,29 +320,59 @@ void MidiRouter::CliBackend::poll() {
   }
 }
 
-void MidiRouter::CliBackend::sendClock() { sent_.push_back({SentMessage::Type::kClock}); }
+void MidiRouter::CliBackend::sendClock() {
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kClock;
+  sent_.push_back(msg);
+}
 
-void MidiRouter::CliBackend::sendStart() { sent_.push_back({SentMessage::Type::kStart}); }
+void MidiRouter::CliBackend::sendStart() {
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kStart;
+  sent_.push_back(msg);
+}
 
-void MidiRouter::CliBackend::sendStop() { sent_.push_back({SentMessage::Type::kStop}); }
+void MidiRouter::CliBackend::sendStop() {
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kStop;
+  sent_.push_back(msg);
+}
 
 void MidiRouter::CliBackend::sendControlChange(std::uint8_t channel, std::uint8_t controller,
                                                std::uint8_t value) {
-  sent_.push_back({SentMessage::Type::kControlChange, channel, controller, value});
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kControlChange;
+  msg.channel = channel;
+  msg.data1 = controller;
+  msg.data2 = value;
+  sent_.push_back(msg);
 }
 
 void MidiRouter::CliBackend::sendNoteOn(std::uint8_t channel, std::uint8_t note,
                                         std::uint8_t velocity) {
-  sent_.push_back({SentMessage::Type::kNoteOn, channel, note, velocity});
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kNoteOn;
+  msg.channel = channel;
+  msg.data1 = note;
+  msg.data2 = velocity;
+  sent_.push_back(msg);
 }
 
 void MidiRouter::CliBackend::sendNoteOff(std::uint8_t channel, std::uint8_t note,
                                          std::uint8_t velocity) {
-  sent_.push_back({SentMessage::Type::kNoteOff, channel, note, velocity});
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kNoteOff;
+  msg.channel = channel;
+  msg.data1 = note;
+  msg.data2 = velocity;
+  sent_.push_back(msg);
 }
 
 void MidiRouter::CliBackend::sendAllNotesOff(std::uint8_t channel) {
-  sent_.push_back({SentMessage::Type::kAllNotesOff, channel});
+  SentMessage msg{};
+  msg.type = SentMessage::Type::kAllNotesOff;
+  msg.channel = channel;
+  sent_.push_back(msg);
 }
 
 class MidiRouter::CliBackendAdapter : public MidiRouter::Backend {
