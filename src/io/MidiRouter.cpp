@@ -31,29 +31,10 @@ MidiRouter::ChannelMap::ChannelMap() {
   }
 }
 
-class MidiRouter::Backend {
-public:
-  Backend(MidiRouter& router, Port port) : router_(router), port_(port) {}
-  virtual ~Backend() = default;
+MidiRouter::Backend::Backend(MidiRouter& router, Port port)
+    : router_(router), port_(port) {}
 
-  Port port() const { return port_; }
-
-  virtual PortInfo describe() const = 0;
-  virtual void begin() = 0;
-  virtual void poll() = 0;
-  virtual void sendClock() = 0;
-  virtual void sendStart() = 0;
-  virtual void sendStop() = 0;
-  virtual void sendControlChange(std::uint8_t channel, std::uint8_t controller,
-                                 std::uint8_t value) = 0;
-  virtual void sendNoteOn(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) = 0;
-  virtual void sendNoteOff(std::uint8_t channel, std::uint8_t note, std::uint8_t velocity) = 0;
-  virtual void sendAllNotesOff(std::uint8_t channel) = 0;
-
-protected:
-  MidiRouter& router_;
-  Port port_;
-};
+MidiRouter::Backend::~Backend() = default;
 
 #if SEEDBOX_HW
 class MidiRouter::UsbMidiBackend : public MidiRouter::Backend {
