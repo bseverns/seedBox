@@ -7,8 +7,6 @@
 
 namespace {
 
-static constexpr std::size_t kJsonScratch = 4096;
-
 template <typename T>
 T clampValue(T v, T lo, T hi) {
   return std::max(lo, std::min(hi, v));
@@ -19,25 +17,25 @@ T clampValue(T v, T lo, T hi) {
 namespace seedbox {
 
 std::vector<std::uint8_t> Preset::serialize() const {
-  DynamicJsonDocument doc(kJsonScratch);
+  JsonDocument doc;
   doc["slot"] = slot;
   doc["masterSeed"] = masterSeed;
   doc["focusSeed"] = focusSeed;
-  JsonObject clockObj = doc.createNestedObject("clock");
+  JsonObject clockObj = doc["clock"].to<JsonObject>();
   clockObj["bpm"] = clock.bpm;
   clockObj["followExternal"] = clock.followExternal;
   clockObj["debugMeters"] = clock.debugMeters;
   clockObj["transportLatch"] = clock.transportLatch;
   doc["page"] = static_cast<std::uint8_t>(page);
 
-  JsonArray enginesArr = doc.createNestedArray("engineSelections");
+  JsonArray enginesArr = doc["engineSelections"].to<JsonArray>();
   for (std::uint8_t v : engineSelections) {
     enginesArr.add(v);
   }
 
-  JsonArray seedsArr = doc.createNestedArray("seeds");
+  JsonArray seedsArr = doc["seeds"].to<JsonArray>();
   for (const Seed& s : seeds) {
-    JsonObject seedObj = seedsArr.createNestedObject();
+    JsonObject seedObj = seedsArr.add<JsonObject>();
     seedObj["id"] = s.id;
     seedObj["prng"] = s.prng;
     seedObj["pitch"] = s.pitch;
@@ -54,7 +52,7 @@ std::vector<std::uint8_t> Preset::serialize() const {
     seedObj["sampleIdx"] = s.sampleIdx;
     seedObj["mutateAmt"] = s.mutateAmt;
 
-    JsonObject granularObj = seedObj.createNestedObject("granular");
+    JsonObject granularObj = seedObj["granular"].to<JsonObject>();
     granularObj["grainSizeMs"] = s.granular.grainSizeMs;
     granularObj["sprayMs"] = s.granular.sprayMs;
     granularObj["transpose"] = s.granular.transpose;
@@ -63,7 +61,7 @@ std::vector<std::uint8_t> Preset::serialize() const {
     granularObj["source"] = s.granular.source;
     granularObj["sdSlot"] = s.granular.sdSlot;
 
-    JsonObject resonatorObj = seedObj.createNestedObject("resonator");
+    JsonObject resonatorObj = seedObj["resonator"].to<JsonObject>();
     resonatorObj["exciteMs"] = s.resonator.exciteMs;
     resonatorObj["damping"] = s.resonator.damping;
     resonatorObj["brightness"] = s.resonator.brightness;
@@ -81,7 +79,7 @@ bool Preset::deserialize(const std::vector<std::uint8_t>& bytes, Preset& out) {
   if (bytes.empty()) {
     return false;
   }
-  DynamicJsonDocument doc(kJsonScratch);
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, bytes.data(), bytes.size());
   if (err) {
     return false;
