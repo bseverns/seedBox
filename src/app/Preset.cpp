@@ -7,8 +7,6 @@
 
 namespace {
 
-static constexpr std::size_t kJsonScratch = 4096;
-
 template <typename T>
 T clampValue(T v, T lo, T hi) {
   return std::max(lo, std::min(hi, v));
@@ -19,7 +17,7 @@ T clampValue(T v, T lo, T hi) {
 namespace seedbox {
 
 std::vector<std::uint8_t> Preset::serialize() const {
-  JsonDocument doc(kJsonScratch);
+  JsonDocument doc;
   doc["slot"] = slot;
   doc["masterSeed"] = masterSeed;
   doc["focusSeed"] = focusSeed;
@@ -81,7 +79,7 @@ bool Preset::deserialize(const std::vector<std::uint8_t>& bytes, Preset& out) {
   if (bytes.empty()) {
     return false;
   }
-  JsonDocument doc(kJsonScratch);
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, bytes.data(), bytes.size());
   if (err) {
     return false;
