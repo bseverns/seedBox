@@ -31,6 +31,68 @@ flowchart LR
   Source -->|renders| Out["out/ (ignored)"]
 ```
 
+The `Source → engines` branch in that map hides a whole cabinet of sound toys.
+Seeds themselves are tiny genomes: pitch, envelope times, tone tilt, panning,
+engine choice, and any per-engine extras (grain spray, resonator bank, etc.)
+live on the `Seed` struct, so every reseed literally rewrites the score a voice
+will follow.【F:include/Seed.h†L12-L46】 You mint those seeds three ways:
+
+| Prime mode | How to grab it | What changes | Why it matters |
+| --- | --- | --- | --- |
+| **LFSR** | default state, or reseed from the Seed page | Spins a deterministic xorshift genome for every slot. | Great for "roll the dice" jams that still round-trip through presets and tests. |
+| **Tap tempo** | flip the prime mode, then tap a BPM in from the front panel or MIDI | Density/jitter lock to your tapped tempo while the rest of the genome rerolls. | Lets workshops teach groove control without touching code. |
+| **Preset** | load a curated bank, then reseed in preset mode | Copies stored genomes (tone, pitch, engine, everything) verbatim. | Classroom-ready starting points that still honor locks and serialization. |
+
+Preset primes themselves live in plain JSON snapshots under
+[`docs/preset_primes/`](docs/preset_primes). We mint each file by grabbing a
+`seedbox::Preset` snapshot, commit it, then let the storage layer compress it
+on the way into EEPROM/SD so the hardware ships with the same DNA you saw in
+the repo. When the firmware boots in preset mode it hydrates those genomes
+through `AppState::setSeedPreset` and `AppState::buildPresetSeeds`, which means
+a reseed on the sampler will always replay the exact pitches, envelopes, and
+engine picks captured in that JSON dump.
+
+Need proof? Run the native preset round-trip test and watch it rehydrate the
+stored bank byte-for-byte:
+
+```bash
+pio test -e native -f test_app/test_presets.cpp
+```
+
+That check leans on the same serialization path the hardware uses, so it's our
+CI-sized receipt that preset primes are actually deterministic.
+
+All three paths flow through `AppState::primeSeeds`, so the scheduler, UI, and
+tests see the same genomes, and any locked seed keeps its previous sound no
+matter which source you pivot to.【F:docs/roadmaps/seed_system.md†L7-L74】
+
+Once a seed exists, each engine grabs the pieces it cares about:
+
+- **Sampler** — the bread-and-butter voice pool. A seed claims one of four
+  deterministic voices, drops its sample index, pitch offset, envelope, tone,
+  and stereo width into that slot, and the engine mirrors those settings across
+  the hardware graph and the native simulator so rehearsals and stage runs stay
+  phase-aligned.【F:src/engine/Sampler.h†L10-L140】
+- **Granular** — planned chaos. The seed's granular block sets grain size,
+  spray, window skew, playback rate, and whether to grab a live buffer or an SD
+  clip; the engine turns that into a `GrainVoice` plan with matching stereo
+  gains so students can trace every modulation. Live input is already wired via
+  the I²S front end: leave `granular.source` at `0` (or call
+  `GranularEngine::armLiveInput(true)`) and the grains chew on whatever the
+  codec hears right now — no SD card rituals required.
+- **Resonator** — a modal playground inspired by Karplus-Strong tricks. Seeds
+  specify excitation length, damping window, brightness tilt, feedback, mode,
+  and preset bank; the engine converts that genome into tuned resonator voices
+  with modal partials and gain staging you can interrogate from tests or the
+  simulator.【F:include/Seed.h†L39-L46】【F:src/engine/Resonator.h†L10-L136】
+- **Euclid** — rhythm brain, not an audio generator. It ignores timbre entirely
+  and instead turns a seed into deterministic gate masks (steps, fills, rotate)
+  that downstream audio engines can latch onto without losing lock-state.【F:src/engine/EuclidEngine.h†L9-L49】
+- **Burst** — converts a single trigger into a swarm of deterministic offsets,
+  so seeds can store cluster count and spacing right next to their tonal data.
+  It rides the same engine lifecycle as the audio toys, which keeps reseeds and
+  serialization brain-dead simple.【F:src/engine/BurstEngine.h†L9-L40】
+
 | Folder | What's going on | First doc to read |
 | --- | --- | --- |
 | `docs/` | Roadmaps, design notes, wiring sketches. | [Builder primer](docs/builder_bootstrap.md) |
