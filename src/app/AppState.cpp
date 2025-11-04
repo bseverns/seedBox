@@ -1744,12 +1744,17 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
       if (GranularEngine::kSdClipSlots > 0) {
         sdSlot = static_cast<uint8_t>(sdSlot % GranularEngine::kSdClipSlots);
       }
-      char sourceTag = (seedSource == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
-      if (voice.active) {
-        sourceTag = (voice.source == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
-        sdSlot = voice.sdSlot;
+      if (seedSource == GranularEngine::Source::kSdClip && GranularEngine::kSdClipSlots > 1 && sdSlot == 0) {
+        sdSlot = 1;
       }
-      std::snprintf(engineToken, sizeof(engineToken), "%c%c%02u", voice.active ? 'G' : 'g', sourceTag, sdSlot);
+      const bool voiceActive = voice.active && voice.seedId == s.id;
+      char sourceTag = (seedSource == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
+      if (voiceActive && voice.source == seedSource) {
+        if (seedSource == GranularEngine::Source::kSdClip && GranularEngine::kSdClipSlots > 0) {
+          sdSlot = static_cast<uint8_t>(voice.sdSlot % GranularEngine::kSdClipSlots);
+        }
+      }
+      std::snprintf(engineToken, sizeof(engineToken), "%c%c%02u", voiceActive ? 'G' : 'g', sourceTag, sdSlot);
       break;
     }
     case 2: {
