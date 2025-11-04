@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <string>
 #include <string_view>
+#include "engine/Granular.h"
 
 #include <ArduinoJson.h>
 
@@ -10,6 +11,17 @@ namespace {
 template <typename T>
 T clampValue(T v, T lo, T hi) {
   return std::max(lo, std::min(hi, v));
+}
+
+std::uint8_t sanitizeSdSlot(std::uint8_t slot, bool requireNonZero) {
+  if (GranularEngine::kSdClipSlots == 0) {
+    return 0;
+  }
+  std::uint8_t sanitized = static_cast<std::uint8_t>(slot % GranularEngine::kSdClipSlots);
+  if (requireNonZero && GranularEngine::kSdClipSlots > 1 && sanitized == 0) {
+    sanitized = 1;
+  }
+  return sanitized;
 }
 
 }  // namespace
@@ -58,8 +70,13 @@ std::vector<std::uint8_t> Preset::serialize() const {
     granularObj["transpose"] = s.granular.transpose;
     granularObj["windowSkew"] = s.granular.windowSkew;
     granularObj["stereoSpread"] = s.granular.stereoSpread;
-    granularObj["source"] = s.granular.source;
-    granularObj["sdSlot"] = s.granular.sdSlot;
+    const std::uint8_t serializedSource =
+        (s.granular.source == static_cast<std::uint8_t>(GranularEngine::Source::kSdClip))
+            ? static_cast<std::uint8_t>(GranularEngine::Source::kSdClip)
+            : static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
+    granularObj["source"] = serializedSource;
+    const bool clipSource = serializedSource == static_cast<std::uint8_t>(GranularEngine::Source::kSdClip);
+    granularObj["sdSlot"] = sanitizeSdSlot(s.granular.sdSlot, clipSource);
 
     JsonObject resonatorObj = seedObj["resonator"].to<JsonObject>();
     resonatorObj["exciteMs"] = s.resonator.exciteMs;
@@ -133,8 +150,20 @@ bool Preset::deserialize(const std::vector<std::uint8_t>& bytes, Preset& out) {
         s.granular.transpose = granularObj["transpose"].as<float>();
         s.granular.windowSkew = granularObj["windowSkew"].as<float>();
         s.granular.stereoSpread = granularObj["stereoSpread"].as<float>();
-        s.granular.source = granularObj["source"].as<std::uint8_t>();
-        s.granular.sdSlot = granularObj["sdSlot"].as<std::uint8_t>();
+        const std::uint8_t rawSource = granularObj.containsKey("source")
+                                           ? granularObj["source"].as<std::uint8_t>()
+                                           : static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
+        const std::uint8_t sanitizedSource =
+            (rawSource == static_cast<std::uint8_t>(GranularEngine::Source::kSdClip))
+                ? static_cast<std::uint8_t>(GranularEngine::Source::kSdClip)
+                : static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
+        s.granular.source = sanitizedSource;
+
+        const std::uint8_t rawSlot = granularObj.containsKey("sdSlot")
+                                         ? granularObj["sdSlot"].as<std::uint8_t>()
+                                         : static_cast<std::uint8_t>(0);
+        const bool clipSource = sanitizedSource == static_cast<std::uint8_t>(GranularEngine::Source::kSdClip);
+        s.granular.sdSlot = sanitizeSdSlot(rawSlot, clipSource);
       }
 
       JsonObject resonatorObj = seedObj["resonator"].as<JsonObject>();
