@@ -1396,9 +1396,26 @@ void AppState::seedPageCycleGranularSource(uint8_t index, int32_t steps) {
   }
 
   Seed& seed = seeds_[idx];
-  if (GranularEngine::kSdClipSlots > 0) {
-    seed.granular.sdSlot = static_cast<uint8_t>(seed.granular.sdSlot % GranularEngine::kSdClipSlots);
+  const uint8_t originalSource = seed.granular.source;
+  const uint8_t originalSlot = seed.granular.sdSlot;
+
+  constexpr uint8_t kClipSlots = GranularEngine::kSdClipSlots;
+  const bool sdClipsAvailable = kClipSlots > 1;
+
+  if (!sdClipsAvailable) {
+    const uint8_t liveEncoded = static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
+    seed.granular.source = liveEncoded;
+    seed.granular.sdSlot = 0;
+    if (seed.granular.source == originalSource && seed.granular.sdSlot == originalSlot) {
+      return;
+    }
+    scheduler_.updateSeed(idx, seed);
+    engines_.onSeed(seed);
+    displayDirty_ = true;
+    return;
   }
+
+  seed.granular.sdSlot = static_cast<uint8_t>(seed.granular.sdSlot % kClipSlots);
 
   GranularEngine::Source source = static_cast<GranularEngine::Source>(seed.granular.source);
   if (source != GranularEngine::Source::kSdClip) {
@@ -1409,18 +1426,15 @@ void AppState::seedPageCycleGranularSource(uint8_t index, int32_t steps) {
   const int stepCount = static_cast<int>((steps > 0) ? steps : -steps);
 
   const auto cycleSlot = [&](uint8_t current) {
-    if (GranularEngine::kSdClipSlots <= 1) {
-      return static_cast<uint8_t>(0);
-    }
-    int slot = static_cast<int>(current % GranularEngine::kSdClipSlots);
-    if (slot == 0) {
-      slot = (direction > 0) ? 1 : (GranularEngine::kSdClipSlots - 1);
+    int slot = static_cast<int>(current % kClipSlots);
+    if (slot <= 0) {
+      slot = (direction > 0) ? 1 : (kClipSlots - 1);
     } else {
       slot += direction;
-      if (slot >= GranularEngine::kSdClipSlots) {
+      if (slot >= kClipSlots) {
         slot = 1;
       } else if (slot <= 0) {
-        slot = GranularEngine::kSdClipSlots - 1;
+        slot = kClipSlots - 1;
       }
     }
     return static_cast<uint8_t>(slot);
@@ -1435,7 +1449,16 @@ void AppState::seedPageCycleGranularSource(uint8_t index, int32_t steps) {
     }
   }
 
-  seed.granular.source = static_cast<uint8_t>(source);
+  if (source == GranularEngine::Source::kSdClip && seed.granular.sdSlot == 0) {
+    seed.granular.sdSlot = 1;
+  }
+
+  const uint8_t encodedSource = static_cast<uint8_t>(source);
+  if (encodedSource == originalSource && seed.granular.sdSlot == originalSlot) {
+    return;
+  }
+
+  seed.granular.source = encodedSource;
   scheduler_.updateSeed(idx, seed);
   engines_.onSeed(seed);
   displayDirty_ = true;
