@@ -23,6 +23,7 @@
 #include "interop/mn42_map.h"
 #include "util/RNG.h"
 #include "util/ScaleQuantizer.h"
+#include "engine/Granular.h"
 #include "engine/Sampler.h"
 #include "hal/hal_audio.h"
 #include "hal/hal_io.h"
@@ -679,15 +680,20 @@ void AppState::handleSeedsEvent(const InputEvents::Event& evt) {
   if (evt.type == InputEvents::Type::EncoderHoldTurn &&
       evt.encoder == hal::Board::EncoderID::ToneTilt) {
     // Tone/Tilt doubles as the "micro edit" knob on the Seeds page. We lean on
-    // modifier buttons so the detents stay musical: Shift steers pitch,
-    // Alt pushes density, and holding both piggybacks both adjustments.
+    // modifier buttons so the detents stay musical: Shift now flips the
+    // granular engine between live input and SD clips, Alt still pushes density,
+    // and holding both piggybacks the original pitch/density micro nudges.
     const bool shiftHeld = eventHasButton(evt, hal::Board::ButtonID::Shift);
     const bool altHeld = eventHasButton(evt, hal::Board::ButtonID::AltSeed);
+    if (seeds_.empty()) {
+      return;
+    }
+    const std::size_t focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+    if (shiftHeld && !altHeld) {
+      seedPageCycleGranularSource(static_cast<uint8_t>(focusIndex), evt.encoderDelta);
+      return;
+    }
     if (shiftHeld || altHeld) {
-      if (seeds_.empty()) {
-        return;
-      }
-      const std::size_t focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
       SeedNudge nudge{};
       if (shiftHeld) {
         nudge.pitchSemitones = static_cast<float>(evt.encoderDelta);
@@ -1380,6 +1386,61 @@ void AppState::seedPageNudge(uint8_t index, const SeedNudge& nudge) {
   displayDirty_ = true;
 }
 
+void AppState::seedPageCycleGranularSource(uint8_t index, int32_t steps) {
+  if (seeds_.empty() || steps == 0) {
+    return;
+  }
+  const std::size_t idx = static_cast<std::size_t>(index) % seeds_.size();
+  if (seedLock_.seedLocked(idx)) {
+    return;
+  }
+
+  Seed& seed = seeds_[idx];
+  if (GranularEngine::kSdClipSlots > 0) {
+    seed.granular.sdSlot = static_cast<uint8_t>(seed.granular.sdSlot % GranularEngine::kSdClipSlots);
+  }
+
+  GranularEngine::Source source = static_cast<GranularEngine::Source>(seed.granular.source);
+  if (source != GranularEngine::Source::kSdClip) {
+    source = GranularEngine::Source::kLiveInput;
+  }
+
+  const int direction = (steps > 0) ? 1 : -1;
+  const int stepCount = static_cast<int>((steps > 0) ? steps : -steps);
+
+  const auto cycleSlot = [&](uint8_t current) {
+    if (GranularEngine::kSdClipSlots <= 1) {
+      return static_cast<uint8_t>(0);
+    }
+    int slot = static_cast<int>(current % GranularEngine::kSdClipSlots);
+    if (slot == 0) {
+      slot = (direction > 0) ? 1 : (GranularEngine::kSdClipSlots - 1);
+    } else {
+      slot += direction;
+      if (slot >= GranularEngine::kSdClipSlots) {
+        slot = 1;
+      } else if (slot <= 0) {
+        slot = GranularEngine::kSdClipSlots - 1;
+      }
+    }
+    return static_cast<uint8_t>(slot);
+  };
+
+  for (int i = 0; i < stepCount; ++i) {
+    if (source == GranularEngine::Source::kLiveInput) {
+      source = GranularEngine::Source::kSdClip;
+      seed.granular.sdSlot = cycleSlot(seed.granular.sdSlot);
+    } else {
+      source = GranularEngine::Source::kLiveInput;
+    }
+  }
+
+  seed.granular.source = static_cast<uint8_t>(source);
+  scheduler_.updateSeed(idx, seed);
+  engines_.onSeed(seed);
+  displayDirty_ = true;
+}
+
 void AppState::recordTapTempoInterval(uint32_t intervalMs) {
   if (intervalMs == 0) {
     return;
@@ -1594,8 +1655,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     writeUiField(uiOut->pageHints[0], "Pg focus locked");
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
   } else {
-    writeUiField(uiOut->pageHints[0], "Tone+[S/A]:pit/d");
-    const auto primeHint = formatScratch(scratch, "Alt+Tap:%s", primeModeLabel(seedPrimeMode_));
+    writeUiField(uiOut->pageHints[0], "Tone S:src ALT:d");
+    const auto primeHint = formatScratch(scratch, "S+A:p Tap:%s", primeModeLabel(seedPrimeMode_));
     writeUiField(uiOut->pageHints[1], primeHint);
   }
 
@@ -1652,8 +1713,20 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     }
     case 1: {
       const auto voice = engines_.granular().voice(static_cast<uint8_t>(focusIndex % GranularEngine::kVoicePoolSize));
-      const char sourceTag = (voice.source == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
-      std::snprintf(engineToken, sizeof(engineToken), "%c%c%02u", voice.active ? 'G' : 'g', sourceTag, voice.sdSlot);
+      GranularEngine::Source seedSource = static_cast<GranularEngine::Source>(s.granular.source);
+      if (seedSource != GranularEngine::Source::kSdClip) {
+        seedSource = GranularEngine::Source::kLiveInput;
+      }
+      uint8_t sdSlot = s.granular.sdSlot;
+      if (GranularEngine::kSdClipSlots > 0) {
+        sdSlot = static_cast<uint8_t>(sdSlot % GranularEngine::kSdClipSlots);
+      }
+      char sourceTag = (seedSource == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
+      if (voice.active) {
+        sourceTag = (voice.source == GranularEngine::Source::kLiveInput) ? 'L' : 'C';
+        sdSlot = voice.sdSlot;
+      }
+      std::snprintf(engineToken, sizeof(engineToken), "%c%c%02u", voice.active ? 'G' : 'g', sourceTag, sdSlot);
       break;
     }
     case 2: {

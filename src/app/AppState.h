@@ -119,6 +119,7 @@ public:
   bool isSeedLocked(uint8_t index) const;
   bool isGlobalSeedLocked() const { return seedLock_.globalLocked(); }
   void seedPageNudge(uint8_t index, const SeedNudge& nudge);
+  void seedPageCycleGranularSource(uint8_t index, int32_t steps);
   void recordTapTempoInterval(uint32_t intervalMs);
   void setSeedPreset(uint32_t presetId, const std::vector<Seed>& seeds);
   uint32_t activePresetId() const { return presetBuffer_.id; }
