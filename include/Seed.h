@@ -12,7 +12,7 @@
 struct Seed {
   uint32_t id{0};
   uint32_t prng{0};         // deterministic RNG seed
-  enum class Source : uint8_t { kLfsr = 0, kTapTempo, kPreset };
+  enum class Source : uint8_t { kLfsr = 0, kTapTempo, kPreset, kLiveInput };
   Source source{Source::kLfsr};
   uint32_t lineage{0};      // mode-specific provenance (master seed, preset id, etc.)
   float pitch{0.f};         // semitone offset

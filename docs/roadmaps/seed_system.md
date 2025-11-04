@@ -13,8 +13,9 @@ We now treat "seed" as a thing with lineage:
 | **LFSR** | default, `SeedPrimeMode::kLfsr` | Xorshift-driven, matches the old behaviour byte-for-byte. | `Seed::source = Seed::Source::kLfsr`, `Seed::lineage = masterSeed`. |
 | **Tap tempo** | call `setSeedPrimeMode(SeedPrimeMode::kTapTempo)` and feed `recordTapTempoInterval(ms)` | Rerolls the table while respecting the player's tempo. Density tightens to the average tap, jitter is halved so grooves stay punchy. | `Seed::source = Seed::Source::kTapTempo`, `Seed::lineage = bpm * 100` (rounded). |
 | **Preset** | load a bank via `setSeedPreset(id, seeds)` then call `seedPageReseed(..., SeedPrimeMode::kPreset)` | Copies curated genomes (think classroom examples) but still keeps the engine/scheduler glue live. | `Seed::source = Seed::Source::kPreset`, `Seed::lineage = preset id`. |
+| **Live input** | rotate the front-panel prime mode until "Live" shows up, or call `seedPageReseed(..., SeedPrimeMode::kLiveInput)` | Spins the same RNG genomes as LFSR but tags the lineage so *whatever* engine you park on that seed can ride the realtime input. When you swing over to the granular engine it latches the SGTL5000 I²S feed; sim builds keep the tap muted. SD clip bookkeeping gets wiped so the slot is primed for sampling mid-jam. | `Seed::source = Seed::Source::kLiveInput`, `Seed::lineage = masterSeed`, `Seed::granular.source = GranularEngine::Source::kLiveInput`, `Seed::granular.sdSlot = 0`. |
 
-All three paths flow through `AppState::primeSeeds`, so reseeding from the Seed
+All four paths flow through `AppState::primeSeeds`, so reseeding from the Seed
 page or a MIDI hook stays deterministic. Locked seeds keep their previous genome
 no matter which source we pivot to.
 

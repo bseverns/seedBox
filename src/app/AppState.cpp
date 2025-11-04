@@ -61,10 +61,11 @@ void populateSdClips(GranularEngine& engine) {
   }
 }
 
-constexpr std::array<AppState::SeedPrimeMode, 3> kPrimeModes{{
+constexpr std::array<AppState::SeedPrimeMode, 4> kPrimeModes{{
     AppState::SeedPrimeMode::kLfsr,
     AppState::SeedPrimeMode::kTapTempo,
     AppState::SeedPrimeMode::kPreset,
+    AppState::SeedPrimeMode::kLiveInput,
 }};
 
 AppState::SeedPrimeMode rotatePrimeMode(AppState::SeedPrimeMode current, int step) {
@@ -85,6 +86,7 @@ const char* primeModeLabel(AppState::SeedPrimeMode mode) {
   switch (mode) {
     case AppState::SeedPrimeMode::kTapTempo: return "Tap";
     case AppState::SeedPrimeMode::kPreset: return "Preset";
+    case AppState::SeedPrimeMode::kLiveInput: return "Live";
     case AppState::SeedPrimeMode::kLfsr:
     default: return "LFSR";
   }
@@ -954,6 +956,9 @@ void AppState::primeSeeds(uint32_t masterSeed) {
       case SeedPrimeMode::kPreset:
         generated = buildPresetSeeds(kSeedCount);
         break;
+      case SeedPrimeMode::kLiveInput:
+        generated = buildLiveInputSeeds(masterSeed_, kSeedCount);
+        break;
       case SeedPrimeMode::kLfsr:
       default:
         generated = buildLfsrSeeds(masterSeed_, kSeedCount);
@@ -1083,6 +1088,17 @@ std::vector<Seed> AppState::buildTapTempoSeeds(uint32_t masterSeed, std::size_t 
     seed.lineage = lineageTag;
     seed.density = std::clamp(seed.density * densityScale, 0.25f, 6.0f);
     seed.jitterMs = std::max(0.5f, seed.jitterMs * 0.5f);
+  }
+  return seeds;
+}
+
+std::vector<Seed> AppState::buildLiveInputSeeds(uint32_t masterSeed, std::size_t count) {
+  auto seeds = buildLfsrSeeds(masterSeed, count);
+  for (auto& seed : seeds) {
+    seed.source = Seed::Source::kLiveInput;
+    seed.lineage = masterSeed;
+    seed.granular.source = static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
+    seed.granular.sdSlot = 0;
   }
   return seeds;
 }

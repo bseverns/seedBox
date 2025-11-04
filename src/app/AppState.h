@@ -49,7 +49,7 @@ public:
 
   static constexpr std::uint32_t kPresetCrossfadeTicks = 48;
 
-  enum class SeedPrimeMode : uint8_t { kLfsr = 0, kTapTempo, kPreset };
+  enum class SeedPrimeMode : uint8_t { kLfsr = 0, kTapTempo, kPreset, kLiveInput };
   struct SeedNudge {
     float pitchSemitones{0.f};
     float densityDelta{0.f};
@@ -197,6 +197,7 @@ private:
   std::vector<Seed> buildLfsrSeeds(uint32_t masterSeed, std::size_t count);
   std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
   std::vector<Seed> buildPresetSeeds(std::size_t count);
+  std::vector<Seed> buildLiveInputSeeds(uint32_t masterSeed, std::size_t count);
   float currentTapTempoBpm() const;
   void applyQuantizeControl(uint8_t value);
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
