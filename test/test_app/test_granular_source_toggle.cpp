@@ -1,9 +1,34 @@
 #include <unity.h>
 #include <cstring>
+#include <string>
 #include "app/AppState.h"
 #include "engine/Granular.h"
+#include "hal/Board.h"
 
 namespace {
+void runTicks(AppState& app, int count) {
+  for (int i = 0; i < count; ++i) {
+    app.tick();
+  }
+}
+
+void enterSeedsPage(AppState& app) {
+  hal::nativeBoardFeed("btn seed down");
+  hal::nativeBoardFeed("wait 30ms");
+  hal::nativeBoardFeed("btn seed up");
+  runTicks(app, 24);
+}
+
+void performShiftToneTurn(AppState& app, int delta) {
+  hal::nativeBoardFeed("btn shift down");
+  hal::nativeBoardFeed("wait 30ms");
+  const std::string command = std::string("enc tone ") + std::to_string(delta);
+  hal::nativeBoardFeed(command.c_str());
+  hal::nativeBoardFeed("wait 30ms");
+  hal::nativeBoardFeed("btn shift up");
+  runTicks(app, 24);
+}
+
 uint8_t normalizeSlot(uint8_t slot) {
   if (GranularEngine::kSdClipSlots == 0) {
     return slot;
@@ -26,10 +51,16 @@ bool containsToken(const char* text, const char* tokenA, const char* tokenB) {
 }  // namespace
 
 void test_granular_source_toggle_via_shift_tone() {
+  hal::nativeBoardReset();
   AppState app;
   app.initSim();
 
+  runTicks(app, 2);
+
   TEST_ASSERT_FALSE(app.seeds().empty());
+
+  enterSeedsPage(app);
+  TEST_ASSERT_EQUAL(AppState::Mode::SEEDS, app.mode());
 
   const uint8_t focus = app.focusSeed();
   app.setSeedEngine(focus, 1);
@@ -38,15 +69,9 @@ void test_granular_source_toggle_via_shift_tone() {
       static_cast<GranularEngine::Source>(app.seeds()[focus].granular.source);
   const uint8_t initialSlot = normalizeSlot(app.seeds()[focus].granular.sdSlot);
 
-  InputEvents::Event evt{};
-  evt.type = InputEvents::Type::EncoderHoldTurn;
-  evt.encoder = hal::Board::EncoderID::ToneTilt;
-  evt.encoderDelta = 1;
-  evt.buttons = {hal::Board::ButtonID::Shift};
-
   AppState::DisplaySnapshot snap{};
 
-  app.handleSeedsEvent(evt);
+  performShiftToneTurn(app, 1);
   app.captureDisplaySnapshot(snap);
 
   const Seed& firstSeed = app.seeds()[focus];
@@ -71,7 +96,7 @@ void test_granular_source_toggle_via_shift_tone() {
     TEST_ASSERT_TRUE(containsToken(snap.nuance, "gL", "GL"));
   }
 
-  app.handleSeedsEvent(evt);
+  performShiftToneTurn(app, 1);
   app.captureDisplaySnapshot(snap);
 
   const Seed& secondSeed = app.seeds()[focus];
@@ -91,7 +116,7 @@ void test_granular_source_toggle_via_shift_tone() {
     TEST_ASSERT_TRUE(containsToken(snap.nuance, "gC", "GC"));
   }
 
-  app.handleSeedsEvent(evt);
+  performShiftToneTurn(app, 1);
   app.captureDisplaySnapshot(snap);
 
   const Seed& thirdSeed = app.seeds()[focus];
