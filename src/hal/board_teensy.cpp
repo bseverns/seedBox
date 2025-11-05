@@ -23,6 +23,9 @@ struct PinGroup {
   io::PinNumber pin_b;
 };
 
+// Map each encoder to its associated GPIO pins.  The goal is to keep the
+// wiring manifest next to the firmware logic so hardware hackers have a single
+// place to update when they reroute the control surface.
 constexpr std::array<PinGroup, kEncoderCount> kEncoders{{
     {Board::ButtonID::EncoderSeedBank, 2, 0, 1},
     {Board::ButtonID::EncoderDensity, 5, 3, 4},
@@ -59,9 +62,13 @@ public:
     io::init(kPinConfig.data(), kPinConfig.size());
     last_micros_tick_ = static_cast<std::uint32_t>(::micros());
     for (std::size_t i = 0; i < kEncoders.size(); ++i) {
+      // Bounce2 gives us a debounced snapshot of each encoder's push switch so
+      // we can treat it like a glorified button.
       auto& bounce = encoder_switches_[i];
       bounce.attach(kEncoders[i].pin_switch, INPUT_PULLUP);
       bounce.interval(5);
+      // The quadrature pins skip Bounce2 because we want raw transitions; the
+      // decodeQuadrature helper handles direction.
       encoder_states_[i] = readEncoderRaw(static_cast<EncoderID>(i));
     }
     for (std::size_t i = 0; i < kStandaloneButtons.size(); ++i) {
@@ -79,7 +86,10 @@ public:
     advanceClock(delta);
 
     for (std::size_t i = 0; i < kEncoders.size(); ++i) {
+      // Step 1: update the debounced push switch and mirror it into the button
+      // sample buffer.  Hardware presses pull the line low.
       encoder_switches_[i].update();
+      // Step 2: watch the quadrature pins for direction + motion.
       const std::uint8_t now = readEncoderRaw(static_cast<EncoderID>(i));
       const std::uint8_t last = encoder_states_[i];
       if (now != last) {
@@ -132,6 +142,8 @@ private:
     }
     micros_accum_ += delta;
     const std::uint32_t accum = micros_residual_ + delta;
+    // Keep a millisecond counter for UI code while also preserving the full
+    // microsecond ticker for high-resolution scheduling.
     millis_accum_ += accum / 1000u;
     micros_residual_ = accum % 1000u;
   }
@@ -144,6 +156,9 @@ private:
   }
 
   static int8_t decodeQuadrature(std::uint8_t last, std::uint8_t now) {
+    // Four-state lookup table stolen straight from the ECE lab manual.  Each
+    // row represents the previous AB state; each column is the new state.  The
+    // entries are the signed step amount we add to the encoder delta bucket.
     static constexpr int8_t kTable[4][4] = {
         {0, -1, +1, 0},
         {+1, 0, 0, -1},

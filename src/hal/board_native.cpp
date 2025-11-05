@@ -16,6 +16,9 @@ namespace hal {
 
 namespace {
 
+// NativeBoard plays puppet master for the simulator.  Instead of watching real
+// GPIO edges we pre-chew a script that describes button presses and encoder
+// spins.  Each ScriptEvent is a bite-sized instruction for the poll loop.
 struct ScriptEvent {
   enum class Type { Wait, Button, Encoder } type{Type::Wait};
   std::uint64_t duration_us{0};
@@ -54,6 +57,9 @@ public:
     now_us_ += poll_period_us_;
     now_ms_ = static_cast<std::uint32_t>(now_us_ / 1000u);
 
+    // Dev-note for the lab: each poll step nibbles through the scripted queue
+    // until a `wait` tells us to pause.  That keeps simulated time moving at
+    // the same cadence as the hardware board class.
     processScript();
   }
 
@@ -90,6 +96,9 @@ public:
     now_ms_ = 0;
   }
 
+  // Accept CLI script lines like "btn seed down" or "wait 10ms".  By keeping
+  // the format human readable we can teach automation without burying folks in
+  // binary blobs.
   void feed(std::string_view line) {
     auto trimmed = trim(line);
     if (trimmed.empty() || trimmed.front() == '#') {
@@ -156,6 +165,8 @@ public:
     }
   }
 
+  // Unit tests sometimes need to jump the simulated clock ahead without
+  // chewing through poll() cycles.  fastForward makes that explicit.
   void fastForward(std::uint64_t micros) {
     now_us_ += micros;
     now_ms_ = static_cast<std::uint32_t>(now_us_ / 1000u);
@@ -197,6 +208,9 @@ private:
       auto& evt = script_.front();
       if (evt.type == ScriptEvent::Type::Wait) {
         if (evt.duration_us > poll_period_us_) {
+          // Hold off until the scripted wait has fully elapsed.  We subtract the
+          // poll period and bail so the caller can spin the main loop again,
+          // mimicking a delay in hardware time.
           evt.duration_us -= poll_period_us_;
           break;
         }
@@ -209,12 +223,16 @@ private:
       }
 
       if (evt.type == ScriptEvent::Type::Button) {
+        // Mirror button presses directly into the sample buffer so AppState can
+        // pretend it is talking to the hardware board.
         writeButton(evt.button, evt.pressed);
         script_.pop_front();
         continue;
       }
 
       if (evt.type == ScriptEvent::Type::Encoder) {
+        // Encoders accumulate delta steps that the UI consumes later.  This
+        // mirrors how the Teensy path buckets quadrature steps per poll.
         const std::size_t idx = static_cast<std::size_t>(evt.encoder);
         encoder_deltas_[idx] += evt.encoder_delta;
         script_.pop_front();
@@ -228,6 +246,8 @@ private:
     if (idx >= button_samples_.size()) {
       return;
     }
+    // Same layout as the hardware board: `pressed` is level, timestamp is the
+    // simulator's notion of "now".
     button_samples_[idx].pressed = pressed;
     button_samples_[idx].timestamp_us = now_us_;
   }

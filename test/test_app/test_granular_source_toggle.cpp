@@ -5,6 +5,11 @@
 #include "engine/Granular.h"
 #include "hal/Board.h"
 
+// This regression test leans heavily on the scripted simulator input helpers.
+// The Teensy build does not ship those hooks, so when SEEDBOX_HW is set we
+// compile a no-op shim that simply reminds the reader why the case is skipped.
+#if !SEEDBOX_HW
+
 namespace {
 void runTicks(AppState& app, int count) {
   for (int i = 0; i < count; ++i) {
@@ -136,3 +141,12 @@ void test_granular_source_toggle_via_shift_tone() {
     TEST_ASSERT_TRUE(containsToken(snap.nuance, "gL", "GL"));
   }
 }
+
+#else  // SEEDBOX_HW
+
+void test_granular_source_toggle_via_shift_tone() {
+  TEST_IGNORE_MESSAGE(
+      "shift+tone source regression only runs against the simulator harness");
+}
+
+#endif  // !SEEDBOX_HW

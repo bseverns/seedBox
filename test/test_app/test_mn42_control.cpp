@@ -5,13 +5,19 @@
 // firmware's story.
 
 #include <unity.h>
-#include "app/AppState.h"
 #include "interop/mn42_map.h"
 #include "SeedBoxConfig.h"
 
+// The router keeps its MN42 handshake plumbing private in production builds.
+// For regression coverage we temporarily punch a hole during the include so the
+// test harness can toggle the flags directly.  AppState pulls the same header on
+// hardware builds, so we include MidiRouter first while the keyword is remapped
+// and bring AppState in afterwards.
 #define private public
 #include "io/MidiRouter.h"
 #undef private
+
+#include "app/AppState.h"
 
 void test_mn42_follow_clock_mode() {
   AppState app;
