@@ -1123,7 +1123,11 @@ std::vector<Seed> AppState::buildPresetSeeds(std::size_t count) {
     seed.lineage = presetBuffer_.id;
     if (seed.prng == 0) {
       uint32_t lineageSeed = masterSeed_ ^ (presetBuffer_.id + static_cast<uint32_t>(i * 97));
-      seed.prng = RNG::xorshift(lineageSeed ? lineageSeed : masterSeed_);
+      uint32_t rngState = lineageSeed;
+      if (rngState == 0) {
+        rngState = masterSeed_;
+      }
+      seed.prng = RNG::xorshift(rngState);
     }
     seeds.push_back(seed);
   }
