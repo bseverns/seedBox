@@ -150,8 +150,9 @@ bool Preset::deserialize(const std::vector<std::uint8_t>& bytes, Preset& out) {
         s.granular.transpose = granularObj["transpose"].as<float>();
         s.granular.windowSkew = granularObj["windowSkew"].as<float>();
         s.granular.stereoSpread = granularObj["stereoSpread"].as<float>();
-        const std::uint8_t rawSource = granularObj.containsKey("source")
-                                           ? granularObj["source"].as<std::uint8_t>()
+        JsonVariantConst sourceVar = granularObj["source"];
+        const std::uint8_t rawSource = sourceVar.is<std::uint8_t>()
+                                           ? sourceVar.as<std::uint8_t>()
                                            : static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
         const std::uint8_t sanitizedSource =
             (rawSource == static_cast<std::uint8_t>(GranularEngine::Source::kSdClip))
@@ -159,8 +160,9 @@ bool Preset::deserialize(const std::vector<std::uint8_t>& bytes, Preset& out) {
                 : static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
         s.granular.source = sanitizedSource;
 
-        const std::uint8_t rawSlot = granularObj.containsKey("sdSlot")
-                                         ? granularObj["sdSlot"].as<std::uint8_t>()
+        JsonVariantConst sdSlotVar = granularObj["sdSlot"];
+        const std::uint8_t rawSlot = sdSlotVar.is<std::uint8_t>()
+                                         ? sdSlotVar.as<std::uint8_t>()
                                          : static_cast<std::uint8_t>(0);
         const bool clipSource = sanitizedSource == static_cast<std::uint8_t>(GranularEngine::Source::kSdClip);
         s.granular.sdSlot = sanitizeSdSlot(rawSlot, clipSource);
