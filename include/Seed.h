@@ -10,20 +10,45 @@
 #include <cstdint>
 
 struct Seed {
+  // Identity -----------------
+  // Each voice and debug readout keys off `id`.  AppState assigns this as the
+  // index into its seed table so unit tests can reach in deterministically.
   uint32_t id{0};
+  // `prng` is the raw RNG state captured when the seed was minted.  Engines use
+  // it as provenance when they need to re-roll per-seed variations (e.g.
+  // Euclid patterns fanning out from the same genome).
   uint32_t prng{0};         // deterministic RNG seed
   enum class Source : uint8_t { kLfsr = 0, kTapTempo, kPreset, kLiveInput };
   Source source{Source::kLfsr};
+  // `lineage` traces the prime mover: master seed value, preset slot, tap tempo
+  // BPM tag, etc.  UI views surface it so students can talk about "seed
+  // families" instead of magic numbers.
   uint32_t lineage{0};      // mode-specific provenance (master seed, preset id, etc.)
+
+  // Musical DNA -------------
+  // Pitch lives in semitone offsets from concert A.  Sampler::configureVoice
+  // converts this with pitchToPlaybackRate.
   float pitch{0.f};         // semitone offset
+  // ADSR envelope in seconds.  Engines clamp/convert as needed: Sampler goes
+  // to milliseconds for Teensy, Resonator feeds these into modal envelopes.
   float envA{0.001f}, envD{0.08f}, envS{0.6f}, envR{0.12f};
+  // Density and probability drive the scheduler.  Density is hits/beat while
+  // probability is the Bernoulli gate the Euclid engine consults.
   float density{1.f};       // hits per beat
   float probability{0.85f};
+  // Groove + tone controls; jitter is milliseconds of timing spray, tone is a
+  // tilt EQ macro, and spread widens the stereo field.
   float jitterMs{7.5f};
   float tone{0.35f};
   float spread{0.2f};       // 0 = mono center, 1 = hard-pan width (right biased for now)
+
+  // Routing ------------------
+  // Engines treat this as a "which DSP lane should fire" enum.  EngineRouter
+  // keeps the IDs aligned with Engine::Type.
   uint8_t engine{0};        // 0=sampler,1=granular,2=resonator
   uint8_t sampleIdx{0};
+  // Mutation amount is the guard-rail for random walk editors.  SeedLock uses
+  // it to decide how aggressive to be when the mutate encoder is twisted.
   float mutateAmt{0.1f};    // bounded drift 0..1
 
   struct GranularParams {
