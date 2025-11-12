@@ -8,6 +8,16 @@ This sketch is the "hello world" for SeedBox's quiet-mode sandbox. It's a sequen
 * Flags quiet-mode as `true`, then simulates two measures of 4/4 at 96 BPM.
 * Drops log breadcrumbs instead of lighting up the DAC so you can watch the groove without waking the neighbors.
 
+## Controls
+
+The sim now ships with a couple quick toggles so you can poke at the groove without recompiling:
+
+* `--quiet` / `--loud` — stick with the fast-forward ghost clock or stretch back to full-length beats.
+* `--mutate=<name>` — flip between the baked-in kits (`default`, `hatless`, `afterbeat-chop`).
+* `--list-mutations` — print whatever ghost kits have been scripted.
+
+Mix and match them through PlatformIO or by compiling the translation unit with a standard `g++` toolchain while we iron out the official pipeline.
+
 ## Wiring
 
 Nada. This is a pure-sim loop—no Teensy, no breakout, no speakers. Let your USB cable nap.
