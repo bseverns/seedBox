@@ -30,6 +30,23 @@ void runTicks(AppState& app, int count) {
   }
 }
 
+// Wait for the UI to land on a specific mode by ticking in short bursts.
+// It mirrors the real hardware latency without hard-coding a single
+// magic frame count into the tests.
+bool waitForMode(AppState& app, AppState::Mode target, int burstTicks = 10, int maxBursts = 48) {
+  if (app.mode() == target) {
+    return true;
+  }
+  const int safeBurst = burstTicks > 0 ? burstTicks : 1;
+  for (int attempt = 0; attempt < maxBursts; ++attempt) {
+    runTicks(app, safeBurst);
+    if (app.mode() == target) {
+      return true;
+    }
+  }
+  return app.mode() == target;
+}
+
 void tapButton(AppState& app, const char* name, int holdMs = 40, int settleTicks = 24) {
   std::string press = std::string("btn ") + name + " down";
   std::string wait = std::string("wait ") + std::to_string(holdMs) + "ms";
@@ -79,9 +96,8 @@ void longPressShift(AppState& app, int settleTicks = 80) {
     // sweep PERF's latched state off the stage.  Instead of flaking out, keep
     // ticking in short bursts until the long-press transition lands back on
     // HOME or we exhaust a generous grace period.
-    for (int attempt = 0; attempt < 12 && app.mode() != AppState::Mode::HOME; ++attempt) {
-      runTicks(app, 10);
-    }
+    const bool landed = waitForMode(app, AppState::Mode::HOME);
+    TEST_ASSERT_TRUE_MESSAGE(landed, "Shift long-press never returned to HOME");
   }
 }
 }  // namespace
