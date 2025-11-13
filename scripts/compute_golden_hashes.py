@@ -132,6 +132,7 @@ def compute_manifest(fixtures_root: Path,
         if suffix == ".wav":
             payload, sample_rate, frames, channels = _read_pcm(path)
             hash_hex = _fnv64_pcm16(payload)
+            layout = "mono" if channels == 1 else ("stereo" if channels == 2 else f"{channels}-channel")
             data.update(
                 {
                     "kind": "audio",
@@ -140,6 +141,7 @@ def compute_manifest(fixtures_root: Path,
                     "sample_rate_hz": sample_rate,
                     "frames": frames,
                     "channels": channels,
+                    "channel_layout": layout,
                 }
             )
         else:
@@ -182,11 +184,13 @@ def render_table(fixtures: list[dict]) -> str:
     for item in fixtures:
         kind = item.get("kind", "audio")
         if kind == "audio":
-            summary = (
-                f"{item['frames']:d}f @ {item['sample_rate_hz']:d}Hz x{item['channels']:d}"
-                if all(k in item for k in ("frames", "sample_rate_hz", "channels"))
-                else "(missing audio metadata)"
-            )
+            if all(k in item for k in ("frames", "sample_rate_hz", "channels")):
+                layout = item.get("channel_layout")
+                summary = f"{item['frames']:d}f @ {item['sample_rate_hz']:d}Hz x{item['channels']:d}"
+                if layout:
+                    summary += f" ({layout})"
+            else:
+                summary = "(missing audio metadata)"
         else:
             summary = (
                 f"{item.get('lines', 0)} lines / {item.get('bytes', 0)} bytes"

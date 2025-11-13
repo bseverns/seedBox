@@ -19,6 +19,14 @@ bool write_wav_16(const WavWriteRequest &request) {
         return false;
     }
 
+    if (request.channels == 0) {
+        return false;
+    }
+
+    if (request.samples.size() % request.channels != 0) {
+        return false;
+    }
+
     std::filesystem::path path(request.path);
     if (path.has_parent_path()) {
         std::error_code ec;
@@ -33,11 +41,11 @@ bool write_wav_16(const WavWriteRequest &request) {
         return false;
     }
 
-    const std::uint16_t kChannels = 1;
     const std::uint16_t kBitsPerSample = 16;
+    const std::uint16_t channels = request.channels;
     const std::uint32_t data_bytes = static_cast<std::uint32_t>(request.samples.size() * sizeof(std::int16_t));
-    const std::uint32_t byte_rate = request.sample_rate_hz * kChannels * (kBitsPerSample / 8);
-    const std::uint16_t block_align = static_cast<std::uint16_t>(kChannels * (kBitsPerSample / 8));
+    const std::uint32_t byte_rate = request.sample_rate_hz * channels * (kBitsPerSample / 8);
+    const std::uint16_t block_align = static_cast<std::uint16_t>(channels * (kBitsPerSample / 8));
 
     auto write_tag = [&](const char (&tag)[5]) {
         out.write(tag, 4);
@@ -62,7 +70,7 @@ bool write_wav_16(const WavWriteRequest &request) {
     write_le(fmt_size);
     const std::uint16_t audio_format = 1u;  // PCM
     write_le(audio_format);
-    write_le(kChannels);
+    write_le(channels);
     write_le(request.sample_rate_hz);
     write_le(byte_rate);
     write_le(block_align);
