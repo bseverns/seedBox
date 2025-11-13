@@ -44,7 +44,14 @@ Defaults for every switch live in [`include/SeedBoxConfig.h`](../include/SeedBox
 
 - `ENABLE_GOLDEN` — When set, tests can record fresh comparison data into
   `artifacts/`. Commit the intent in docs, not the raw files, so the repo stays
-  lean.
+  lean. Fire up the `native_golden` PlatformIO env to toggle it without
+  juggling manual build flags. PlatformIO feeds the project path in as
+  `SEEDBOX_PROJECT_ROOT_HINT`, the harness respects a runtime
+  `SEEDBOX_PROJECT_ROOT` override, and it still walks up the filesystem hunting
+  for `platformio.ini` if all else fails. The rendered WAVs always land in
+  `<repo>/build/fixtures` even though the binary runs inside `.pio/`. Override
+  that default with `SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures` if you're
+  prototyping somewhere else.
 - `QUIET_MODE` — Suppresses log spam while still running assertions. Handy when
   you're generating `.wav` snippets into `out/` for listening tests.
 
@@ -67,8 +74,7 @@ we mostly run the suite on laptops.
   `artifacts/pattern_ticks_*.txt` fixtures by flipping `ENABLE_GOLDEN`:
 
   ```bash
-  PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native \
-    --filter tests/test_patterns/test_tick_golden.cpp
+  pio test -e native_golden --filter tests/test_patterns/test_tick_golden.cpp
   ```
 
 - **Engine postcards:** `tests/test_engine/test_euclid_burst.cpp` now writes

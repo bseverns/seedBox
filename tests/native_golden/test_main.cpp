@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -11,6 +12,7 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <unity.h>
@@ -55,6 +57,72 @@ constexpr GoldenFixture kLogFixtures[] = {
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
 };
+
+std::filesystem::path find_project_root() {
+    if (const char* override = std::getenv("SEEDBOX_PROJECT_ROOT")) {
+        if (*override != '\0') {
+            return std::filesystem::path(override);
+        }
+    }
+
+#if defined(SEEDBOX_PROJECT_ROOT_HINT)
+    if (SEEDBOX_PROJECT_ROOT_HINT[0] != '\0') {
+        std::filesystem::path hinted(SEEDBOX_PROJECT_ROOT_HINT);
+        std::error_code ec;
+        const auto normalized = std::filesystem::weakly_canonical(hinted, ec);
+        const auto& candidate = ec ? hinted : normalized;
+        if (std::filesystem::exists(candidate / "platformio.ini")) {
+            return candidate;
+        }
+    }
+#endif
+
+    auto cursor = std::filesystem::current_path();
+    for (int depth = 0; depth < 10; ++depth) {
+        if (std::filesystem::exists(cursor / "platformio.ini")) {
+            return cursor;
+        }
+        if (!cursor.has_parent_path()) {
+            break;
+        }
+        const auto parent = cursor.parent_path();
+        if (parent == cursor) {
+            break;
+        }
+        cursor = parent;
+    }
+    return std::filesystem::current_path();
+}
+
+std::filesystem::path fixture_root() {
+#if ENABLE_GOLDEN
+    if (const char* override = std::getenv("SEEDBOX_FIXTURE_ROOT")) {
+        if (*override != '\0') {
+            return std::filesystem::path(override);
+        }
+    }
+#endif
+    return find_project_root() / "build/fixtures";
+}
+
+std::filesystem::path fixture_disk_path(const std::string& manifest_path) {
+    std::filesystem::path path(manifest_path);
+    if (path.is_absolute()) {
+        return path;
+    }
+
+    const std::string normalized = path.generic_string();
+    if (normalized == "build/fixtures") {
+        return fixture_root();
+    }
+
+    const std::string prefix = "build/fixtures/";
+    if (normalized.rfind(prefix, 0) == 0) {
+        return fixture_root() / normalized.substr(prefix.size());
+    }
+
+    return fixture_root() / path;
+}
 
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
@@ -671,21 +739,22 @@ std::string render_burst_log() {
     return log.str();
 }
 
-bool write_text_file(const std::string& path, const std::string& body) {
+bool write_text_file(const std::string& manifest_path, const std::string& body) {
 #if ENABLE_GOLDEN
+    const auto disk_path = fixture_disk_path(manifest_path);
     std::error_code ec;
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+    std::filesystem::create_directories(disk_path.parent_path(), ec);
     if (ec) {
         return false;
     }
-    std::ofstream out(path, std::ios::binary);
+    std::ofstream out(disk_path, std::ios::binary);
     if (!out) {
         return false;
     }
     out.write(body.data(), static_cast<std::streamsize>(body.size()));
     return out.good();
 #else
-    (void)path;
+    (void)manifest_path;
     (void)body;
     return false;
 #endif
@@ -709,6 +778,13 @@ void assert_manifest_contains(const std::string& manifest_body, const GoldenFixt
 }  // namespace
 
 void test_emit_flag_matrix() {
+#if ENABLE_GOLDEN
+    const auto root = fixture_root();
+    std::error_code ec;
+    std::filesystem::create_directories(root, ec);
+    TEST_ASSERT_FALSE_MESSAGE(static_cast<bool>(ec), "Failed to create golden fixture root");
+    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(root), "Golden fixture root missing on disk");
+#endif
     std::cout << "[seedbox-config] active flag matrix" << std::endl;
     for (const auto& flag : SeedBoxConfig::kFlagMatrix) {
         std::cout << "  " << flag.name << "=" << (flag.enabled ? "1" : "0")
@@ -720,7 +796,8 @@ void test_emit_flag_matrix() {
 
 void test_render_and_compare_golden() {
     golden::WavWriteRequest request{};
-    request.path = kAudioFixtures[0].path;
+    const auto disk_path = fixture_disk_path(kAudioFixtures[0].path);
+    request.path = disk_path.string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = make_drone();
 
@@ -730,8 +807,7 @@ void test_render_and_compare_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write golden WAV fixture");
     TEST_ASSERT_EQUAL_STRING(kAudioFixtures[0].expected_hash, hash.c_str());
 
-    const std::filesystem::path wav_path(request.path);
-    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(wav_path),
+    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(disk_path),
                              "Golden WAV missing on disk");
 
     const std::string manifest_body = load_manifest();
@@ -740,7 +816,7 @@ void test_render_and_compare_golden() {
 
 void test_render_sampler_golden() {
     golden::WavWriteRequest request{};
-    request.path = kAudioFixtures[1].path;
+    request.path = fixture_disk_path(kAudioFixtures[1].path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_sampler_fixture();
 
@@ -756,7 +832,7 @@ void test_render_sampler_golden() {
 
 void test_render_resonator_golden() {
     golden::WavWriteRequest request{};
-    request.path = kAudioFixtures[2].path;
+    request.path = fixture_disk_path(kAudioFixtures[2].path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_resonator_fixture();
 
@@ -772,7 +848,7 @@ void test_render_resonator_golden() {
 
 void test_render_granular_golden() {
     golden::WavWriteRequest request{};
-    request.path = kAudioFixtures[3].path;
+    request.path = fixture_disk_path(kAudioFixtures[3].path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.channels = 2;
     request.samples = render_granular_fixture();
@@ -789,7 +865,7 @@ void test_render_granular_golden() {
 
 void test_render_mixer_golden() {
     golden::WavWriteRequest request{};
-    request.path = kAudioFixtures[4].path;
+    request.path = fixture_disk_path(kAudioFixtures[4].path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.channels = 2;
     request.samples = render_mixer_fixture();

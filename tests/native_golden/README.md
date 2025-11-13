@@ -12,7 +12,12 @@ truth about what we heard.
    a resonator tail collage, and deterministic Euclid/Burst debug logs. The new
    WAVs (`sampler-grains.wav`, `resonator-tail.wav`) and logs
    (`euclid-mask.txt`, `burst-cluster.txt`) live beside the original drone so
-   reviewers can audition or diff each engine in isolation.
+   reviewers can audition or diff each engine in isolation. PlatformIO now
+   injects the absolute repo path as `SEEDBOX_PROJECT_ROOT_HINT`, the harness
+   honors a `SEEDBOX_PROJECT_ROOT` override when you need to aim somewhere
+   bespoke, and it still walks up to the nearest `platformio.ini` for safety.
+   The fixtures land in `<repo>/build/fixtures` even though PlatformIO executes
+   the binary from `.pio/build/*/test`.
 2. `golden::hash_pcm16` handles the PCM renders while a tiny FNV-1a byte helper
    fingerprints the log files. Both mirror `scripts/compute_golden_hashes.py`
    so the manifest hashes match what the test harness expects.
@@ -27,7 +32,7 @@ truth about what we heard.
 
 ```bash
 # 1. Render the fixtures with golden mode on.
-PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native
+pio test -e native_golden
 
 # 2. Recompute hashes and commit the manifest update.
 python scripts/compute_golden_hashes.py --write
@@ -36,8 +41,17 @@ python scripts/compute_golden_hashes.py --write
 python scripts/compute_golden_hashes.py --note drone-intro="v1 sine reference" --write
 ```
 
+That dedicated env mirrors the vanilla native build but bakes in the flag so we
+don't accidentally reuse a stale binary and skip fixture writes in CI.
+
 Need a quick audit without touching disk? Drop the `--write` flag for a dry
-run; the script prints a table of fixture names, hashes, and frame counts.
+run; the script prints a table of fixture names, hashes, and frame counts. If
+you're experimenting in a scratch directory, point the harness somewhere else
+with `SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures pio test -e native_golden`.
+Pair it with `SEEDBOX_PROJECT_ROOT=/path/to/seedBox` if you launched from a
+quirky working directory and want to skip the auto-discovery. The manifest
+still records the canonical `build/fixtures/...` paths, but the files
+themselves can live wherever makes debugging painless.
 
 ## Manifest anatomy
 
