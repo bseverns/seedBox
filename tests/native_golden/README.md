@@ -7,17 +7,21 @@ truth about what we heard.
 
 ## What runs today
 
-1. `tests/native_golden/test_main.cpp` synthesizes a 1-second 110 Hz drone the
-   exact same way every time. The fixture lives in
-   `build/fixtures/drone-intro.wav` so you can audition it locally without
-   spelunking through temp folders.
-2. `golden::hash_pcm16` computes the 64-bit FNV-1a fingerprint of that PCM
-   payload. We keep the same helper in C++ and Python so the numbers never drift.
-3. `scripts/compute_golden_hashes.py` recomputes hashes for every WAV in
-   `build/fixtures/` and updates `tests/native_golden/golden.json` with the
-   digest, sample rate, frame count, and optional liner notes.
-4. The Unity test now refuses to pass if the WAV file is missing **or** the
-   manifest forgets about the fixture. Broken receipts? Broken build.
+1. `tests/native_golden/test_main.cpp` still prints the 1-second 110 Hz drone to
+   `build/fixtures/drone-intro.wav`, but it also forges a sampler chord stack,
+   a resonator tail collage, and deterministic Euclid/Burst debug logs. The new
+   WAVs (`sampler-grains.wav`, `resonator-tail.wav`) and logs
+   (`euclid-mask.txt`, `burst-cluster.txt`) live beside the original drone so
+   reviewers can audition or diff each engine in isolation.
+2. `golden::hash_pcm16` handles the PCM renders while a tiny FNV-1a byte helper
+   fingerprints the log files. Both mirror `scripts/compute_golden_hashes.py`
+   so the manifest hashes match what the test harness expects.
+3. `scripts/compute_golden_hashes.py` now scans `build/fixtures/` for both WAV
+   and `.txt` artifacts and updates `tests/native_golden/golden.json` with their
+   hashes, audio metadata (rate/frames/channels), or log metadata (line + byte
+   counts). Drop `--note name="liner note"` to annotate any entry.
+4. The Unity test refuses to pass if **any** declared artifact is missing or if
+   the manifest hash falls out of sync. Broken receipts? Broken build.
 
 ## Refresh loop (aka “cutting a new pressing”)
 
@@ -40,8 +44,10 @@ run; the script prints a table of fixture names, hashes, and frame counts.
 `tests/native_golden/golden.json` now reads like a record sleeve:
 
 - `generated_at_utc` — timestamp when the manifest was last rebuilt.
-- `fixtures[]` — each entry tracks the `name`, `hash`, WAV path, frame count,
-  sample rate, channel count, and any notes you scribble for future sleuths.
+- `fixtures[]` — every entry exposes the `name`, `kind` (`audio` or `log`),
+  the filesystem `path`, FNV hash, and either audio metadata (sample rate,
+  frame + channel counts) or log metadata (byte + line counts). Notes are still
+  fair game for scribbling context.
 - `tooling` — declares that both the manifest and hash math come from
   `scripts/compute_golden_hashes.py` so newcomers know which lever to pull.
 

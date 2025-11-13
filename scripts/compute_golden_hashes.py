@@ -40,6 +40,15 @@ def _parse_note_overrides(raw_notes: list[str] | None) -> dict[str, str]:
     return overrides
 
 
+def _fnv64(payload: bytes) -> str:
+    state = FNV_OFFSET
+    mask = (1 << 64) - 1
+    for byte in payload:
+        state ^= byte
+        state = (state * FNV_PRIME) & mask
+    return f"{state:016x}"
+
+
 def _fnv64_pcm16(payload: bytes) -> str:
     state = FNV_OFFSET
     mask = (1 << 64) - 1
@@ -72,7 +81,8 @@ def _load_manifest(path: Path) -> dict:
 def _scan_fixtures(fixtures_root: Path) -> list[Path]:
     if not fixtures_root.exists():
         return []
-    return sorted(p for p in fixtures_root.rglob("*.wav") if p.is_file())
+    allowed = {".wav", ".txt"}
+    return sorted(p for p in fixtures_root.rglob("*") if p.is_file() and p.suffix.lower() in allowed)
 
 
 def _read_pcm(path: Path) -> tuple[bytes, int, int, int]:
@@ -112,25 +122,39 @@ def compute_manifest(fixtures_root: Path,
     existing_map = {item.get("name", ""): item for item in fixtures_root_list if isinstance(item, dict)}
 
     fixtures = []
-    for wav_path in _scan_fixtures(fixtures_root):
-        payload, sample_rate, frames, channels = _read_pcm(wav_path)
-        hash_hex = _fnv64_pcm16(payload)
-        name = wav_path.stem
-        fixtures.append(
-            _merge_fixture(
-                existing_map,
-                note_overrides,
-                name,
+    for path in _scan_fixtures(fixtures_root):
+        suffix = path.suffix.lower()
+        name = path.stem
+        data: dict[str, object] = {
+            "name": name,
+            "path": str(path).replace("\\", "/"),
+        }
+        if suffix == ".wav":
+            payload, sample_rate, frames, channels = _read_pcm(path)
+            hash_hex = _fnv64_pcm16(payload)
+            data.update(
                 {
-                    "name": name,
+                    "kind": "audio",
                     "hash": hash_hex,
-                    "wav_path": str(wav_path).replace("\\", "/"),
+                    "wav_path": str(path).replace("\\", "/"),
                     "sample_rate_hz": sample_rate,
                     "frames": frames,
                     "channels": channels,
-                },
+                }
             )
-        )
+        else:
+            body = path.read_bytes()
+            hash_hex = _fnv64(body)
+            lines = body.count(b"\n")
+            data.update(
+                {
+                    "kind": "log",
+                    "hash": hash_hex,
+                    "bytes": len(body),
+                    "lines": lines,
+                }
+            )
+        fixtures.append(_merge_fixture(existing_map, note_overrides, name, data))
 
     fixtures.sort(key=lambda item: item["name"])
     manifest["fixtures"] = fixtures
@@ -142,7 +166,7 @@ def compute_manifest(fixtures_root: Path,
         tooling = {"legacy": tooling} if tooling is not None else {}
     tooling.update(
         {
-            "hash": "64-bit FNV-1a over PCM16 payload",
+            "hash": "64-bit FNV-1a over artifact payload",
             "script": "scripts/compute_golden_hashes.py",
         }
     )
@@ -153,13 +177,23 @@ def compute_manifest(fixtures_root: Path,
 def render_table(fixtures: list[dict]) -> str:
     if not fixtures:
         return "(no fixtures discovered)"
-    header = f"{'Fixture':20} {'Hash':18} {'Frames':>8} {'Rate':>8} {'Channels':>8}"
+    header = f"{'Fixture':20} {'Kind':6} {'Hash':18} {'Summary':>24}"
     lines = [header, "-" * len(header)]
     for item in fixtures:
-        lines.append(
-            f"{item['name']:20} {item['hash']:18} "
-            f"{item['frames']:8d} {item['sample_rate_hz']:8d} {item['channels']:8d}"
-        )
+        kind = item.get("kind", "audio")
+        if kind == "audio":
+            summary = (
+                f"{item['frames']:d}f @ {item['sample_rate_hz']:d}Hz x{item['channels']:d}"
+                if all(k in item for k in ("frames", "sample_rate_hz", "channels"))
+                else "(missing audio metadata)"
+            )
+        else:
+            summary = (
+                f"{item.get('lines', 0)} lines / {item.get('bytes', 0)} bytes"
+                if "bytes" in item
+                else "(missing log metadata)"
+            )
+        lines.append(f"{item['name']:20} {kind:6} {item['hash']:18} {summary:>24}")
     return "\n".join(lines)
 
 
