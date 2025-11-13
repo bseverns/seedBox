@@ -13,6 +13,7 @@ not intimidate.
 | `ethics.md` | Privacy + data handling pact for labs and jams. | Any time you add IO, logging, or persistence. |
 | `hardware_bill_of_materials.md` | Shopping list + sourcing lore for the physical rig. | Before you smash the "buy" button. |
 | `roadmaps/` | Long-form design notes for current and future engines. | When you're planning a feature or trying to understand the vision. |
+| `tutorials/scale_quantizer_flow.md` | Step-by-step quantizer lab that hooks UI experiments into `util::ScaleQuantizer`. | When you want to demo or test the scale quantizer story. |
 | _(future add-ons)_ | Calibration guides, wiring art, troubleshooting logs. | Whenever the community uncovers new stories worth sharing. |
 
 Suggested starting points in `roadmaps/`:
