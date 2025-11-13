@@ -2,7 +2,7 @@
 
 | Status board | Signal |
 | --- | --- |
-| CI (native + Teensy) | [![CI](https://github.com/bseverns/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-ORG/seedBox/actions/workflows/ci.yml) |
+| CI (native + Teensy) | [![CI](https://github.com/bseverns/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/bseverns/seedBox/actions/workflows/ci.yml) |
 
 SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
 companion project to the MOARkNOBS mythos: a Teensy(IMXRT1062)-based instrument that can
@@ -58,6 +58,18 @@ stored bank byte-for-byte:
 ```bash
 pio test -e native -f test_app/test_presets.cpp
 ```
+
+## Sonic receipts — the native golden pipeline
+
+- Flip `ENABLE_GOLDEN=1` and run `pio test -e native` to render deterministic
+  fixtures into `build/fixtures/`.
+- `scripts/compute_golden_hashes.py --write` recomputes hashes and rewrites
+  `tests/native_golden/golden.json` so reviewers can diff sound changes instead
+  of guessing.
+- The harness refuses to pass if either the WAV or the manifest entry ghosts
+  out, so every merge ships with receipts.【F:tests/native_golden/test_main.cpp†L101-L135】
+- Learn the full ritual in [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md)
+  and the matching [`tests/native_golden/README.md`](tests/native_golden/README.md).
 
 That check leans on the same serialization path the hardware uses, so it's our
 CI-sized receipt that preset primes are actually deterministic.

@@ -18,6 +18,7 @@ not intimidate.
 Suggested starting points in `roadmaps/`:
 - [`roadmaps/granular.md`](roadmaps/granular.md)
 - [`roadmaps/resonator.md`](roadmaps/resonator.md)
+- [`roadmaps/native_golden.md`](roadmaps/native_golden.md)
 - Pair these with runnable demos in [`test/test_engine`](../test/test_engine)
   when you want to see the math flexed in code.
 
