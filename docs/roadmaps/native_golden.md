@@ -37,6 +37,11 @@ python scripts/compute_golden_hashes.py --write
 The `native_golden` env is just the standard native config with the flag wired
 in, which keeps CI from caching a non-golden binary between runs.
 
+Registry acting up or hacking offline? Run `./scripts/offline_native_golden.sh`
+to compile the standalone helper, regenerate every fixture, and refresh the
+manifest without touching PlatformIO. It relies on the same render routines and
+hash math, so the golden receipts line up exactly.
+
 Add `--note name="liner note"` if you want to annotate why a render changed.
 The script prints a tidy summary before committing anything to disk, so you can
 spot-check hashes before rewriting the manifest.

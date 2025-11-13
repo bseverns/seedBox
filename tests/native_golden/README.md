@@ -44,6 +44,22 @@ python scripts/compute_golden_hashes.py --note drone-intro="v1 sine reference" -
 That dedicated env mirrors the vanilla native build but bakes in the flag so we
 don't accidentally reuse a stale binary and skip fixture writes in CI.
 
+### Offline fallback when PlatformIO ghosts you
+
+Sometimes the registry throws a 403 or you're hacking on a plane. The
+`tools/native_golden_offline.cpp` helper mirrors the golden render routines
+without touching PlatformIO, so you can still cut fixtures and refresh the
+manifest locally. We wrapped the whole dance in a single script:
+
+```bash
+./scripts/offline_native_golden.sh
+```
+
+That command compiles the helper with `g++`, renders every WAV/log pair into
+`build/fixtures/`, and re-runs `scripts/compute_golden_hashes.py --write` so the
+manifest stays honest. No registry downloads, no cached toolchains — just a
+compiler and Python 3.
+
 Need a quick audit without touching disk? Drop the `--write` flag for a dry
 run; the script prints a table of fixture names, hashes, and frame counts. If
 you're experimenting in a scratch directory, point the harness somewhere else

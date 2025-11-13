@@ -9,9 +9,9 @@ had to twist. Keep the tone punk but the notes precise.
 
 - [ ] Confirm the bring-up sequence in [`src/main.cpp`](../src/main.cpp) actually
       runs — missed SGTL5000 enables or clock init are the usual culprits.
-- [ ] Re-seat USB and power, then run `pio test -e native --filter
+- [ ] Re-seat USB and power, then run `pio test -e native --filter test_app --test-name
       test_simulator_audio_reports_48k` to prove the firmware can still lock 48 kHz
-      in the simulator ([`test/test_app/test_audio_defaults.cpp`](../test/test_app/test_audio_defaults.cpp)).
+      in the simulator ([`tests/test_app/test_audio_defaults.cpp`](../tests/test_app/test_audio_defaults.cpp)).
 - [ ] Capture an `AppState::DisplaySnapshot` (see
       [`src/app/AppState.cpp`](../src/app/AppState.cpp)) and paste the OLED metrics
       below so future readers can compare baseline text.
@@ -26,12 +26,12 @@ had to twist. Keep the tone punk but the notes precise.
 - [ ] Follow the bench script in
       [`docs/hardware/trs_clock_sync/README.md`](hardware/trs_clock_sync/README.md)
       to reproduce the issue with structured wiring steps.
-- [ ] Run `pio test -e native --filter test_external_clock_priority` to see if the
+- [ ] Run `pio test -e native --filter test_app --test-name test_external_clock_priority` to see if the
       simulator matches the observed behaviour
-      ([`test/test_app/test_external_midi_priority.cpp`](../test/test_app/test_external_midi_priority.cpp)).
+      ([`tests/test_app/test_external_midi_priority.cpp`](../tests/test_app/test_external_midi_priority.cpp)).
 - [ ] If MN42 controllers are in the loop, replay
       `test_mn42_follow_clock_mode` from
-      [`test/test_app/test_mn42_control.cpp`](../test/test_app/test_mn42_control.cpp)
+      [`tests/test_app/test_mn42_control.cpp`](../tests/test_app/test_mn42_control.cpp)
       and note whether the handshake flags flipped.
 - [ ] Add any serial logs or scope captures to `artifacts/` and link them here.
 
@@ -44,11 +44,11 @@ had to twist. Keep the tone punk but the notes precise.
 - [ ] Trigger known-good seeds via the simulator (`AppState::primeSeeds` in
       [`src/app/AppState.cpp`](../src/app/AppState.cpp)) and compare the playback
       to the seed stories in [`docs/roadmaps/resonator.md`](roadmaps/resonator.md).
-- [ ] Run `pio test -e native --filter test_resonator_maps_seed_into_voice_plan`
+- [ ] Run `pio test -e native --filter test_engine --test-name test_resonator_maps_seed_into_voice_plan`
       to verify the modal math still aligns with
-      [`test/test_engine/test_resonator_voice_pool.cpp`](../test/test_engine/test_resonator_voice_pool.cpp).
+      [`tests/test_engine/test_resonator_voice_pool.cpp`](../tests/test_engine/test_resonator_voice_pool.cpp).
 - [ ] For granular or sampler issues, cross-check the coverage in
-      [`test/test_app/test_granular_source_toggle.cpp`](../test/test_app/test_granular_source_toggle.cpp)
+      [`tests/test_app/test_granular_source_toggle.cpp`](../tests/test_app/test_granular_source_toggle.cpp)
       and note which seed presets misbehaved.
 - [ ] When you find the fix, add a short summary plus commit hash here and mirror
       it in the calibration doc if it requires future rigs to adjust.

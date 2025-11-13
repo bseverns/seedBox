@@ -37,7 +37,7 @@ polaroids: annotate it, remix it, but keep the intent front and centre.
       snapshot the wiring before you close the enclosure.
 - [ ] Route the TRS IN jack through the opto coupler and into Serial7 RX (pin 28)
       so the external clock tests in
-      [`test/test_app/test_external_midi_priority.cpp`](../test/test_app/test_external_midi_priority.cpp)
+      [`tests/test_app/test_external_midi_priority.cpp`](../tests/test_app/test_external_midi_priority.cpp)
       keep matching hardware reality.
 - [ ] Add labels for MIDI IN/OUT polarity on the PCB or wiring harness — future
       testers will thank you when reproducing `clock dominance` demos.

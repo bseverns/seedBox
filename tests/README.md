@@ -20,11 +20,11 @@ flowchart TD
 
 | Folder | Focus | Why you should care |
 | --- | --- | --- |
-| `test_app/` | Covers `AppState`, reseeding rituals, display snapshots. | Stops UI lies before they hit the OLED. |
-| `tests/test_app/` | Scripted surface walkthroughs via the native board shim. | Proves the front panel choreography without touching hardware. |
-| `test_patterns/` | Stresses the scheduler, tick math, and trigger ordering. | Keeps rhythms tight even after wild refactors. |
-| `tests/test_patterns/` | BPM + swing goldens for the clock log. | Documents exactly where each tick lands so grooves stay teachable. |
-| `test_engine/` | Exercises DSP helpers and seed-to-sound flows. | Generates bite-sized reproducible examples for docs. |
+| `test_app/` | Covers `AppState`, reseeding rituals, display snapshots, and the scripted panel walkthrough. | Stops UI lies before they hit the OLED and doubles as a front-panel rehearsal. |
+| `test_patterns/` | Stresses the scheduler, tick math, trigger ordering, plus the BPM/swing golden captures. | Keeps rhythms tight even after wild refactors and documents exactly where each tick lands. |
+| `test_engine/` | Exercises DSP helpers and seed-to-sound flows, including Euclid/Burst postcard renders. | Generates bite-sized reproducible examples for docs and fixture updates. |
+| `test_util/` | Utility math, quantizers, and helpers that glue the UI to DSP bits. | Gives reusable primitives regression coverage so experiments stay deterministic. |
+| `native_golden/` | Deterministic audio renders and manifest checks. | Publishes sonic receipts for every merge. |
 
 Everything uses Unity (the test framework bundled with PlatformIO), which keeps
 setup light and failure messages readable.
@@ -66,7 +66,7 @@ we mostly run the suite on laptops.
   board shim. Run it solo with:
 
   ```bash
-  pio test -e native --filter tests/test_app/test_app.cpp
+  pio test -e native --filter test_app --test-name test_scripted_front_panel_walkthrough
   ```
 
 - **Clock goldens:** `tests/test_patterns/test_tick_golden.cpp` captures tick
@@ -74,7 +74,7 @@ we mostly run the suite on laptops.
   `artifacts/pattern_ticks_*.txt` fixtures by flipping `ENABLE_GOLDEN`:
 
   ```bash
-  pio test -e native_golden --filter tests/test_patterns/test_tick_golden.cpp
+  pio test -e native_golden --filter test_patterns --test-name test_clock_tick_log_golden
   ```
 
 - **Engine postcards:** `tests/test_engine/test_euclid_burst.cpp` now writes

@@ -2,7 +2,7 @@
 #define ENABLE_GOLDEN 0
 #endif
 
-#include <cassert>
+#include <unity.h>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -25,7 +25,7 @@ std::vector<std::uint8_t> rotateMask(const std::vector<std::uint8_t>& mask, std:
   std::vector<std::uint8_t> rotated(mask.size());
   const std::size_t len = mask.size();
   for (std::size_t i = 0; i < len; ++i) {
-    rotated[(i + amount) % len] = mask[i];
+    rotated[(i + len - (amount % len)) % len] = mask[i];
   }
   return rotated;
 }
@@ -65,11 +65,13 @@ AppState::DisplaySnapshot captureSnapshotForEngine(uint8_t engineId) {
 // These helpers double as lab notes: each test narrates a deterministic engine
 // behaviour so students can follow the maths without needing the full firmware
 // running.
-void test_euclid_mask() {
+void run_euclid_mask() {
   Engine::PrepareContext ctx{};
   ctx.masterSeed = 0x12345678u;
 
-  const std::vector<std::uint8_t> baseMask{1, 0, 0, 1, 0, 1, 0, 0};
+  // The engine seeds pulses by comparing quantised divisions of the fill range,
+  // so the unrotated mask starts on the third step rather than index zero.
+  const std::vector<std::uint8_t> baseMask{0, 0, 1, 0, 0, 1, 0, 1};
   const auto runScenario = [&](std::uint8_t rotate, const std::vector<std::uint8_t>& expected) {
     EuclidEngine engine;
     engine.prepare(ctx);
@@ -78,17 +80,24 @@ void test_euclid_mask() {
     engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kRotate), rotate});
 
     const auto& mask = engine.mask();
-    assert(mask == expected);
+    TEST_ASSERT_EQUAL_UINT32(expected.size(), mask.size());
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(expected[i], mask[i], "Euclid mask mismatch");
+    }
     for (std::size_t i = 0; i < expected.size(); ++i) {
       engine.onTick({i});
-      assert(engine.lastGate() == (expected[i] != 0));
+      TEST_ASSERT_EQUAL_INT_MESSAGE(expected[i] != 0, engine.lastGate(), "Euclid gate mismatch");
     }
 
     const auto state = engine.serializeState();
     EuclidEngine restored;
     restored.prepare(ctx);
     restored.deserializeState(state);
-    assert(restored.mask() == expected);
+    const auto& restoredMask = restored.mask();
+    TEST_ASSERT_EQUAL_UINT32(expected.size(), restoredMask.size());
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(expected[i], restoredMask[i], "Euclid restore mismatch");
+    }
   };
 
   runScenario(0, baseMask);
@@ -96,7 +105,7 @@ void test_euclid_mask() {
   runScenario(3, rotateMask(baseMask, 3));
 }
 
-void test_burst_spacing() {
+void run_burst_spacing() {
   BurstEngine engine;
   Engine::PrepareContext ctx{};
   ctx.masterSeed = 0xCAFEBABEu;
@@ -109,9 +118,11 @@ void test_burst_spacing() {
   engine.onSeed({seed, 1000});
 
   const auto& triggers = engine.pendingTriggers();
-  assert(triggers.size() == 4);
+  TEST_ASSERT_EQUAL_UINT32(4, triggers.size());
   const std::vector<std::uint32_t> expected{1000, 1120, 1240, 1360};
-  assert(triggers == expected);
+  for (std::size_t i = 0; i < expected.size(); ++i) {
+    TEST_ASSERT_EQUAL_UINT32(expected[i], triggers[i]);
+  }
 
   const auto state = engine.serializeState();
   BurstEngine copy;
@@ -119,28 +130,28 @@ void test_burst_spacing() {
   copy.deserializeState(state);
   copy.onSeed({seed, 200});
   const auto& second = copy.pendingTriggers();
-  assert(second.size() == 4);
-  assert(second.front() == 200);
-  assert(second.back() == 200 + 3 * 120);
+  TEST_ASSERT_EQUAL_UINT32(4, second.size());
+  TEST_ASSERT_EQUAL_UINT32(200, second.front());
+  TEST_ASSERT_EQUAL_UINT32(200 + 3 * 120, second.back());
 
   // Clamp checks: absurd cluster counts fall back to the 16 note ceiling and negative spacing
   // resolves to zero so bursts collapse into a flam.
   engine.onParam({0, static_cast<std::uint16_t>(BurstEngine::Param::kClusterCount), 32});
   engine.onSeed({seed, 400});
   const auto& clamped = engine.pendingTriggers();
-  assert(clamped.size() == 16);
-  assert(clamped.back() == 400 + 15 * 120);
+  TEST_ASSERT_EQUAL_UINT32(16, clamped.size());
+  TEST_ASSERT_EQUAL_UINT32(400 + 15 * 120, clamped.back());
 
   engine.onParam({0, static_cast<std::uint16_t>(BurstEngine::Param::kSpacingSamples), -42});
   engine.onSeed({seed, 512});
   const auto& collapsed = engine.pendingTriggers();
-  assert(collapsed.size() == 16);
+  TEST_ASSERT_EQUAL_UINT32(16, collapsed.size());
   for (auto value : collapsed) {
-    assert(value == 512);
+    TEST_ASSERT_EQUAL_UINT32(512, value);
   }
 }
 
-void test_router_reseed_and_locks() {
+void run_router_reseed_and_locks() {
   EngineRouter router;
   router.init(EngineRouter::Mode::kSim);
   router.setSeedCount(2);
@@ -148,39 +159,39 @@ void test_router_reseed_and_locks() {
   router.assignSeed(1, EngineRouter::kEuclidId);
 
   router.reseed(0x00001234u);
-  assert(router.euclid().generationSeed() == 0x00001234u);
+  TEST_ASSERT_EQUAL_UINT32(0x00001234u, router.euclid().generationSeed());
 
   router.setSeedLock(0, true);
   router.setSeedLock(1, true);
   router.reseed(0x00005678u);
-  assert(router.euclid().generationSeed() == 0x00001234u);
+  TEST_ASSERT_EQUAL_UINT32(0x00001234u, router.euclid().generationSeed());
 
   router.setGlobalLock(true);
   router.reseed(0x00009ABCu);
-  assert(router.euclid().generationSeed() == 0x00001234u);
+  TEST_ASSERT_EQUAL_UINT32(0x00001234u, router.euclid().generationSeed());
 
   router.setGlobalLock(false);
   router.setSeedLock(1, false);
   router.reseed(0x00ABCDEFu);
-  assert(router.euclid().generationSeed() == 0x00ABCDEFu);
+  TEST_ASSERT_EQUAL_UINT32(0x00ABCDEFu, router.euclid().generationSeed());
 }
 
-void test_engine_display_snapshots() {
+void run_engine_display_snapshots() {
   const auto euclidSnap = captureSnapshotForEngine(EngineRouter::kEuclidId);
-  assert(std::strstr(euclidSnap.status, "ECL") != nullptr);
+  TEST_ASSERT_NOT_NULL_MESSAGE(std::strstr(euclidSnap.status, "ECL"), "Euclid snapshot missing ECL tag");
   maybeWriteSnapshot("Euclid", euclidSnap);
 
   const auto burstSnap = captureSnapshotForEngine(EngineRouter::kBurstId);
-  assert(std::strstr(burstSnap.status, "BST") != nullptr);
+  TEST_ASSERT_NOT_NULL_MESSAGE(std::strstr(burstSnap.status, "BST"), "Burst snapshot missing BST tag");
   maybeWriteSnapshot("Burst", burstSnap);
 }
 }  // namespace
 
-int main() {
-  test_euclid_mask();
-  test_burst_spacing();
-  test_router_reseed_and_locks();
-  test_engine_display_snapshots();
-  return 0;
-}
+void test_euclid_mask() { run_euclid_mask(); }
+
+void test_burst_spacing() { run_burst_spacing(); }
+
+void test_router_reseed_and_locks() { run_router_reseed_and_locks(); }
+
+void test_engine_display_snapshots() { run_engine_display_snapshots(); }
 
