@@ -86,7 +86,10 @@ jobs:
 
       - name: Run native golden harness
         if: ${{ matrix.name == 'native' }}
-        run: pio test -e native -D ENABLE_GOLDEN=1
+        env:
+          PLATFORMIO_BUILD_FLAGS: -D ENABLE_GOLDEN=1
+          ENABLE_GOLDEN: "1"
+        run: pio test -e native
 
       - name: Refresh golden manifest
         if: ${{ matrix.name == 'native' }}

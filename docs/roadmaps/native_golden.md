@@ -26,7 +26,7 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 ## How to regenerate fixtures
 
 ```bash
-pio test -e native -D ENABLE_GOLDEN=1
+PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native
 python scripts/compute_golden_hashes.py --write
 ```
 
@@ -41,7 +41,7 @@ spot-check hashes before rewriting the manifest.
    modulation lanes) so reviewers get a full track sheet with each PR.
 2. **Multichannel adventures.** Stereo renders are live, so start sketching
    surround/mid-side takes or alternate busses once the DSP matures.
-3. **CI artifacts.** The workflow now replays `pio test -e native -D ENABLE_GOLDEN=1`
+3. **CI artifacts.** The workflow now replays `PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native`
    and uploads `build/fixtures/*` plus the refreshed manifest. Reviewers can
    grab the artifact bundle straight from the PR Files tab and spin the mix
    without cloning.
