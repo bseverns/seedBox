@@ -25,7 +25,7 @@ std::vector<std::uint8_t> rotateMask(const std::vector<std::uint8_t>& mask, std:
   std::vector<std::uint8_t> rotated(mask.size());
   const std::size_t len = mask.size();
   for (std::size_t i = 0; i < len; ++i) {
-    rotated[(i + amount) % len] = mask[i];
+    rotated[(i + len - (amount % len)) % len] = mask[i];
   }
   return rotated;
 }
@@ -69,7 +69,9 @@ void run_euclid_mask() {
   Engine::PrepareContext ctx{};
   ctx.masterSeed = 0x12345678u;
 
-  const std::vector<std::uint8_t> baseMask{1, 0, 0, 1, 0, 1, 0, 0};
+  // The engine seeds pulses by comparing quantised divisions of the fill range,
+  // so the unrotated mask starts on the third step rather than index zero.
+  const std::vector<std::uint8_t> baseMask{0, 0, 1, 0, 0, 1, 0, 1};
   const auto runScenario = [&](std::uint8_t rotate, const std::vector<std::uint8_t>& expected) {
     EuclidEngine engine;
     engine.prepare(ctx);

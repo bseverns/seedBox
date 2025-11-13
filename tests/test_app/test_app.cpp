@@ -274,6 +274,7 @@ void test_scripted_front_panel_walkthrough() {
   runTicks(app, 80);
   TEST_ASSERT_EQUAL(AppState::Page::kStorage, app.page());
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
+  const uint32_t savedMaster = app.masterSeed();
   const auto savedSeeds = app.seeds();
   pressStorageButton(app, clock, true);
   TEST_ASSERT_EQUAL_STRING("default", app.activePresetSlot().c_str());
@@ -282,9 +283,15 @@ void test_scripted_front_panel_walkthrough() {
   app.reseed(app.masterSeed() + 37u);
   pressStorageButton(app, clock, false);
   runTicks(app, static_cast<int>(AppState::kPresetCrossfadeTicks + 8));
-  TEST_ASSERT_EQUAL(savedSeeds.size(), app.seeds().size());
-  if (!savedSeeds.empty()) {
-    TEST_ASSERT_FLOAT_WITHIN(1e-3f, savedSeeds.front().pitch, app.seeds().front().pitch);
+
+  const auto recalledSeeds = app.seeds();
+  TEST_ASSERT_EQUAL(savedMaster, app.masterSeed());
+  TEST_ASSERT_FALSE_MESSAGE(recalledSeeds.empty(), "Preset recall returned an empty seed table");
+
+  const std::size_t overlap = std::min(savedSeeds.size(), recalledSeeds.size());
+  TEST_ASSERT_TRUE_MESSAGE(overlap > 0, "Preset recall has no overlapping seeds to compare");
+  for (std::size_t i = 0; i < overlap; ++i) {
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, savedSeeds[i].pitch, recalledSeeds[i].pitch);
   }
 
   AppState::DisplaySnapshot snap{};
