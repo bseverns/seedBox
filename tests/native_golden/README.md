@@ -27,7 +27,7 @@ truth about what we heard.
 
 ```bash
 # 1. Render the fixtures with golden mode on.
-PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native
+pio test -e native_golden
 
 # 2. Recompute hashes and commit the manifest update.
 python scripts/compute_golden_hashes.py --write
@@ -35,6 +35,9 @@ python scripts/compute_golden_hashes.py --write
 # 3. (Optional) annotate liner notes.
 python scripts/compute_golden_hashes.py --note drone-intro="v1 sine reference" --write
 ```
+
+That dedicated env mirrors the vanilla native build but bakes in the flag so we
+don't accidentally reuse a stale binary and skip fixture writes in CI.
 
 Need a quick audit without touching disk? Drop the `--write` flag for a dry
 run; the script prints a table of fixture names, hashes, and frame counts.

@@ -89,7 +89,7 @@ jobs:
         env:
           PLATFORMIO_BUILD_FLAGS: -D ENABLE_GOLDEN=1
           ENABLE_GOLDEN: "1"
-        run: pio test -e native
+        run: pio test -e native_golden
 
       - name: Refresh golden manifest
         if: ${{ matrix.name == 'native' }}
