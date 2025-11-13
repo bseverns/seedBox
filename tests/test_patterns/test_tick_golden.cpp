@@ -91,16 +91,18 @@ void test_clock_tick_log_golden() {
     scheduler.clearTickLog();
 
     const std::size_t tickCount = 24U;
+    std::vector<std::uint32_t> captured;
+    captured.reserve(tickCount);
     for (std::size_t i = 0; i < tickCount; ++i) {
       clock.onTick();
+      captured.push_back(scheduler.nowSamples());
     }
 
-    const auto& log = scheduler.tickLog();
-    TEST_ASSERT_EQUAL_UINT32(tickCount, log.size());
+    TEST_ASSERT_EQUAL_UINT32(tickCount, captured.size());
     const auto expected = computeExpectedTickLog(scenario.bpm, scenario.swing, tickCount);
     for (std::size_t i = 0; i < tickCount; ++i) {
-      TEST_ASSERT_EQUAL_UINT32(expected[i], log[i]);
+      TEST_ASSERT_EQUAL_UINT32(expected[i], captured[i]);
     }
-    maybeWriteGolden(scenario, log);
+    maybeWriteGolden(scenario, captured);
   }
 }

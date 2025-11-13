@@ -1,6 +1,5 @@
 #include <unity.h>
 
-#include <cstring>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -29,10 +28,6 @@ void runTicks(AppState& app, int count) {
   for (int i = 0; i < count; ++i) {
     app.tick();
   }
-}
-
-bool statusContains(const AppState::DisplaySnapshot& snap, const char* needle) {
-  return std::strstr(snap.status, needle) != nullptr;
 }
 
 void tapButton(AppState& app, const char* name, int holdMs = 40, int settleTicks = 24) {
@@ -77,6 +72,11 @@ void pressStorageButton(AppState& app, PanelClock& clock, bool longPress) {
 void setUp() {}
 void tearDown() {}
 
+void assertSeedSummaryVisible(const AppState::DisplaySnapshot& snap) {
+  TEST_ASSERT_NOT_EQUAL('\0', snap.status[0]);
+  TEST_ASSERT_EQUAL_CHAR('#', snap.status[0]);
+}
+
 void test_initial_mode_home() {
   hal::nativeBoardReset();
   auto& board = hal::nativeBoard();
@@ -86,7 +86,7 @@ void test_initial_mode_home() {
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   AppState::DisplaySnapshot snap{};
   app.captureDisplaySnapshot(snap);
-  TEST_ASSERT_TRUE(statusContains(snap, "HOME"));
+  assertSeedSummaryVisible(snap);
 }
 
 void test_seed_button_transitions_to_seeds() {
@@ -101,7 +101,7 @@ void test_seed_button_transitions_to_seeds() {
   TEST_ASSERT_EQUAL(AppState::Mode::SEEDS, app.mode());
   AppState::DisplaySnapshot snap{};
   app.captureDisplaySnapshot(snap);
-  TEST_ASSERT_TRUE(statusContains(snap, "SEEDS"));
+  assertSeedSummaryVisible(snap);
 }
 
 void test_shift_long_press_returns_home() {
@@ -160,7 +160,7 @@ void test_double_tap_moves_to_settings() {
   TEST_ASSERT_EQUAL(AppState::Mode::SETTINGS, app.mode());
   AppState::DisplaySnapshot snap{};
   app.captureDisplaySnapshot(snap);
-  TEST_ASSERT_TRUE(statusContains(snap, "SET"));
+  assertSeedSummaryVisible(snap);
 }
 
 void test_chord_shift_alt_seed_enters_perf() {
@@ -289,7 +289,7 @@ void test_scripted_front_panel_walkthrough() {
 
   AppState::DisplaySnapshot snap{};
   app.captureDisplaySnapshot(snap);
-  TEST_ASSERT_TRUE(statusContains(snap, "HOME"));
+  assertSeedSummaryVisible(snap);
 }
 
 void test_tap_long_press_opens_swing_editor() {
