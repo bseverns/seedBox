@@ -73,6 +73,16 @@ void longPressShift(AppState& app, int settleTicks = 80) {
   hal::nativeBoardFeed("wait 600ms");
   hal::nativeBoardFeed("btn shift up");
   runTicks(app, settleTicks);
+
+  if (app.mode() != AppState::Mode::HOME) {
+    // In practice the UI controller sometimes takes an extra frame or two to
+    // sweep PERF's latched state off the stage.  Instead of flaking out, keep
+    // ticking in short bursts until the long-press transition lands back on
+    // HOME or we exhaust a generous grace period.
+    for (int attempt = 0; attempt < 12 && app.mode() != AppState::Mode::HOME; ++attempt) {
+      runTicks(app, 10);
+    }
+  }
 }
 }  // namespace
 
