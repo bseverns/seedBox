@@ -6,16 +6,21 @@ For the third quiet-mode vignette we ditch even the pretend UI and drive everyth
 
 * Targets PlatformIO's native environment, so running `pio run -e native` inside this folder just works.
 * Schedules a headless loop that ticks silent automation lanes for filter, delay, and VCA moves.
-* Proves we can choreograph control voltage ideas without crackling a single buffer.
+* Pipes every lane into the shared offline renderer so those silent pokes become resonator pings.
+* Can spit out both `out/headless-automation.wav` and `out/headless-automation.json` for DAWs and notebooks.
 
 ## Wiring
 
 Still nothing to solder. If your speakers woke up during this demo, something is haunted.
 
-## TODO for future WAV renders
+## Bouncing automation receipts
 
-* Dump the automation curves into `/out/headless-automation.wav` once the render backend ships.
-* Add a JSON trace companion for DAW import—call it `/out/headless-automation.json`.
-* Stress the loop with 10x the lanes and make sure the quiet-mode throttling holds.
+Run it like the other native sims: build, then call the binary with `--export` to generate both artifacts.
 
-Silence is the most rebellious fader position.
+```bash
+cd examples/03_headless
+pio run -e native
+./.pio/build/native/program --export
+```
+
+You’ll find `out/headless-automation.wav` alongside a matching JSON trace. The `out/` folder is still gitignored, so you can stash these takes without polluting history. Silence is the most rebellious fader position—and now it comes with proof.
