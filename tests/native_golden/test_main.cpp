@@ -19,6 +19,7 @@
 #include "SeedBoxConfig.h"
 #include "engine/BurstEngine.h"
 #include "engine/EuclidEngine.h"
+#include "engine/Granular.h"
 #include "engine/Resonator.h"
 #include "engine/Sampler.h"
 #include "io/MidiRouter.h"
@@ -46,6 +47,8 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
+    {"granular-haze", "build/fixtures/granular-haze.wav", "769c3d774ce0dadf"},
+    {"mixer-console", "build/fixtures/mixer-console.wav", "219433fb7ced6be1"},
 };
 
 constexpr GoldenFixture kLogFixtures[] = {
@@ -400,6 +403,195 @@ std::vector<int16_t> render_resonator_fixture() {
     return samples;
 }
 
+struct GranularVoiceSpec {
+    Seed seed;
+    std::uint32_t when;
+    double carrier_hz;
+    double drift_amount;
+};
+
+Seed make_granular_seed(std::uint32_t id,
+                        std::uint32_t prng,
+                        float pitch,
+                        float transpose,
+                        float grain_ms,
+                        float spray_ms,
+                        float window_skew,
+                        float spread,
+                        GranularEngine::Source source,
+                        std::uint8_t sd_slot) {
+    Seed seed{};
+    seed.id = id;
+    seed.prng = prng;
+    seed.pitch = pitch;
+    seed.granular.transpose = transpose;
+    seed.granular.grainSizeMs = grain_ms;
+    seed.granular.sprayMs = spray_ms;
+    seed.granular.windowSkew = window_skew;
+    seed.granular.stereoSpread = spread;
+    seed.granular.source = static_cast<std::uint8_t>(source);
+    seed.granular.sdSlot = sd_slot;
+    seed.engine = static_cast<std::uint8_t>(Engine::Type::kGranular);
+    return seed;
+}
+
+double granular_window_shape(double normalized, double skew) {
+    normalized = std::clamp(normalized, 0.0, 1.0);
+    const double base = 0.5 - 0.5 * std::cos(normalized * M_PI);
+    const double bias = std::clamp(skew, -1.0, 1.0);
+    const double exponent = 1.0 + bias * 1.5;
+    return std::pow(base, exponent);
+}
+
+double random_signed(uint32_t& state) {
+    state = state * 1664525u + 1013904223u;
+    const double scaled = static_cast<double>((state >> 8u) & 0x00FFFFFFu) / static_cast<double>(0x01000000u);
+    return (scaled * 2.0) - 1.0;
+}
+
+std::vector<int16_t> render_granular_fixture() {
+    GranularEngine engine;
+    engine.init(GranularEngine::Mode::kSim);
+    engine.setMaxActiveVoices(6);
+    engine.armLiveInput(true);
+    engine.registerSdClip(1, "clip-a.wav");
+    engine.registerSdClip(2, "clip-b.wav");
+
+    const GranularVoiceSpec specs[] = {
+        {make_granular_seed(40, 0x1a2b3c4du, -5.0f, 0.0f, 95.0f, 24.0f, -0.45f, 0.35f,
+                             GranularEngine::Source::kLiveInput, 0u),
+         4000u, 146.83, 0.12},
+        {make_granular_seed(41, 0x77773311u, 0.0f, 7.0f, 130.0f, 18.0f, 0.25f, 0.8f,
+                             GranularEngine::Source::kSdClip, 1u),
+         12000u, 196.0, 0.2},
+        {make_granular_seed(42, 0x31337fffu, 7.0f, -5.0f, 80.0f, 12.0f, 0.65f, 0.6f,
+                             GranularEngine::Source::kSdClip, 2u),
+         20000u, 246.94, 0.08},
+    };
+
+    for (const auto& spec : specs) {
+        engine.trigger(spec.seed, spec.when);
+    }
+
+    std::vector<double> left(kDroneFrames, 0.0);
+    std::vector<double> right(kDroneFrames, 0.0);
+
+    for (std::size_t i = 0; i < std::size(specs); ++i) {
+        const auto voice = engine.voice(static_cast<std::uint8_t>(i));
+        if (!voice.active) {
+            continue;
+        }
+        uint32_t rng = voice.seedPrng;
+        const double base_freq = specs[i].carrier_hz * static_cast<double>(voice.playbackRate);
+        const double grain_length = std::max(0.04, static_cast<double>(voice.sizeMs) / 1000.0);
+        const double sustain = grain_length * 2.5;
+        const double spread = static_cast<double>(voice.stereoSpread);
+        for (std::size_t frame = voice.startSample;
+             frame < left.size() && frame < voice.startSample + static_cast<std::size_t>((sustain + grain_length) * kSampleRate);
+             ++frame) {
+            const double t = (static_cast<double>(frame) - static_cast<double>(voice.startSample)) / kSampleRate;
+            const double normalized = t / grain_length;
+            if (normalized > 4.0) {
+                break;
+            }
+            double envelope = granular_window_shape(normalized, static_cast<double>(voice.windowSkew));
+            const double tail = std::exp(-t * (1.2 + 0.6 * (1.0 - spread)));
+            envelope *= tail;
+            if (envelope < 1e-5) {
+                continue;
+            }
+
+            const double lfo = std::sin(2.0 * M_PI * (0.35 + 0.1 * spread) * t);
+            const double wobble = 1.0 + 0.015 * lfo;
+            const double jitter = specs[i].drift_amount * random_signed(rng);
+            const double freq = base_freq * wobble * (1.0 + 0.01 * jitter);
+            const double phase = 2.0 * M_PI * freq * t;
+            double sample = std::sin(phase);
+            sample += 0.45 * std::sin(phase * 1.62 + 0.3 * jitter);
+            if (voice.source == GranularEngine::Source::kSdClip) {
+                sample += 0.25 * std::sin(phase * 0.5 + random_signed(rng) * 0.4);
+            } else {
+                sample += 0.2 * std::sin(phase * 2.0 + lfo);
+            }
+            sample *= envelope * (0.75 + 0.25 * spread);
+            left[frame] += sample * static_cast<double>(voice.leftGain);
+            right[frame] += sample * static_cast<double>(voice.rightGain);
+        }
+    }
+
+    double max_abs = 0.0;
+    for (std::size_t i = 0; i < left.size(); ++i) {
+        max_abs = std::max(max_abs, std::max(std::abs(left[i]), std::abs(right[i])));
+    }
+    const double scale = (max_abs > 0.0) ? (0.9 / max_abs) : 0.0;
+
+    std::vector<int16_t> samples(left.size() * 2u);
+    for (std::size_t i = 0; i < left.size(); ++i) {
+        const double l = left[i] * scale;
+        const double r = right[i] * scale;
+        samples[2u * i] = static_cast<int16_t>(std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768, 32767));
+        samples[2u * i + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768, 32767));
+    }
+    return samples;
+}
+
+std::vector<int16_t> render_mixer_fixture() {
+    const auto drone = make_drone();
+    const auto sampler = render_sampler_fixture();
+    const auto resonator = render_resonator_fixture();
+    const auto granular = render_granular_fixture();
+
+    const std::size_t frames = kDroneFrames;
+    std::vector<double> left(frames, 0.0);
+    std::vector<double> right(frames, 0.0);
+
+    auto accumulate_mono = [&](const std::vector<int16_t>& mono, double left_gain, double right_gain) {
+        const double scale = 1.0 / 32768.0;
+        for (std::size_t i = 0; i < frames && i < mono.size(); ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            left[i] += sample * left_gain;
+            right[i] += sample * right_gain;
+        }
+    };
+
+    accumulate_mono(drone, 0.5, 0.5);
+    accumulate_mono(sampler, 0.35, 0.55);
+    accumulate_mono(resonator, 0.4, 0.3);
+
+    const double granular_scale = 1.0 / 32768.0;
+    for (std::size_t frame = 0; frame < frames && (frame * 2u + 1u) < granular.size(); ++frame) {
+        const double l = static_cast<double>(granular[2u * frame]) * granular_scale;
+        const double r = static_cast<double>(granular[2u * frame + 1u]) * granular_scale;
+        left[frame] += l * 0.65;
+        right[frame] += r * 0.65;
+    }
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double cross = 0.12 * (left[i] - right[i]);
+        left[i] -= cross;
+        right[i] += cross;
+        left[i] = std::tanh(left[i] * 1.1);
+        right[i] = std::tanh(right[i] * 1.1);
+    }
+
+    double max_abs = 0.0;
+    for (std::size_t i = 0; i < frames; ++i) {
+        max_abs = std::max(max_abs, std::max(std::abs(left[i]), std::abs(right[i])));
+    }
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+
+    std::vector<int16_t> samples(frames * 2u);
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double l = left[i] * scale;
+        const double r = right[i] * scale;
+        samples[2u * i] = static_cast<int16_t>(std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768, 32767));
+        samples[2u * i + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768, 32767));
+    }
+    return samples;
+}
+
 std::string fnv1a_bytes(const std::string& bytes) {
     constexpr std::uint64_t kOffset = 1469598103934665603ull;
     constexpr std::uint64_t kPrime = 1099511628211ull;
@@ -578,6 +770,40 @@ void test_render_resonator_golden() {
     assert_manifest_contains(manifest_body, kAudioFixtures[2]);
 }
 
+void test_render_granular_golden() {
+    golden::WavWriteRequest request{};
+    request.path = kAudioFixtures[3].path;
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.channels = 2;
+    request.samples = render_granular_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write granular golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[3].expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, kAudioFixtures[3]);
+}
+
+void test_render_mixer_golden() {
+    golden::WavWriteRequest request{};
+    request.path = kAudioFixtures[4].path;
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.channels = 2;
+    request.samples = render_mixer_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write mixer golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[4].expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, kAudioFixtures[4]);
+}
+
 void test_log_euclid_burst_golden() {
     const std::string euclid_log = render_euclid_log();
     const std::string burst_log = render_burst_log();
@@ -624,6 +850,8 @@ int main(int, char**) {
     RUN_TEST(test_render_and_compare_golden);
     RUN_TEST(test_render_sampler_golden);
     RUN_TEST(test_render_resonator_golden);
+    RUN_TEST(test_render_granular_golden);
+    RUN_TEST(test_render_mixer_golden);
     RUN_TEST(test_log_euclid_burst_golden);
 #else
     RUN_TEST(test_golden_mode_disabled);

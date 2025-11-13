@@ -67,7 +67,7 @@ we mostly run the suite on laptops.
   `artifacts/pattern_ticks_*.txt` fixtures by flipping `ENABLE_GOLDEN`:
 
   ```bash
-  pio test -e native -D ENABLE_GOLDEN=1 \
+  PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native \
     --filter tests/test_patterns/test_tick_golden.cpp
   ```
 

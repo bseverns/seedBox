@@ -27,7 +27,7 @@ truth about what we heard.
 
 ```bash
 # 1. Render the fixtures with golden mode on.
-pio test -e native -D ENABLE_GOLDEN=1
+PLATFORMIO_BUILD_FLAGS="-D ENABLE_GOLDEN=1" pio test -e native
 
 # 2. Recompute hashes and commit the manifest update.
 python scripts/compute_golden_hashes.py --write
