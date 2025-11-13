@@ -86,6 +86,13 @@ void pressStorageButton(AppState& app, PanelClock& clock, bool longPress) {
 }
 
 void longPressShift(AppState& app, int settleTicks = 80) {
+  // Give the input pipeline time to flush any pending double-tap windows so a
+  // fresh long press is never misinterpreted as the "second tap" of the chord
+  // we just released. The poll period is 10ms, so 32 ticks buys us >300ms of
+  // breathing room, comfortably past the 280ms double-press window.
+  constexpr int kDoubleTapCooldownTicks = 32;
+  runTicks(app, kDoubleTapCooldownTicks);
+
   hal::nativeBoardFeed("btn shift down");
   hal::nativeBoardFeed("wait 600ms");
   hal::nativeBoardFeed("btn shift up");
