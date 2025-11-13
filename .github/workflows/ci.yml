@@ -89,16 +89,29 @@ jobs:
         env:
           PLATFORMIO_BUILD_FLAGS: -D ENABLE_GOLDEN=1
           ENABLE_GOLDEN: "1"
+          SEEDBOX_FIXTURE_ROOT: ${{ github.workspace }}/build/fixtures
         run: pio test -e native_golden
 
       - name: Refresh golden manifest
         if: ${{ matrix.name == 'native' }}
-        run: python scripts/compute_golden_hashes.py --write
+        run: |
+          if [ ! -d build/fixtures ]; then
+            echo "::error::Golden fixtures missing at build/fixtures. Did native_golden run?" >&2
+            if [ -d build ]; then
+              ls build
+            fi
+            exit 1
+          fi
+          python scripts/compute_golden_hashes.py --write
 
       - name: Stage golden fixtures for upload
         if: ${{ matrix.name == 'native' }}
         run: |
           mkdir -p artifacts/native_golden
+          if [ ! -d build/fixtures ]; then
+            echo "::error::Golden fixtures missing at build/fixtures. Cannot stage artifacts." >&2
+            exit 1
+          fi
           rsync -a build/fixtures/ artifacts/native_golden/
           cp tests/native_golden/golden.json artifacts/native_golden/
 

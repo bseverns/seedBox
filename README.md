@@ -62,8 +62,11 @@ pio test -e native -f test_app/test_presets.cpp
 ## Sonic receipts — the native golden pipeline
 
 - Fire up the dedicated golden env with `pio test -e native_golden` to render
-  deterministic fixtures into `build/fixtures/`. It mirrors the standard native
-  toolchain but bakes in the flag so cached binaries never ghost the renders.
+  deterministic fixtures into `build/fixtures/`. The harness now walks up to the
+  nearest `platformio.ini`, so even though PlatformIO runs tests from `.pio/`
+  the WAVs land in the repo root where docs and scripts expect them. It mirrors
+  the standard native toolchain but bakes in the flag so cached binaries never
+  ghost the renders.
 - `scripts/compute_golden_hashes.py --write` recomputes hashes and rewrites
   `tests/native_golden/golden.json` so reviewers can diff sound changes instead
   of guessing.

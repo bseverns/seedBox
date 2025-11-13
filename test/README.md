@@ -45,7 +45,11 @@ Defaults for every switch live in [`include/SeedBoxConfig.h`](../include/SeedBox
 - `ENABLE_GOLDEN` — When set, tests can record fresh comparison data into
   `artifacts/`. Commit the intent in docs, not the raw files, so the repo stays
   lean. Fire up the `native_golden` PlatformIO env to toggle it without
-  juggling manual build flags.
+  juggling manual build flags. The harness auto-discovers the repo root by
+  walking up to `platformio.ini`, so the rendered WAVs always land in
+  `<repo>/build/fixtures` even though the binary runs inside `.pio/`. Override
+  that default with `SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures` if you're
+  prototyping somewhere else.
 - `QUIET_MODE` — Suppresses log spam while still running assertions. Handy when
   you're generating `.wav` snippets into `out/` for listening tests.
 

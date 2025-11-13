@@ -13,7 +13,9 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   `render_granular_fixture()`) and a stereo master-bus composite
   (`mixer-console.wav`, blended by `render_mixer_fixture()`). Euclid and Burst
   debug transcripts still tag along so reviewers can diff timing logic beside
-  the WAVs.
+  the WAVs. The harness resolves the repository root at runtime (it walks up to
+  the nearest `platformio.ini`), so the rendered files always materialize in
+  `<repo>/build/fixtures` instead of hiding inside `.pio/`.
 - **Hash discipline:** `golden::hash_pcm16` still mirrors the Python helper for
   PCM data, and a sibling FNV-1a byte walker fingerprints the log files. Both
   feed the same manifest so hashes stay in lockstep between test harness and
@@ -36,6 +38,12 @@ in, which keeps CI from caching a non-golden binary between runs.
 Add `--note name="liner note"` if you want to annotate why a render changed.
 The script prints a tidy summary before committing anything to disk, so you can
 spot-check hashes before rewriting the manifest.
+
+Need to stage fixtures somewhere else while debugging? Pass
+`SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures` when running the tests. The manifest
+continues to publish the canonical `build/fixtures/...` paths so reviewers and
+automation stay in sync, but the raw files can live wherever keeps your flow
+snappy.
 
 ## Roadmap to richer coverage
 
