@@ -13,8 +13,10 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   `render_granular_fixture()`) and a stereo master-bus composite
   (`mixer-console.wav`, blended by `render_mixer_fixture()`). Euclid and Burst
   debug transcripts still tag along so reviewers can diff timing logic beside
-  the WAVs. The harness resolves the repository root at runtime (it walks up to
-  the nearest `platformio.ini`), so the rendered files always materialize in
+  the WAVs. PlatformIO bakes the absolute project root into
+  `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a `SEEDBOX_PROJECT_ROOT`
+  override, and it still climbs the filesystem looking for `platformio.ini` if
+  all else fails. No matter how you launch the tests, the renders end up in
   `<repo>/build/fixtures` instead of hiding inside `.pio/`.
 - **Hash discipline:** `golden::hash_pcm16` still mirrors the Python helper for
   PCM data, and a sibling FNV-1a byte walker fingerprints the log files. Both
@@ -40,10 +42,12 @@ The script prints a tidy summary before committing anything to disk, so you can
 spot-check hashes before rewriting the manifest.
 
 Need to stage fixtures somewhere else while debugging? Pass
-`SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures` when running the tests. The manifest
-continues to publish the canonical `build/fixtures/...` paths so reviewers and
-automation stay in sync, but the raw files can live wherever keeps your flow
-snappy.
+`SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures` when running the tests. Pair it
+with `SEEDBOX_PROJECT_ROOT=/wherever/you/cloned/seedBox` if you launched the
+binary from an odd working directory and want to skip the auto-discovery.
+The manifest continues to publish the canonical `build/fixtures/...` paths so
+reviewers and automation stay in sync, but the raw files can live wherever keeps
+your flow snappy.
 
 ## Roadmap to richer coverage
 

@@ -12,6 +12,7 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <unity.h>
@@ -63,6 +64,18 @@ std::filesystem::path find_project_root() {
             return std::filesystem::path(override);
         }
     }
+
+#if defined(SEEDBOX_PROJECT_ROOT_HINT)
+    if (SEEDBOX_PROJECT_ROOT_HINT[0] != '\0') {
+        std::filesystem::path hinted(SEEDBOX_PROJECT_ROOT_HINT);
+        std::error_code ec;
+        const auto normalized = std::filesystem::weakly_canonical(hinted, ec);
+        const auto& candidate = ec ? hinted : normalized;
+        if (std::filesystem::exists(candidate / "platformio.ini")) {
+            return candidate;
+        }
+    }
+#endif
 
     auto cursor = std::filesystem::current_path();
     for (int depth = 0; depth < 10; ++depth) {
@@ -765,6 +778,13 @@ void assert_manifest_contains(const std::string& manifest_body, const GoldenFixt
 }  // namespace
 
 void test_emit_flag_matrix() {
+#if ENABLE_GOLDEN
+    const auto root = fixture_root();
+    std::error_code ec;
+    std::filesystem::create_directories(root, ec);
+    TEST_ASSERT_FALSE_MESSAGE(static_cast<bool>(ec), "Failed to create golden fixture root");
+    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(root), "Golden fixture root missing on disk");
+#endif
     std::cout << "[seedbox-config] active flag matrix" << std::endl;
     for (const auto& flag : SeedBoxConfig::kFlagMatrix) {
         std::cout << "  " << flag.name << "=" << (flag.enabled ? "1" : "0")

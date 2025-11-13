@@ -89,6 +89,7 @@ jobs:
         env:
           PLATFORMIO_BUILD_FLAGS: -D ENABLE_GOLDEN=1
           ENABLE_GOLDEN: "1"
+          SEEDBOX_PROJECT_ROOT: ${{ github.workspace }}
           SEEDBOX_FIXTURE_ROOT: ${{ github.workspace }}/build/fixtures
         run: pio test -e native_golden
 
