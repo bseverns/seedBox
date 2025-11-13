@@ -67,6 +67,13 @@ void pressStorageButton(AppState& app, PanelClock& clock, bool longPress) {
   app.tick();
   runTicks(app, 10);
 }
+
+void longPressShift(AppState& app, int settleTicks = 80) {
+  hal::nativeBoardFeed("btn shift down");
+  hal::nativeBoardFeed("wait 600ms");
+  hal::nativeBoardFeed("btn shift up");
+  runTicks(app, settleTicks);
+}
 }  // namespace
 
 void setUp() {}
@@ -214,10 +221,16 @@ void test_scripted_front_panel_walkthrough() {
   // Walk the four encoder buttons to tour the page stack.
   tapButton(app, "density");
   TEST_ASSERT_EQUAL(AppState::Mode::ENGINE, app.mode());
+  longPressShift(app);
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   tapButton(app, "tone");
   TEST_ASSERT_EQUAL(AppState::Mode::PERF, app.mode());
+  longPressShift(app);
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   tapButton(app, "fx");
   TEST_ASSERT_EQUAL(AppState::Mode::UTIL, app.mode());
+  longPressShift(app);
+  TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
 
   // Double tap the transport to reach settings and chord back into performance.
   hal::nativeBoardFeed("btn tap down");
@@ -238,10 +251,7 @@ void test_scripted_front_panel_walkthrough() {
   TEST_ASSERT_EQUAL(AppState::Mode::PERF, app.mode());
 
   // Long-press shift to return home.
-  hal::nativeBoardFeed("btn shift down");
-  hal::nativeBoardFeed("wait 600ms");
-  hal::nativeBoardFeed("btn shift up");
-  runTicks(app, 80);
+  longPressShift(app);
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
 
   // Reseed via a long hold on the Seed encoder button.
