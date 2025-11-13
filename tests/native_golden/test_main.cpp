@@ -12,6 +12,9 @@
 #include <array>
 #include <cstdint>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 
 #ifndef ENABLE_GOLDEN
 #define ENABLE_GOLDEN 0
@@ -24,6 +27,8 @@ constexpr double kSampleRate = 48000.0;
 constexpr double kDroneFreqHz = 110.0;
 constexpr double kDroneAmplitude = 0.5;
 constexpr char kExpectedHash[] = "f53315eb7db89d33";
+constexpr char kManifestPath[] = "tests/native_golden/golden.json";
+constexpr char kFixtureName[] = "drone-intro";
 
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
@@ -166,6 +171,21 @@ void test_render_and_compare_golden() {
 
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write golden WAV fixture");
     TEST_ASSERT_EQUAL_STRING(kExpectedHash, hash.c_str());
+
+    const std::filesystem::path wav_path(request.path);
+    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(wav_path),
+                             "Golden WAV missing on disk");
+
+    std::ifstream manifest_stream{kManifestPath};
+    TEST_ASSERT_TRUE_MESSAGE(manifest_stream.good(),
+                             "Golden manifest missing — run scripts/compute_golden_hashes.py --write");
+    const std::string manifest_body{std::istreambuf_iterator<char>(manifest_stream),
+                                    std::istreambuf_iterator<char>()};
+    const std::string expected_fixture = std::string{"\"name\": \""} + kFixtureName + "\"";
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(std::string::npos, manifest_body.find(expected_fixture),
+                                  "Manifest missing fixture entry");
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(std::string::npos, manifest_body.find(hash),
+                                  "Manifest missing updated hash");
 }
 #else
 void test_golden_mode_disabled() {
