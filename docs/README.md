@@ -14,7 +14,9 @@ not intimidate.
 | `hardware_bill_of_materials.md` | Shopping list + sourcing lore for the physical rig. | Before you smash the "buy" button. |
 | `roadmaps/` | Long-form design notes for current and future engines. | When you're planning a feature or trying to understand the vision. |
 | `tutorials/scale_quantizer_flow.md` | Step-by-step quantizer lab that hooks UI experiments into `util::ScaleQuantizer`. | When you want to demo or test the scale quantizer story. |
-| _(future add-ons)_ | Calibration guides, wiring art, troubleshooting logs. | Whenever the community uncovers new stories worth sharing. |
+| `calibration_guide.md` | Bench ritual for lining up hardware behaviour with firmware expectations, complete with log prompts. | Right after you assemble or service a unit and before demoing it. |
+| `wiring_gallery.md` | Photo-friendly wiring reference that links each connection to the code relying on it. | While laying out harnesses or validating a builder’s work. |
+| `troubleshooting_log.md` | Rolling ledger of failures, fixes, and the tests that proved them. | The moment a rig misbehaves or when closing out a calibration run. |
 
 Suggested starting points in `roadmaps/`:
 - [`roadmaps/granular.md`](roadmaps/granular.md)
