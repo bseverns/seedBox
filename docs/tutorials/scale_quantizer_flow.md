@@ -50,7 +50,7 @@ all three snapping modes, root wrapping edge cases, and a drift/CSV regression s
 future docs have guardrails.
 
 ```bash
-pio test -e native --filter tests/test_util/test_scale_quantizer.cpp
+pio test -e native --filter test_util
 ```
 
 Watch for the `test_scale_quantizer_drift_samples_and_csv` case – it verifies the

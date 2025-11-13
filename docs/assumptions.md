@@ -33,7 +33,7 @@ of the knobs we expect to twist (and the ones we promise to leave alone).
   calls are isolated behind interfaces. Quiet mode stubs them so tests can run
   without real hardware thrash.
 - **Tests narrate intent.** Every tricky behavior needs a matching test in
-  `test/`. If a test fails, we expect the failure message to read like a lab
+  `tests/`. If a test fails, we expect the failure message to read like a lab
   note, not a stack trace puzzle.
 
 ## Human expectations

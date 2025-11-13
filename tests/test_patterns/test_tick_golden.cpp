@@ -104,9 +104,3 @@ void test_clock_tick_log_golden() {
     maybeWriteGolden(scenario, log);
   }
 }
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_clock_tick_log_golden);
-  return UNITY_END();
-}

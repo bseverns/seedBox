@@ -72,6 +72,7 @@ void pressStorageButton(AppState& app, PanelClock& clock, bool longPress) {
   app.tick();
   runTicks(app, 10);
 }
+}  // namespace
 
 void setUp() {}
 void tearDown() {}
@@ -323,21 +324,5 @@ void test_tap_long_press_opens_swing_editor() {
   runTicks(app, 32);
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.03f, app.swingPercent());
-}
-
-}  // namespace
-
-int main(int, char**) {
-  UNITY_BEGIN();
-  RUN_TEST(test_initial_mode_home);
-  RUN_TEST(test_seed_button_transitions_to_seeds);
-  RUN_TEST(test_shift_long_press_returns_home);
-  RUN_TEST(test_alt_long_press_opens_storage_page);
-  RUN_TEST(test_double_tap_moves_to_settings);
-  RUN_TEST(test_chord_shift_alt_seed_enters_perf);
-  RUN_TEST(test_shift_hold_rotate_moves_focus);
-  RUN_TEST(test_scripted_front_panel_walkthrough);
-  RUN_TEST(test_tap_long_press_opens_swing_editor);
-  return UNITY_END();
 }
 

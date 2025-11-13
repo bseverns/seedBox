@@ -22,7 +22,7 @@ comment or mini README nearby so the next curious hacker can follow along.
 
 - **Trace the flow**: Start at `main.cpp`, hop into `app/`, then explore engines
   and IO as you need. It's okay to treat it like a choose-your-own-adventure.
-- **Mirror changes in tests**: Most logic has a friend in `test/`. When you tweak
+- **Mirror changes in tests**: Most logic has a friend in `tests/`. When you tweak
   behavior, update the matching test so the intent stays obvious.
 - **Keep hardware flags gentle**: Wrap Teensy-only code in `#if SEEDBOX_HW`
   so the `native` build stays a truthful simulator.
@@ -36,7 +36,7 @@ comment or mini README nearby so the next curious hacker can follow along.
 2. Build the behavior in code.
 3. Capture the lesson in a test or example so future readers see it in action.
 
-Need a compass? Check the [test engine cases](../test/test_engine) to watch a
+Need a compass? Check the [test engine cases](../tests/test_engine) to watch a
 SeedBox idea move from header to implementation to golden snapshot.
 
 Think of `src/` as the main stage and everything else as the backstage crew. The

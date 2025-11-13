@@ -65,7 +65,7 @@ AppState::DisplaySnapshot captureSnapshotForEngine(uint8_t engineId) {
 // These helpers double as lab notes: each test narrates a deterministic engine
 // behaviour so students can follow the maths without needing the full firmware
 // running.
-void test_euclid_mask() {
+void run_euclid_mask() {
   Engine::PrepareContext ctx{};
   ctx.masterSeed = 0x12345678u;
 
@@ -96,7 +96,7 @@ void test_euclid_mask() {
   runScenario(3, rotateMask(baseMask, 3));
 }
 
-void test_burst_spacing() {
+void run_burst_spacing() {
   BurstEngine engine;
   Engine::PrepareContext ctx{};
   ctx.masterSeed = 0xCAFEBABEu;
@@ -140,7 +140,7 @@ void test_burst_spacing() {
   }
 }
 
-void test_router_reseed_and_locks() {
+void run_router_reseed_and_locks() {
   EngineRouter router;
   router.init(EngineRouter::Mode::kSim);
   router.setSeedCount(2);
@@ -165,7 +165,7 @@ void test_router_reseed_and_locks() {
   assert(router.euclid().generationSeed() == 0x00ABCDEFu);
 }
 
-void test_engine_display_snapshots() {
+void run_engine_display_snapshots() {
   const auto euclidSnap = captureSnapshotForEngine(EngineRouter::kEuclidId);
   assert(std::strstr(euclidSnap.status, "ECL") != nullptr);
   maybeWriteSnapshot("Euclid", euclidSnap);
@@ -176,11 +176,11 @@ void test_engine_display_snapshots() {
 }
 }  // namespace
 
-int main() {
-  test_euclid_mask();
-  test_burst_spacing();
-  test_router_reseed_and_locks();
-  test_engine_display_snapshots();
-  return 0;
-}
+void test_euclid_mask() { run_euclid_mask(); }
+
+void test_burst_spacing() { run_burst_spacing(); }
+
+void test_router_reseed_and_locks() { run_router_reseed_and_locks(); }
+
+void test_engine_display_snapshots() { run_engine_display_snapshots(); }
 

@@ -25,10 +25,10 @@ sim builds without lossy conversions.
 1. Boot the native sim (`pio test -e native` or `pio run -e native`) and sculpt
    the scene you care about.
 2. Call `Preset snapshot = app.snapshotPreset("your-slot");` inside a quick
-   harness (or adapt `test/test_app/test_presets.cpp`).
+   harness (or adapt `tests/test_app/test_presets.cpp`).
 3. Dump `snapshot.serialize()` to disk and drop the JSON in this folder.
 4. Commit it alongside any lesson notes so future you knows why the bank exists.
 
-Remember to run `pio test -e native -f test_app/test_presets.cpp` before you ship
+Remember to run `pio test -e native --filter test_app --test-name test_preset_round_trip_via_eeprom_store` before you ship
 changes; that suite proves the serialization path is still deterministic for the
 whole preset pipeline.

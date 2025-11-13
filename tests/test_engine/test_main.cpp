@@ -9,6 +9,10 @@ void test_resonator_preset_lookup_guards_index();
 void test_sampler_stores_seed_state();
 void test_sampler_voice_stealing_is_oldest_first();
 void test_sampler_spread_width_maps_constant_power_curve();
+void test_euclid_mask();
+void test_burst_spacing();
+void test_router_reseed_and_locks();
+void test_engine_display_snapshots();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -21,5 +25,9 @@ int main(int, char**) {
   RUN_TEST(test_sampler_stores_seed_state);
   RUN_TEST(test_sampler_voice_stealing_is_oldest_first);
   RUN_TEST(test_sampler_spread_width_maps_constant_power_curve);
+  RUN_TEST(test_euclid_mask);
+  RUN_TEST(test_burst_spacing);
+  RUN_TEST(test_router_reseed_and_locks);
+  RUN_TEST(test_engine_display_snapshots);
   return UNITY_END();
 }
