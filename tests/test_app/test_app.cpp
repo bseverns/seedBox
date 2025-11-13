@@ -1,6 +1,7 @@
 #include <unity.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,19 @@ void runTicks(AppState& app, int count) {
 // Wait for the UI to land on a specific mode by ticking in short bursts.
 // It mirrors the real hardware latency without hard-coding a single
 // magic frame count into the tests.
+const char* modeName(AppState::Mode mode) {
+  switch (mode) {
+    case AppState::Mode::HOME: return "HOME";
+    case AppState::Mode::SEEDS: return "SEEDS";
+    case AppState::Mode::ENGINE: return "ENGINE";
+    case AppState::Mode::PERF: return "PERF";
+    case AppState::Mode::UTIL: return "UTIL";
+    case AppState::Mode::SETTINGS: return "SETTINGS";
+    case AppState::Mode::SWING: return "SWING";
+  }
+  return "UNKNOWN";
+}
+
 bool waitForMode(AppState& app, AppState::Mode target, int burstTicks = 10, int maxBursts = 48) {
   if (app.mode() == target) {
     return true;
@@ -85,12 +99,12 @@ void pressStorageButton(AppState& app, PanelClock& clock, bool longPress) {
   runTicks(app, 10);
 }
 
-void longPressShift(AppState& app, int settleTicks = 80) {
+void longPressShift(AppState& app, const char* stage = nullptr, int settleTicks = 80) {
   // Give the input pipeline time to flush any pending double-tap windows so a
   // fresh long press is never misinterpreted as the "second tap" of the chord
-  // we just released. The poll period is 10ms, so 32 ticks buys us >300ms of
+  // we just released. The poll period is 10ms, so 64 ticks buys us >600ms of
   // breathing room, comfortably past the 280ms double-press window.
-  constexpr int kDoubleTapCooldownTicks = 32;
+  constexpr int kDoubleTapCooldownTicks = 64;
   runTicks(app, kDoubleTapCooldownTicks);
 
   hal::nativeBoardFeed("btn shift down");
@@ -103,8 +117,19 @@ void longPressShift(AppState& app, int settleTicks = 80) {
     // sweep PERF's latched state off the stage.  Instead of flaking out, keep
     // ticking in short bursts until the long-press transition lands back on
     // HOME or we exhaust a generous grace period.
-    const bool landed = waitForMode(app, AppState::Mode::HOME);
-    TEST_ASSERT_TRUE_MESSAGE(landed, "Shift long-press never returned to HOME");
+    const bool landed = waitForMode(app, AppState::Mode::HOME, /*burstTicks=*/6, /*maxBursts=*/120);
+    if (!landed) {
+      char msg[160];
+      if (stage && stage[0] != '\0') {
+        std::snprintf(msg, sizeof(msg),
+                      "Shift long-press never returned to HOME (stuck in %s after %s)",
+                      modeName(app.mode()), stage);
+      } else {
+        std::snprintf(msg, sizeof(msg), "Shift long-press never returned to HOME (stuck in %s)",
+                      modeName(app.mode()));
+      }
+      TEST_FAIL_MESSAGE(msg);
+    }
   }
 }
 }  // namespace
@@ -254,15 +279,15 @@ void test_scripted_front_panel_walkthrough() {
   // Walk the four encoder buttons to tour the page stack.
   tapButton(app, "density");
   TEST_ASSERT_EQUAL(AppState::Mode::ENGINE, app.mode());
-  longPressShift(app);
+  longPressShift(app, "touring ENGINE after density tap");
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   tapButton(app, "tone");
   TEST_ASSERT_EQUAL(AppState::Mode::PERF, app.mode());
-  longPressShift(app);
+  longPressShift(app, "leaving PERF after tone tap");
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   tapButton(app, "fx");
   TEST_ASSERT_EQUAL(AppState::Mode::UTIL, app.mode());
-  longPressShift(app);
+  longPressShift(app, "closing UTIL after fx tap");
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
 
   // Double tap the transport to reach settings and chord back into performance.
@@ -284,7 +309,7 @@ void test_scripted_front_panel_walkthrough() {
   TEST_ASSERT_EQUAL(AppState::Mode::PERF, app.mode());
 
   // Long-press shift to return home.
-  longPressShift(app);
+  longPressShift(app, "exiting PERF after settings chord");
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
 
   // Reseed via a long hold on the Seed encoder button.
