@@ -13,13 +13,13 @@
       "name": "drone-intro",
       "path": "build/fixtures/drone-intro.wav",
       "kind": "audio",
-      "hash": "f53315eb7db89d33",
+      "hash": "84acfe9c8bc08156",
       "wav_path": "build/fixtures/drone-intro.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "1 s mono drone @110 Hz from native golden render."
+      "notes": "TODO placeholder in repo; render 110 Hz mono drone for real checks."
     },
     {
       "name": "euclid-mask",
@@ -34,49 +34,49 @@
       "name": "granular-haze",
       "path": "build/fixtures/granular-haze.wav",
       "kind": "audio",
-      "hash": "769c3d774ce0dadf",
+      "hash": "27540ebd82897c04",
       "wav_path": "build/fixtures/granular-haze.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
-      "notes": "Stereo granular cloud render for sync + drift checks."
+      "notes": "TODO placeholder; stereo swirling grain cloud reveals granular sync issues."
     },
     {
       "name": "mixer-console",
       "path": "build/fixtures/mixer-console.wav",
       "kind": "audio",
-      "hash": "219433fb7ced6be1",
+      "hash": "d287ee0851f39e21",
       "wav_path": "build/fixtures/mixer-console.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
-      "notes": "Stereo mix bus snapshot combining drone/sampler/resonator/granular."
+      "notes": "TODO placeholder; stereo sum of all engines with ~-3 dBFS peaks."
     },
     {
       "name": "resonator-tail",
       "path": "build/fixtures/resonator-tail.wav",
       "kind": "audio",
-      "hash": "e329aa6faffb39f4",
+      "hash": "7e42dabb52b5851e",
       "wav_path": "build/fixtures/resonator-tail.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "Mono resonator decay tail captured from golden harness."
+      "notes": "TODO placeholder; should be the resonator decay tail for damping checks."
     },
     {
       "name": "sampler-grains",
       "path": "build/fixtures/sampler-grains.wav",
       "kind": "audio",
-      "hash": "630fbfadca574688",
+      "hash": "49d34cf772fe0389",
       "wav_path": "build/fixtures/sampler-grains.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "Mono stacked chord from sampler engine with staggered triggers."
+      "notes": "TODO placeholder; expect mono stacked grain chord to audit sampler voicing."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -85,5 +85,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-14T02:19:20Z"
+  "generated_at_utc": "2025-11-14T01:54:00Z"
 }
