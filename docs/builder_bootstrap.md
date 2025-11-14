@@ -99,7 +99,9 @@ pio pkg install
 > you crave a slimmer wiring harness.
 
 Print this table and tape it to your bench. Update the pin map when hardware
-assignments shift so firmware and CAD stay aligned.
+assignments shift so firmware and CAD stay aligned. When you need photo proof or
+alternate harness layouts, the [wiring gallery](wiring_gallery.md) keeps a
+running scrapbook of builds that map straight back to this table.
 
 ### Power sanity checks
 
@@ -143,6 +145,10 @@ to this table. Future students can replay your steps.
 - **Native vs. hardware mismatches**: Wrap hardware-only includes with
   `#if SEEDBOX_HW`. The native build should always compile without Teensy
   headers present.
+- **Document everything**: Park calibration notes in
+  [`docs/calibration_guide.md`](calibration_guide.md) and funnel failure reports
+  into the [troubleshooting log](troubleshooting_log.md) so future debuggers
+  know which experiments already ran.
 
 Document additional war stories here — broken solder joints, OS driver drama,
 or fixes for flaky USB hubs.
@@ -158,7 +164,9 @@ or fixes for flaky USB hubs.
    deterministic output. Teach classmates how to prove the system is stable.
 3. **Hardware smoke test**: Build a checklist that walks through power-up,
    OLED boot splash, encoder rotation, and MIDI transport detection. Convert the
-   checklist into an automated hardware-in-the-loop test when possible.
+   checklist into an automated hardware-in-the-loop test when possible, then
+   stash the receipts in the [calibration guide](calibration_guide.md) for the
+   next lab section.
 
 As you run these labs, paste links to your findings or PRs below each bullet so
 the lineage stays obvious.

@@ -12,8 +12,8 @@ fire up a demo executable that behaves like a ghost front panel.
   seed before rebroadcasting to the engines.【F:src/app/AppState.cpp†L1509-L1551】
 - `util::ScaleQuantizer` exposes three hooks (`SnapToScale`, `SnapUp`,
   `SnapDown`) so UI code can pick the directionality that fits the story.
-- This doc ships with a deterministic unit test and an executable demo you can
-  run from the repo right now. Nothing hand-wavy.
+- This doc ships with deterministic regression tests *and* a demo harness that
+  can export CSVs, apply a slow drift LFO, and stream frames into the UI sim.
 
 ## 1. Map the pipeline
 
@@ -45,48 +45,62 @@ making “resolve up” or “gravity down” controls trivial to wire.
 
 ## 2. Run the regression test
 
-A unit test lives under `tests/test_util` to document expectations in code. It
-covers the three snapping modes and a couple of boundary cases (negative roots,
-ties across octaves).
+A unit test under `tests/test_util` documents expectations in code. It now covers
+all three snapping modes, root wrapping edge cases, and a drift/CSV regression so
+future docs have guardrails.
 
 ```bash
-pio test -e native --filter tests/test_util/test_scale_quantizer.cpp
+pio test -e native --filter test_util
 ```
 
-Read the assertions while the command runs; the test narrates why each scenario
-matters so future UI experiments have guardrails.
+Watch for the `test_scale_quantizer_drift_samples_and_csv` case – it verifies the
+sine LFO math and asserts that the CSV header stays stable for downstream tools.【F:tests/test_util/test_scale_quantizer.cpp†L57-L104】
 
-## 3. Play with the demo harness
+## 3. Export quantized data
 
-The new example in `examples/04_scale_quantizer/` acts like a virtual quantize
-knob. It ships with a CLI that mirrors the firmware encoding:
+The demo in `examples/04_scale_quantizer/` acts like a virtual quantize knob and
+speaks fluent CSV.
 
 ```bash
 cd examples/04_scale_quantizer
 pio run -e native
-.pio/build/native/program --scale=minor --root=9 --mode=up --offsets=-3.7,-0.8,0.2,4.6
+.pio/build/native/program --scale=minor --root=9 --mode=up \
+  --offsets=-3.7,-0.8,0.2,4.6 --export-csv
 ```
 
-What you get back is a narrated table: the incoming offsets, the snapped pitches
-for each mode, and how the chosen root shifts the scale. Think of it as a
-standalone teaching prop – perfect for classes where you want to audition scale
-behaviour before touching the panel.
+Console output still narrates the `t=0` snapshot, and the harness writes the
+full table to `out/scale_quantizer.csv` with a header row and one line per
+slot/frame.【F:examples/04_scale_quantizer/src/main.cpp†L295-L306】【F:examples/04_scale_quantizer/README.md†L24-L44】
 
-Under the hood the CLI leans on a tiny `QuantizeHarness` class that mirrors the
-firmware call sites: cache the selected scale/root, pick a direction (nearest,
-up, down), then dispatch to `ScaleQuantizer`. You can lift that class straight
-into prototype UI code without rewriting any math.
+## 4. Wobble the offsets with drift
 
-## 4. Extend it
+Add `--drift=<Hz>` to project a slow sine wobble (depth ±0.45 semitones) across
+all offsets. The harness renders one complete cycle in 17 frames, so you can see
+both crest and trough in the exported data.【F:examples/04_scale_quantizer/src/main.cpp†L180-L228】【F:include/util/ScaleQuantizerFlow.h†L11-L33】
 
-- Want to script scale rotations or morph between roots? The harness already
-  exposes setters; wrap them in your favourite scripting language.
-- Need to visualise the snapped melody? Pipe the CLI output into a plotter or
-  drop the numbers into a DAW automation lane. The output stays deterministic so
-  tests and docs can reference exact values.
-- Dreaming of hardware knobs with “always resolve up” behaviour? Swap the demo
-  to `--mode=up`, feed it incoming offsets from your sensor, and forward the
-  results to the engine the same way `AppState` does today.
+```bash
+.pio/build/native/program --drift=0.25 --export-csv=out/drift_demo.csv
+```
+
+The CSV grows to include `time_sec`, `slot`, `drifted_pitch`, and the snapped
+values for every mode.【F:src/util/ScaleQuantizerFlow.cpp†L61-L99】 Drop it into a
+spreadsheet, a DAW, or your favourite plotting tool to watch the quantizer breathe.
+
+## 5. Drive the UI sim
+
+The harness can stream each frame either as OSC (`--osc=host:port`) or JSON over
+WebSocket (`--ws=ws://host:port/path`). A lightweight console widget ships in
+`scripts/native/quantizer_ws_display.py`; it only needs Python’s standard library.
+
+```bash
+./scripts/native/quantizer_ws_display.py --port 8765  # terminal 1
+.pio/build/native/program --ws=ws://127.0.0.1:8765/quantizer --drift=0.5 \
+  --offsets=-5.5,-1.2,0.3,2.6,7.8                             # terminal 2
+```
+
+The widget redraws in place with slot, drifted pitch, snapped outputs, and the
+active mode – perfect for projecting alongside the firmware UI during a class demo.【F:scripts/native/quantizer_ws_display.py†L1-L108】 Swap the WebSocket flag for
+`--osc=127.0.0.1:9000` if you prefer to feed an OSC-aware visualiser.
 
 Scale quantizing should feel like a playground, not a black box. These receipts
 keep it that way.

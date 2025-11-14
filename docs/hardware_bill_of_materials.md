@@ -4,7 +4,9 @@ Welcome to the gear dump. This is the parts bin manifest for anyone who wants to
 spin up a physical SeedBox instead of just vibing with the native build. Read
 it like a tour guide and a shopping list rolled into one: grab the essentials,
 flag the optional bling, and learn *why* each piece exists so you can sub in
-alternatives without frying the groove.
+alternatives without frying the groove. Once parts land, flip to the
+[wiring gallery](wiring_gallery.md) for routing photos and the
+[calibration guide](calibration_guide.md) before you ever power the stack.
 
 ## Core brain stack (must-haves)
 

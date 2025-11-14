@@ -74,6 +74,11 @@ the external clock rate.
 * Feel free to leave the debug flag on during rehearsals — it's a solid live
   indicator when a DAW reclaims transport control mid-set.
 
+When the experiment wraps, log the results in the
+[calibration guide](../../calibration_guide.md) and copy the crunchy failure
+stories into the [troubleshooting log](../../troubleshooting_log.md) so the next
+bench session starts with receipts.
+
 Document everything you notice. Treat this README as a living lab log — tack on
 scope screenshots, weird edge cases, or alternative clock sources as you find
 them.

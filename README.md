@@ -25,7 +25,7 @@ flowchart LR
   Repo[(Repo root)] --> Docs["docs/ \n storyboards"]
   Repo --> Source["src/ \n engines"]
   Repo --> Include["include/ \n contracts"]
-  Repo --> Tests["test/ \n truth serum"]
+  Repo --> Tests["tests/ \n truth serum"]
   Repo --> Scripts["scripts/ \n pit crew"]
   Tests -->|golden logs| Artifacts["artifacts/ (ignored)"]
   Source -->|renders| Out["out/ (ignored)"]
@@ -56,13 +56,19 @@ Need proof? Run the native preset round-trip test and watch it rehydrate the
 stored bank byte-for-byte:
 
 ```bash
-pio test -e native -f test_app/test_presets.cpp
+pio test -e native --filter test_app --test-name test_preset_round_trip_via_eeprom_store
 ```
 
 ## Sonic receipts — the native golden pipeline
 
-- Flip `ENABLE_GOLDEN=1` and run `pio test -e native` to render deterministic
-  fixtures into `build/fixtures/`.
+- Fire up the dedicated golden env with `pio test -e native_golden` to render
+  deterministic fixtures into `build/fixtures/`. PlatformIO injects the project
+  root as `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a live
+  `SEEDBOX_PROJECT_ROOT` override, and it still walks up to the nearest
+  `platformio.ini` as a final fallback. Even though PlatformIO executes the
+  binary from inside `.pio/`, the WAVs land in the repo root where docs and
+  scripts expect them. It mirrors the standard native toolchain but bakes in the
+  flag so cached binaries never ghost the renders.
 - `scripts/compute_golden_hashes.py --write` recomputes hashes and rewrites
   `tests/native_golden/golden.json` so reviewers can diff sound changes instead
   of guessing.
@@ -110,12 +116,12 @@ Once a seed exists, each engine grabs the pieces it cares about:
 | `docs/` | Roadmaps, design notes, wiring sketches. | [Builder primer](docs/builder_bootstrap.md) |
 | `src/` | The actual instrument brain. | [Source tour](src/README.md) |
 | `include/` | Header contracts the rest of the world relies on. | [Interface notes](include/README.md) |
-| `test/` | Native tests that keep the grooves deterministic. | [Test guide](test/README.md) + [golden recipe](test/README.md#toggle-able-test-flags) |
+| `tests/` | Native tests that keep the grooves deterministic. | [Test guide](tests/README.md) + [golden recipe](tests/README.md#toggle-able-test-flags) |
 | `scripts/` | Helper tools (version stamping, etc.). | [Script cheat sheet](scripts/README.md) |
 | `examples/` | Runnable lesson sketches for when you want noise with narration. | [Sprout lab notes](examples/01_sprout/README.md) |
 
 Head straight to [`docs/roadmaps/`](docs/roadmaps) for narrative design notes or
-into [`test/test_engine/`](test/test_engine) for executable examples that double
+into [`tests/test_engine/`](tests/test_engine) for executable examples that double
 as tutorials.
 
 ## Pick your adventure
@@ -129,8 +135,8 @@ as tutorials.
   couch.
 - **Documentary mode?** Read the roadmaps in `docs/` and drop ideas directly in
   Markdown. We treat documentation as part of the jam session.
-- **Example safari?** The tests inside [`test/test_app`](test/test_app) and
-  [`test/test_patterns`](test/test_patterns) are intentionally verbose. Read
+- **Example safari?** The tests inside [`tests/test_app`](tests/test_app) and
+  [`tests/test_patterns`](tests/test_patterns) are intentionally verbose. Read
   them like workshop demos, then riff with your own cases.
 
 ## Friendly setup checklist
@@ -296,7 +302,7 @@ strong.
   [roadmaps](docs/roadmaps) when you want story time.
 - **Source tours:** [`src/README.md`](src/README.md) threads the narrative, while
   in-file comments point to specific seed recipes.
-- **Tests as tutorials:** [`test/README.md`](test/README.md) explains the suites
+- **Tests as tutorials:** [`tests/README.md`](tests/README.md) explains the suites
   and calls out how `ENABLE_GOLDEN` captures new expectations.
 - **Scripts:** [`scripts/README.md`](scripts/README.md) keeps the automation
   gentle and hackable.

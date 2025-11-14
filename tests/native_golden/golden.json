@@ -18,7 +18,8 @@
       "frames": 48000,
       "channels": 1,
       "path": "build/fixtures/drone-intro.wav",
-      "kind": "audio"
+      "kind": "audio",
+      "channel_layout": "mono"
     },
     {
       "name": "euclid-mask",
@@ -30,6 +31,30 @@
       "notes": ""
     },
     {
+      "name": "granular-haze",
+      "path": "build/fixtures/granular-haze.wav",
+      "kind": "audio",
+      "hash": "769c3d774ce0dadf",
+      "wav_path": "build/fixtures/granular-haze.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": ""
+    },
+    {
+      "name": "mixer-console",
+      "path": "build/fixtures/mixer-console.wav",
+      "kind": "audio",
+      "hash": "219433fb7ced6be1",
+      "wav_path": "build/fixtures/mixer-console.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": ""
+    },
+    {
       "name": "resonator-tail",
       "path": "build/fixtures/resonator-tail.wav",
       "kind": "audio",
@@ -38,7 +63,8 @@
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 1,
-      "notes": ""
+      "notes": "",
+      "channel_layout": "mono"
     },
     {
       "name": "sampler-grains",
@@ -49,7 +75,8 @@
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 1,
-      "notes": ""
+      "notes": "",
+      "channel_layout": "mono"
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -58,5 +85,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-13T14:24:58Z"
+  "generated_at_utc": "2025-11-13T21:40:52Z"
 }

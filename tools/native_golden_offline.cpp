@@ -1,21 +1,24 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <iterator>
-#include <numeric>
+#include <optional>
 #include <sstream>
 #include <string>
-#include <system_error>
 #include <vector>
 
-#include <unity.h>
+// Offline helper that mirrors the PlatformIO-native golden renders. We compile
+// this with a stock desktop compiler so contributors can regenerate
+// `build/fixtures/*` and refresh the manifest even when PlatformIO can't grab
+// the native toolchain (think CI outages, captive portals, or lab sessions
+// without internet). The routines below are copy/pasted siblings of the helpers
+// in tests/native_golden/test_main.cpp; keep them in sync.
+
+#define ENABLE_GOLDEN 1
 
 #include "Seed.h"
 #include "SeedBoxConfig.h"
@@ -24,20 +27,12 @@
 #include "engine/Granular.h"
 #include "engine/Resonator.h"
 #include "engine/Sampler.h"
-#include "io/MidiRouter.h"
-#include "wav_helpers.hpp"
-
-#ifndef ENABLE_GOLDEN
-#define ENABLE_GOLDEN 0
-#endif
+#include "tests/native_golden/wav_helpers.hpp"
 
 namespace {
 
 constexpr std::size_t kDroneFrames = 48000;
 constexpr double kSampleRate = 48000.0;
-constexpr double kDroneFreqHz = 110.0;
-constexpr double kDroneAmplitude = 0.5;
-constexpr char kManifestPath[] = "tests/native_golden/golden.json";
 
 struct GoldenFixture {
     const char* name;
@@ -58,75 +53,11 @@ constexpr GoldenFixture kLogFixtures[] = {
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
 };
 
-std::filesystem::path find_project_root() {
-    if (const char* override = std::getenv("SEEDBOX_PROJECT_ROOT")) {
-        if (*override != '\0') {
-            return std::filesystem::path(override);
-        }
-    }
-
-#if defined(SEEDBOX_PROJECT_ROOT_HINT)
-    if (SEEDBOX_PROJECT_ROOT_HINT[0] != '\0') {
-        std::filesystem::path hinted(SEEDBOX_PROJECT_ROOT_HINT);
-        std::error_code ec;
-        const auto normalized = std::filesystem::weakly_canonical(hinted, ec);
-        const auto& candidate = ec ? hinted : normalized;
-        if (std::filesystem::exists(candidate / "platformio.ini")) {
-            return candidate;
-        }
-    }
-#endif
-
-    auto cursor = std::filesystem::current_path();
-    for (int depth = 0; depth < 10; ++depth) {
-        if (std::filesystem::exists(cursor / "platformio.ini")) {
-            return cursor;
-        }
-        if (!cursor.has_parent_path()) {
-            break;
-        }
-        const auto parent = cursor.parent_path();
-        if (parent == cursor) {
-            break;
-        }
-        cursor = parent;
-    }
-    return std::filesystem::current_path();
-}
-
-std::filesystem::path fixture_root() {
-#if ENABLE_GOLDEN
-    if (const char* override = std::getenv("SEEDBOX_FIXTURE_ROOT")) {
-        if (*override != '\0') {
-            return std::filesystem::path(override);
-        }
-    }
-#endif
-    return find_project_root() / "build/fixtures";
-}
-
-std::filesystem::path fixture_disk_path(const std::string& manifest_path) {
-    std::filesystem::path path(manifest_path);
-    if (path.is_absolute()) {
-        return path;
-    }
-
-    const std::string normalized = path.generic_string();
-    if (normalized == "build/fixtures") {
-        return fixture_root();
-    }
-
-    const std::string prefix = "build/fixtures/";
-    if (normalized.rfind(prefix, 0) == 0) {
-        return fixture_root() / normalized.substr(prefix.size());
-    }
-
-    return fixture_root() / path;
-}
-
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
     constexpr double kTwoPi = 6.283185307179586476925286766559;
+    constexpr double kDroneFreqHz = 110.0;
+    constexpr double kDroneAmplitude = 0.5;
     for (std::size_t i = 0; i < kDroneFrames; ++i) {
         const double t = static_cast<double>(i) / kSampleRate;
         const double cycle = std::sin(kTwoPi * kDroneFreqHz * t);
@@ -136,115 +67,6 @@ std::vector<int16_t> make_drone() {
     }
     return samples;
 }
-
-void setUp(void) {}
-void tearDown(void) {}
-
-#if !defined(SEEDBOX_HW)
-void test_cli_backend_clock_routing() {
-    MidiRouter router;
-    router.begin();
-
-    std::array<MidiRouter::RouteConfig, MidiRouter::kPortCount> perf{};
-    for (auto& cfg : perf) {
-        cfg.acceptControlChange = true;
-    }
-    const std::size_t usbIndex = static_cast<std::size_t>(MidiRouter::Port::kUsb);
-    perf[usbIndex].acceptClock = true;
-    router.configurePageRouting(MidiRouter::Page::kPerf, perf);
-
-    bool clockSeen = false;
-    router.setClockHandler([&]() { clockSeen = true; });
-
-    auto* usbCli = router.cliBackend(MidiRouter::Port::kUsb);
-    usbCli->pushClock();
-    router.poll();
-
-    TEST_ASSERT_TRUE(clockSeen);
-}
-
-void test_cli_channel_map_and_panic() {
-    MidiRouter router;
-    router.begin();
-
-    std::array<MidiRouter::RouteConfig, MidiRouter::kPortCount> perf{};
-    for (auto& cfg : perf) {
-        cfg.acceptControlChange = true;
-    }
-    router.configurePageRouting(MidiRouter::Page::kPerf, perf);
-
-    MidiRouter::ChannelMap usbMap;
-    for (auto& entry : usbMap.inbound) {
-        entry = static_cast<std::uint8_t>((entry + 1u) % 16u);
-    }
-    for (auto& entry : usbMap.outbound) {
-        entry = static_cast<std::uint8_t>((entry + 2u) % 16u);
-    }
-    router.setChannelMap(MidiRouter::Port::kUsb, usbMap);
-
-    std::uint8_t observedChannel = 0xFFu;
-    router.setControlChangeHandler(
-        [&](std::uint8_t channel, std::uint8_t, std::uint8_t) { observedChannel = channel; });
-
-    auto* usbCli = router.cliBackend(MidiRouter::Port::kUsb);
-    usbCli->pushControlChange(0u, 10u, 64u);
-    router.poll();
-    TEST_ASSERT_EQUAL_UINT8(1u, observedChannel);
-
-    usbCli->clearSent();
-    router.sendNoteOn(MidiRouter::Port::kUsb, 0u, 60u, 100u);
-    router.sendNoteOff(MidiRouter::Port::kUsb, 0u, 60u, 0u);
-    router.sendNoteOff(MidiRouter::Port::kUsb, 0u, 60u, 0u);  // Guarded duplicate.
-    router.sendNoteOn(MidiRouter::Port::kUsb, 3u, 67u, 120u);
-    router.panic();
-
-    const auto& sent = usbCli->sentMessages();
-    TEST_ASSERT_EQUAL_size_t(4u, sent.size());
-    TEST_ASSERT_EQUAL_UINT8(static_cast<std::uint8_t>(MidiRouter::CliBackend::SentMessage::Type::kNoteOn),
-                            static_cast<std::uint8_t>(sent[0].type));
-    TEST_ASSERT_EQUAL_UINT8(2u, sent[0].channel);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<std::uint8_t>(MidiRouter::CliBackend::SentMessage::Type::kNoteOff),
-                            static_cast<std::uint8_t>(sent[1].type));
-    TEST_ASSERT_EQUAL_UINT8(2u, sent[1].channel);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<std::uint8_t>(MidiRouter::CliBackend::SentMessage::Type::kNoteOn),
-                            static_cast<std::uint8_t>(sent[2].type));
-    TEST_ASSERT_EQUAL_UINT8(5u, sent[2].channel);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<std::uint8_t>(MidiRouter::CliBackend::SentMessage::Type::kAllNotesOff),
-                            static_cast<std::uint8_t>(sent[3].type));
-    TEST_ASSERT_EQUAL_UINT8(5u, sent[3].channel);
-}
-
-void test_cli_trs_transport_mirror() {
-    MidiRouter router;
-    router.begin();
-
-    std::array<MidiRouter::RouteConfig, MidiRouter::kPortCount> perf{};
-    const std::size_t usbIndex = static_cast<std::size_t>(MidiRouter::Port::kUsb);
-    const std::size_t trsIndex = static_cast<std::size_t>(MidiRouter::Port::kTrsA);
-    perf[usbIndex].acceptControlChange = true;
-    perf[usbIndex].mirrorTransport = true;
-    perf[trsIndex].acceptTransport = true;
-    router.configurePageRouting(MidiRouter::Page::kPerf, perf);
-
-    bool startSeen = false;
-    router.setStartHandler([&]() { startSeen = true; });
-
-    auto* usbCli = router.cliBackend(MidiRouter::Port::kUsb);
-    auto* trsCli = router.cliBackend(MidiRouter::Port::kTrsA);
-    usbCli->clearSent();
-    trsCli->pushStart();
-    router.poll();
-
-    TEST_ASSERT_TRUE(startSeen);
-    const auto& sent = usbCli->sentMessages();
-    TEST_ASSERT_EQUAL_size_t(1u, sent.size());
-    TEST_ASSERT_EQUAL_UINT8(static_cast<std::uint8_t>(MidiRouter::CliBackend::SentMessage::Type::kStart),
-                            static_cast<std::uint8_t>(sent[0].type));
-}
-#endif
-
-#if ENABLE_GOLDEN
-namespace {
 
 struct SamplerVoiceSpec {
     Seed seed;
@@ -739,198 +561,89 @@ std::string render_burst_log() {
     return log.str();
 }
 
-bool write_text_file(const std::string& manifest_path, const std::string& body) {
-#if ENABLE_GOLDEN
-    const auto disk_path = fixture_disk_path(manifest_path);
+bool write_text_file(const std::filesystem::path& path, const std::string& body) {
     std::error_code ec;
-    std::filesystem::create_directories(disk_path.parent_path(), ec);
+    std::filesystem::create_directories(path.parent_path(), ec);
     if (ec) {
         return false;
     }
-    std::ofstream out(disk_path, std::ios::binary);
+    std::ofstream out(path, std::ios::binary);
     if (!out) {
         return false;
     }
     out.write(body.data(), static_cast<std::streamsize>(body.size()));
     return out.good();
-#else
-    (void)manifest_path;
-    (void)body;
-    return false;
-#endif
 }
 
-std::string load_manifest() {
-    std::ifstream manifest_stream{kManifestPath};
-    TEST_ASSERT_TRUE_MESSAGE(manifest_stream.good(),
-                             "Golden manifest missing — run scripts/compute_golden_hashes.py --write");
-    return std::string{std::istreambuf_iterator<char>(manifest_stream), std::istreambuf_iterator<char>()};
+std::filesystem::path project_root() {
+    return std::filesystem::current_path();
 }
 
-void assert_manifest_contains(const std::string& manifest_body, const GoldenFixture& fixture) {
-    const std::string expected_fixture = std::string{"\"name\": \""} + fixture.name + "\"";
-    TEST_ASSERT_NOT_EQUAL_MESSAGE(std::string::npos, manifest_body.find(expected_fixture),
-                                  "Manifest missing fixture entry");
-    TEST_ASSERT_NOT_EQUAL_MESSAGE(std::string::npos, manifest_body.find(fixture.expected_hash),
-                                  "Manifest missing updated hash");
-}
-
-}  // namespace
-
-void test_emit_flag_matrix() {
-#if ENABLE_GOLDEN
-    const auto root = fixture_root();
-    std::error_code ec;
-    std::filesystem::create_directories(root, ec);
-    TEST_ASSERT_FALSE_MESSAGE(static_cast<bool>(ec), "Failed to create golden fixture root");
-    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(root), "Golden fixture root missing on disk");
-#endif
-    std::cout << "[seedbox-config] active flag matrix" << std::endl;
-    for (const auto& flag : SeedBoxConfig::kFlagMatrix) {
-        std::cout << "  " << flag.name << "=" << (flag.enabled ? "1" : "0")
-                  << " // " << flag.story << std::endl;
+std::filesystem::path fixture_path(const char* manifest_path) {
+    std::filesystem::path path(manifest_path);
+    if (path.is_absolute()) {
+        return path;
     }
-    std::cout << std::flush;
-    TEST_MESSAGE("Flag matrix dumped for golden log capture.");
+    if (path.generic_string().rfind("build/fixtures", 0) == 0) {
+        return project_root() / path;
+    }
+    return project_root() / "build/fixtures" / path;
 }
 
-void test_render_and_compare_golden() {
+void ensure_fixture(const GoldenFixture& spec,
+                    const std::vector<int16_t>& samples,
+                    std::uint16_t channels) {
     golden::WavWriteRequest request{};
-    const auto disk_path = fixture_disk_path(kAudioFixtures[0].path);
-    request.path = disk_path.string();
-    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.samples = make_drone();
+    request.path = fixture_path(spec.path).string();
+    request.sample_rate_hz = static_cast<std::uint32_t>(kSampleRate);
+    request.channels = channels;
+    request.samples = samples;
 
-    const bool write_ok = golden::write_wav_16(request);
-    const std::string hash = golden::hash_pcm16(request.samples);
-
-    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write golden WAV fixture");
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[0].expected_hash, hash.c_str());
-
-    TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(disk_path),
-                             "Golden WAV missing on disk");
-
-    const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[0]);
+    if (!golden::write_wav_16(request)) {
+        throw std::runtime_error(std::string("Failed to write fixture ") + spec.name);
+    }
+    const auto hash = golden::hash_pcm16(request.samples);
+    if (hash != spec.expected_hash) {
+        throw std::runtime_error(std::string("Hash mismatch for ") + spec.name +
+                                 ": expected " + spec.expected_hash + " got " + hash);
+    }
+    std::cout << "[ok] " << spec.name << " -> " << spec.path << " (" << hash << ")" << std::endl;
 }
 
-void test_render_sampler_golden() {
-    golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[1].path).string();
-    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.samples = render_sampler_fixture();
-
-    const bool write_ok = golden::write_wav_16(request);
-    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write sampler golden WAV");
-
-    const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[1].expected_hash, hash.c_str());
-
-    const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[1]);
+void ensure_log_fixture(const GoldenFixture& spec, const std::string& body) {
+    const auto path = fixture_path(spec.path);
+    if (!write_text_file(path, body)) {
+        throw std::runtime_error(std::string("Failed to write log fixture ") + spec.name);
+    }
+    const auto hash = fnv1a_bytes(body);
+    if (hash != spec.expected_hash) {
+        throw std::runtime_error(std::string("Log hash mismatch for ") + spec.name +
+                                 ": expected " + spec.expected_hash + " got " + hash);
+    }
+    std::cout << "[ok] " << spec.name << " -> " << spec.path << " (" << hash << ")" << std::endl;
 }
-
-void test_render_resonator_golden() {
-    golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[2].path).string();
-    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.samples = render_resonator_fixture();
-
-    const bool write_ok = golden::write_wav_16(request);
-    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write resonator golden WAV");
-
-    const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[2].expected_hash, hash.c_str());
-
-    const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[2]);
-}
-
-void test_render_granular_golden() {
-    golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[3].path).string();
-    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.channels = 2;
-    request.samples = render_granular_fixture();
-
-    const bool write_ok = golden::write_wav_16(request);
-    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write granular golden WAV");
-
-    const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[3].expected_hash, hash.c_str());
-
-    const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[3]);
-}
-
-void test_render_mixer_golden() {
-    golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[4].path).string();
-    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.channels = 2;
-    request.samples = render_mixer_fixture();
-
-    const bool write_ok = golden::write_wav_16(request);
-    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write mixer golden WAV");
-
-    const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[4].expected_hash, hash.c_str());
-
-    const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[4]);
-}
-
-void test_log_euclid_burst_golden() {
-    const std::string euclid_log = render_euclid_log();
-    const std::string burst_log = render_burst_log();
-
-    const bool euclid_ok = write_text_file(kLogFixtures[0].path, euclid_log);
-    const bool burst_ok = write_text_file(kLogFixtures[1].path, burst_log);
-    TEST_ASSERT_TRUE_MESSAGE(euclid_ok, "Failed to write Euclid golden log");
-    TEST_ASSERT_TRUE_MESSAGE(burst_ok, "Failed to write Burst golden log");
-
-    const std::string euclid_hash = fnv1a_bytes(euclid_log);
-    const std::string burst_hash = fnv1a_bytes(burst_log);
-    TEST_ASSERT_EQUAL_STRING(kLogFixtures[0].expected_hash, euclid_hash.c_str());
-    TEST_ASSERT_EQUAL_STRING(kLogFixtures[1].expected_hash, burst_hash.c_str());
-
-    const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kLogFixtures[0]);
-    assert_manifest_contains(manifest_body, kLogFixtures[1]);
-}
-
-#else
-
-void test_golden_mode_disabled() {
-    golden::WavWriteRequest request{};
-    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.samples = make_drone();
-
-    const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[0].expected_hash, hash.c_str());
-}
-
-#endif  // ENABLE_GOLDEN
 
 }  // namespace
 
-int main(int, char**) {
-    UNITY_BEGIN();
-#if !defined(SEEDBOX_HW)
-    RUN_TEST(test_cli_backend_clock_routing);
-    RUN_TEST(test_cli_channel_map_and_panic);
-    RUN_TEST(test_cli_trs_transport_mirror);
-#endif
-#if ENABLE_GOLDEN
-    RUN_TEST(test_emit_flag_matrix);
-    RUN_TEST(test_render_and_compare_golden);
-    RUN_TEST(test_render_sampler_golden);
-    RUN_TEST(test_render_resonator_golden);
-    RUN_TEST(test_render_granular_golden);
-    RUN_TEST(test_render_mixer_golden);
-    RUN_TEST(test_log_euclid_burst_golden);
-#else
-    RUN_TEST(test_golden_mode_disabled);
-#endif
-    return UNITY_END();
+int main() {
+    try {
+        const auto root = project_root() / "build/fixtures";
+        std::filesystem::create_directories(root);
+
+        ensure_fixture(kAudioFixtures[0], make_drone(), 1);
+        ensure_fixture(kAudioFixtures[1], render_sampler_fixture(), 1);
+        ensure_fixture(kAudioFixtures[2], render_resonator_fixture(), 1);
+        ensure_fixture(kAudioFixtures[3], render_granular_fixture(), 2);
+        ensure_fixture(kAudioFixtures[4], render_mixer_fixture(), 2);
+
+        ensure_log_fixture(kLogFixtures[0], render_euclid_log());
+        ensure_log_fixture(kLogFixtures[1], render_burst_log());
+
+        std::cout << "Native golden fixtures refreshed." << std::endl;
+        return 0;
+    } catch (const std::exception& ex) {
+        std::cerr << "Native golden fixture refresh failed: " << ex.what() << std::endl;
+        return 1;
+    }
 }
+
