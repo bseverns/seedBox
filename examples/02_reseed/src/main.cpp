@@ -1,56 +1,107 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <iostream>
 #include <random>
 #include <string>
 #include <thread>
 #include <vector>
 
-struct Stem {
-  std::string name;
-  int lane;
+#include "Seed.h"
+#include "engine/Engine.h"
+
+#include "../shared/offline_renderer.hpp"
+#include "../shared/reseed_playbook.hpp"
+
+namespace {
+
+struct BounceConfig {
+  std::string tag;
+  std::uint32_t seed;
+  std::string wavPath;
 };
 
-class QuietGarden {
- public:
-  explicit QuietGarden(unsigned int seed) : rng_(seed) {}
+constexpr double kSampleRate = 48000.0;
+constexpr int kBpm = 124;
+constexpr int kPasses = 3;
 
-  void reseed(unsigned int seed) {
-    rng_.seed(seed);
-    std::cout << "[reseed] swapped seed -> " << seed << " (still quiet)\n";
-  }
-
-  void plant(std::string name, int lane) { stems_.push_back({std::move(name), lane}); }
-
-  void audition(int beats, int bpm) {
-    const bool quietMode = true;
-    std::shuffle(stems_.begin(), stems_.end(), rng_);
-    auto beatSpan = std::chrono::milliseconds(60000 / bpm);
-    std::cout << "[reseed] auditioning " << stems_.size() << " stems @" << bpm << " BPM\n";
-
-    for (int beat = 0; beat < beats; ++beat) {
+void auditionGarden(const std::vector<reseed::StemDefinition>& stems,
+                    std::uint32_t seed,
+                    int beatsPerPass) {
+  std::mt19937 rng(seed);
+  std::vector<reseed::StemDefinition> order = stems;
+  const auto beatSpan = std::chrono::milliseconds(60000 / kBpm);
+  const bool quietMode = true;
+  std::cout << "[reseed] auditioning stems with seed=0x" << std::hex << seed << std::dec << "\n";
+  for (int pass = 0; pass < kPasses; ++pass) {
+    std::shuffle(order.begin(), order.end(), rng);
+    for (int beat = 0; beat < beatsPerPass; ++beat) {
+      const auto& stem = order[static_cast<std::size_t>(beat % order.size())];
       std::this_thread::sleep_for(quietMode ? beatSpan / 12 : beatSpan);
-      const Stem &stem = stems_[beat % stems_.size()];
       std::cout << "  lane " << stem.lane << ": " << stem.name << " (ghost trigger)\n";
     }
-    std::cout << "[reseed] zero audio buffers touched.\n";
   }
+  std::cout << "[reseed] zero audio buffers touched during audition.\n";
+}
 
- private:
-  std::mt19937 rng_;
-  std::vector<Stem> stems_;
-};
+bool bounceDeterministicStem(const BounceConfig& config,
+                             const reseed::BouncePlan& plan,
+                             std::vector<reseed::BounceLogBlock>& logs) {
+  offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
+  renderer.mixSamplerEvents(plan.samplerEvents);
+  renderer.mixResonatorEvents(plan.resonatorEvents);
+  const auto& pcm = renderer.finalize();
+  if (!offline::OfflineRenderer::exportWav(config.wavPath,
+                                           static_cast<std::uint32_t>(kSampleRate),
+                                           pcm)) {
+    std::cerr << "[reseed] failed to write " << config.wavPath << "\n";
+    return false;
+  }
+  std::cout << "[reseed] bounced seed 0x" << std::hex << config.seed << std::dec << " -> "
+            << config.wavPath << " (" << pcm.size() << " samples).\n";
+
+  reseed::BounceLogBlock block;
+  block.tag = config.tag;
+  block.seed = config.seed;
+  block.wavPath = config.wavPath;
+  block.events = plan.logEntries;
+  logs.push_back(block);
+  return true;
+}
+
+void writeEventLog(const std::vector<reseed::StemDefinition>& stems,
+                   const std::vector<reseed::BounceLogBlock>& logs,
+                   const std::string& path) {
+  const std::string json = reseed::serializeEventLog(stems, logs, kSampleRate, kBpm, kPasses);
+  if (offline::OfflineRenderer::exportJson(path, json)) {
+    std::cout << "[reseed] event log captured -> " << path << "\n";
+  } else {
+    std::cerr << "[reseed] failed to persist event log at " << path << "\n";
+  }
+}
+
+}  // namespace
 
 int main() {
-  QuietGarden garden(0xCAFE);
-  garden.plant("kick compost", 0);
-  garden.plant("snare clipping", 1);
-  garden.plant("ride oxidation", 2);
+  const auto& stems = reseed::defaultStems();
+  auditionGarden(stems, 0xCAFEu, static_cast<int>(stems.size()));
+  auditionGarden(stems, 0xBEEFu, static_cast<int>(stems.size()));
 
-  garden.audition(/*beats=*/8, /*bpm=*/124);
-  garden.reseed(0xBEEF);
-  garden.audition(/*beats=*/6, /*bpm=*/124);
+  std::vector<reseed::BounceLogBlock> logs;
+  const reseed::BouncePlan planA = reseed::makeBouncePlan(stems, 0xCAFEu, kSampleRate, kBpm, kPasses);
+  const reseed::BouncePlan planB = reseed::makeBouncePlan(stems, 0xBEEFu, kSampleRate, kBpm, kPasses);
 
-  std::cout << "TODO: record both seeds to /out/reseed-A.wav and /out/reseed-B.wav when the bus is live.\n";
+  const bool okA = bounceDeterministicStem({"A", 0xCAFEu, "out/reseed-A.wav"}, planA, logs);
+  const bool okB = bounceDeterministicStem({"B", 0xBEEFu, "out/reseed-B.wav"}, planB, logs);
+
+  writeEventLog(stems, logs, "out/reseed-log.json");
+
+  if (!okA || !okB) {
+    std::cerr << "[reseed] offline render failed." << std::endl;
+    return 1;
+  }
+
+  std::cout << "[reseed] reseed playback complete." << std::endl;
   return 0;
 }
+
