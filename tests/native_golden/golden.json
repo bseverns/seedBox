@@ -34,7 +34,7 @@
       "name": "granular-haze",
       "path": "build/fixtures/granular-haze.wav",
       "kind": "audio",
-      "hash": "769c3d774ce0dadf",
+      "hash": "0ba2bd0c8e981ef5",
       "wav_path": "build/fixtures/granular-haze.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
