@@ -14,18 +14,18 @@
       "seed": 51966,
       "wav": "out/reseed-A.wav",
       "events": [
-        {"step": 0, "when_samples": 0, "lane": 1, "engine": "sampler", "seed_id": 1, "prng": 4262510785, "name": "snare clipping"},
-        {"step": 1, "when_samples": 23226, "lane": 3, "engine": "sampler", "seed_id": 2, "prng": 619329030, "name": "hat patina"},
-        {"step": 2, "when_samples": 46452, "lane": 2, "engine": "resonator", "seed_id": 3, "prng": 1847700439, "name": "ride oxidation"},
+        {"step": 0, "when_samples": 0, "lane": 2, "engine": "resonator", "seed_id": 1, "prng": 913827366, "name": "ride oxidation"},
+        {"step": 1, "when_samples": 23226, "lane": 1, "engine": "sampler", "seed_id": 2, "prng": 619329030, "name": "snare clipping"},
+        {"step": 2, "when_samples": 46452, "lane": 3, "engine": "sampler", "seed_id": 3, "prng": 1930059722, "name": "hat patina"},
         {"step": 3, "when_samples": 69677, "lane": 0, "engine": "sampler", "seed_id": 4, "prng": 2239883524, "name": "kick compost"},
-        {"step": 4, "when_samples": 92903, "lane": 1, "engine": "sampler", "seed_id": 5, "prng": 3775290010, "name": "snare clipping"},
-        {"step": 5, "when_samples": 116129, "lane": 3, "engine": "sampler", "seed_id": 6, "prng": 3088092632, "name": "hat patina"},
+        {"step": 4, "when_samples": 92903, "lane": 3, "engine": "sampler", "seed_id": 5, "prng": 3775290010, "name": "hat patina"},
+        {"step": 5, "when_samples": 116129, "lane": 0, "engine": "sampler", "seed_id": 6, "prng": 3088092632, "name": "kick compost"},
         {"step": 6, "when_samples": 139355, "lane": 2, "engine": "resonator", "seed_id": 7, "prng": 2369578959, "name": "ride oxidation"},
-        {"step": 7, "when_samples": 162581, "lane": 0, "engine": "sampler", "seed_id": 8, "prng": 3826241315, "name": "kick compost"},
-        {"step": 8, "when_samples": 185806, "lane": 3, "engine": "sampler", "seed_id": 9, "prng": 1208960766, "name": "hat patina"},
+        {"step": 7, "when_samples": 162581, "lane": 1, "engine": "sampler", "seed_id": 8, "prng": 3826241315, "name": "snare clipping"},
+        {"step": 8, "when_samples": 185806, "lane": 1, "engine": "sampler", "seed_id": 9, "prng": 1208960766, "name": "snare clipping"},
         {"step": 9, "when_samples": 209032, "lane": 2, "engine": "resonator", "seed_id": 10, "prng": 2406247822, "name": "ride oxidation"},
         {"step": 10, "when_samples": 232258, "lane": 0, "engine": "sampler", "seed_id": 11, "prng": 1848796086, "name": "kick compost"},
-        {"step": 11, "when_samples": 255484, "lane": 1, "engine": "sampler", "seed_id": 12, "prng": 964030031, "name": "snare clipping"}
+        {"step": 11, "when_samples": 255484, "lane": 3, "engine": "sampler", "seed_id": 12, "prng": 964030031, "name": "hat patina"}
       ]
     },
     {
@@ -33,18 +33,18 @@
       "seed": 48879,
       "wav": "out/reseed-B.wav",
       "events": [
-        {"step": 0, "when_samples": 0, "lane": 0, "engine": "sampler", "seed_id": 1, "prng": 1099142084, "name": "kick compost"},
-        {"step": 1, "when_samples": 23226, "lane": 3, "engine": "sampler", "seed_id": 2, "prng": 2675999222, "name": "hat patina"},
-        {"step": 2, "when_samples": 46452, "lane": 1, "engine": "sampler", "seed_id": 3, "prng": 635607178, "name": "snare clipping"},
+        {"step": 0, "when_samples": 0, "lane": 1, "engine": "sampler", "seed_id": 1, "prng": 1099142084, "name": "snare clipping"},
+        {"step": 1, "when_samples": 23226, "lane": 0, "engine": "sampler", "seed_id": 2, "prng": 2675999222, "name": "kick compost"},
+        {"step": 2, "when_samples": 46452, "lane": 3, "engine": "sampler", "seed_id": 3, "prng": 635607178, "name": "hat patina"},
         {"step": 3, "when_samples": 69677, "lane": 2, "engine": "resonator", "seed_id": 4, "prng": 2279328704, "name": "ride oxidation"},
-        {"step": 4, "when_samples": 92903, "lane": 2, "engine": "resonator", "seed_id": 5, "prng": 2765162190, "name": "ride oxidation"},
-        {"step": 5, "when_samples": 116129, "lane": 3, "engine": "sampler", "seed_id": 6, "prng": 1920371303, "name": "hat patina"},
-        {"step": 6, "when_samples": 139355, "lane": 0, "engine": "sampler", "seed_id": 7, "prng": 233874261, "name": "kick compost"},
-        {"step": 7, "when_samples": 162581, "lane": 1, "engine": "sampler", "seed_id": 8, "prng": 2705269188, "name": "snare clipping"},
-        {"step": 8, "when_samples": 185806, "lane": 3, "engine": "sampler", "seed_id": 9, "prng": 1387298919, "name": "hat patina"},
-        {"step": 9, "when_samples": 209032, "lane": 2, "engine": "resonator", "seed_id": 10, "prng": 1738895236, "name": "ride oxidation"},
-        {"step": 10, "when_samples": 232258, "lane": 0, "engine": "sampler", "seed_id": 11, "prng": 19299646, "name": "kick compost"},
-        {"step": 11, "when_samples": 255484, "lane": 1, "engine": "sampler", "seed_id": 12, "prng": 1019343227, "name": "snare clipping"}
+        {"step": 4, "when_samples": 92903, "lane": 3, "engine": "sampler", "seed_id": 5, "prng": 750015510, "name": "hat patina"},
+        {"step": 5, "when_samples": 116129, "lane": 2, "engine": "resonator", "seed_id": 6, "prng": 2781959436, "name": "ride oxidation"},
+        {"step": 6, "when_samples": 139355, "lane": 1, "engine": "sampler", "seed_id": 7, "prng": 233874261, "name": "snare clipping"},
+        {"step": 7, "when_samples": 162581, "lane": 0, "engine": "sampler", "seed_id": 8, "prng": 2705269188, "name": "kick compost"},
+        {"step": 8, "when_samples": 185806, "lane": 0, "engine": "sampler", "seed_id": 9, "prng": 1387298919, "name": "kick compost"},
+        {"step": 9, "when_samples": 209032, "lane": 1, "engine": "sampler", "seed_id": 10, "prng": 1057386845, "name": "snare clipping"},
+        {"step": 10, "when_samples": 232258, "lane": 3, "engine": "sampler", "seed_id": 11, "prng": 19299646, "name": "hat patina"},
+        {"step": 11, "when_samples": 255484, "lane": 2, "engine": "resonator", "seed_id": 12, "prng": 4079608727, "name": "ride oxidation"}
       ]
     }
   ]

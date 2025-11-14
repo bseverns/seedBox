@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <random>
 #include <sstream>
 #include <string>
@@ -140,6 +141,23 @@ inline Seed makeSeed(const StemDefinition& stem,
   return makeSamplerSeed(stem, id, masterSeed, passIndex);
 }
 
+template <typename RandomIt, typename Generator>
+inline void deterministic_shuffle(RandomIt first, RandomIt last, Generator& generator) {
+  const auto count = std::distance(first, last);
+  if (count <= 1) {
+    return;
+  }
+
+  using difference_type = typename std::iterator_traits<RandomIt>::difference_type;
+  using result_type = typename Generator::result_type;
+
+  for (difference_type i = count - 1; i > 0; --i) {
+    const result_type span = static_cast<result_type>(i + 1);
+    const difference_type pick = static_cast<difference_type>(generator() % span);
+    std::iter_swap(first + i, first + pick);
+  }
+}
+
 inline BouncePlan makeBouncePlan(const std::vector<StemDefinition>& stems,
                                  std::uint32_t masterSeed,
                                  double sampleRate,
@@ -157,7 +175,7 @@ inline BouncePlan makeBouncePlan(const std::vector<StemDefinition>& stems,
   double maxWhen = 0.0;
 
   for (int pass = 0; pass < passes; ++pass) {
-    std::shuffle(order.begin(), order.end(), rng);
+    deterministic_shuffle(order.begin(), order.end(), rng);
     for (std::size_t idx = 0; idx < order.size(); ++idx) {
       const auto& stem = order[idx];
       const double beatIndex = static_cast<double>(pass * order.size() + idx);
