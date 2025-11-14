@@ -701,11 +701,13 @@ std::vector<int16_t> render_long_random_take_fixture() {
     renderer.mixResonatorEvents(plan.resonatorEvents);
     const auto& pcm = renderer.finalize();
 
-    std::vector<int16_t> trimmed(settings.frames, 0);
-    const std::size_t copy_count = std::min(trimmed.size(), pcm.size());
-    std::copy_n(pcm.begin(), copy_count, trimmed.begin());
-    if (copy_count < trimmed.size()) {
-        std::fill(trimmed.begin() + copy_count, trimmed.end(), 0);
+    const std::size_t frames = settings.frames;
+    std::vector<int16_t> trimmed(frames * 2u, 0);
+    const std::size_t available_frames = std::min(frames, pcm.size());
+    for (std::size_t i = 0; i < available_frames; ++i) {
+        const int16_t sample = pcm[i];
+        trimmed[2u * i] = sample;
+        trimmed[2u * i + 1u] = sample;
     }
     return trimmed;
 }
