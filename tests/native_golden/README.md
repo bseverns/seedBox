@@ -35,7 +35,7 @@ truth about what we heard.
 ### 30-second long take — deterministic chaos on tape
 
 - `test_render_long_take_golden` bounces six stems through the reseed playbook at 120 BPM for a full 30-second ride. The shuffle order comes from master seed `0x30F00D`, so every pass is wild but repeatable.
-- Skip the full suite when you just want the mixtape: `./tests/native_golden/render_long_take.sh` sets `ENABLE_GOLDEN=1` and filters PlatformIO down to the long-take capture (assumes the `pio` CLI is on your path; otherwise fall back to `./scripts/offline_native_golden.sh`).
+- Skip the full suite when you just want the mixtape: `./tests/native_golden/render_long_take.sh` sets `ENABLE_GOLDEN=1` and filters PlatformIO down to the long-take capture. When PlatformIO ghosts you, the script now auto-hands the job to the offline harness so you still get fresh audio on disk.
 - The WAV lands at `build/fixtures/long-random-take.wav`. Fire up `python -m http.server` in the repo root and you get a local playback link at [http://localhost:8000/build/fixtures/long-random-take.wav](http://localhost:8000/build/fixtures/long-random-take.wav).
 - After any recut, run `python scripts/compute_golden_hashes.py --write` so `tests/native_golden/golden.json` keeps shouting the right hash.
 
@@ -64,6 +64,10 @@ manifest locally. We wrapped the whole dance in a single script:
 
 ```bash
 ./scripts/offline_native_golden.sh
+# Only refresh the long take without touching the other fixtures
+./scripts/offline_native_golden.sh --filter long-random-take
+# Render WAVs/logs but leave the manifest alone for a quick audition run
+./scripts/offline_native_golden.sh --skip-manifest
 ```
 
 That command compiles the helper with `g++`, renders every WAV/log pair into

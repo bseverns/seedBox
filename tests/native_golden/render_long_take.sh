@@ -25,6 +25,17 @@ for py_candidate in python3 python; do
   fi
 done
 
+OFFLINE_SCRIPT="${REPO_ROOT}/scripts/offline_native_golden.sh"
+if [[ -x "${OFFLINE_SCRIPT}" ]]; then
+  {
+    echo "[render_long_take] PlatformIO CLI not found; falling back to offline harness.";
+    if [[ $# -gt 0 ]]; then
+      echo "[render_long_take] ignoring PlatformIO flags for offline mode: $*";
+    fi
+  } >&2
+  exec "${OFFLINE_SCRIPT}" --filter long-random-take
+fi
+
 cat <<'EOF' >&2
 PlatformIO CLI not found. Install it with `pip install -U platformio` or ensure
 `pio`/`platformio` is on your PATH.

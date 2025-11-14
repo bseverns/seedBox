@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -59,6 +61,84 @@ constexpr GoldenFixture kLogFixtures[] = {
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
     {"reseed-log", "build/fixtures/reseed-log.json", "d69139987974d08a"},
 };
+
+enum class FixtureKind { kAudio, kLog };
+
+std::string to_lower_copy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
+std::vector<std::string> parse_filter_tokens() {
+    const char* raw = std::getenv("SEEDBOX_OFFLINE_GOLDEN_FILTER");
+    if (raw == nullptr || *raw == '\0') {
+        return {};
+    }
+
+    std::vector<std::string> tokens;
+    std::string current;
+    const std::string source(raw);
+
+    auto flush = [&]() {
+        if (current.empty()) {
+            return;
+        }
+        tokens.push_back(to_lower_copy(current));
+        current.clear();
+    };
+
+    for (char ch : source) {
+        if (ch == ',' || ch == ';' || std::isspace(static_cast<unsigned char>(ch))) {
+            flush();
+        } else {
+            current.push_back(ch);
+        }
+    }
+    flush();
+
+    tokens.erase(
+        std::remove_if(tokens.begin(), tokens.end(), [](const std::string& token) { return token.empty(); }),
+        tokens.end());
+    return tokens;
+}
+
+bool token_matches_kind(const std::string& token, FixtureKind kind) {
+    if (token == "all" || token == "*") {
+        return true;
+    }
+    if (kind == FixtureKind::kAudio) {
+        return token == "audio" || token == "audios" || token == "wav" || token == "stems";
+    }
+    return token == "log" || token == "logs" || token == "txt" || token == "text";
+}
+
+bool should_emit(const GoldenFixture& spec,
+                 FixtureKind kind,
+                 const std::vector<std::string>& tokens) {
+    if (tokens.empty()) {
+        return true;
+    }
+
+    const std::string name = to_lower_copy(spec.name);
+    const std::string path = to_lower_copy(spec.path);
+    for (const auto& token : tokens) {
+        if (token.empty()) {
+            continue;
+        }
+        if (token_matches_kind(token, kind)) {
+            return true;
+        }
+        if (name.find(token) != std::string::npos) {
+            return true;
+        }
+        if (path.find(token) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
 
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
@@ -685,6 +765,29 @@ void ensure_log_fixture(const GoldenFixture& spec, const std::string& body) {
     std::cout << "[ok] " << spec.name << " -> " << spec.path << " (" << hash << ")" << std::endl;
 }
 
+template <typename Generator>
+void maybe_emit_audio(const GoldenFixture& spec,
+                      std::uint16_t channels,
+                      Generator&& generator,
+                      const std::vector<std::string>& filters) {
+    if (!should_emit(spec, FixtureKind::kAudio, filters)) {
+        std::cout << "[skip] " << spec.name << " (filtered)" << std::endl;
+        return;
+    }
+    ensure_fixture(spec, generator(), channels);
+}
+
+template <typename Generator>
+void maybe_emit_log(const GoldenFixture& spec,
+                    Generator&& generator,
+                    const std::vector<std::string>& filters) {
+    if (!should_emit(spec, FixtureKind::kLog, filters)) {
+        std::cout << "[skip] " << spec.name << " (filtered)" << std::endl;
+        return;
+    }
+    ensure_log_fixture(spec, generator());
+}
+
 }  // namespace
 
 int main() {
@@ -692,18 +795,27 @@ int main() {
         const auto root = project_root() / "build/fixtures";
         std::filesystem::create_directories(root);
 
-        ensure_fixture(kAudioFixtures[0], make_drone(), 1);
-        ensure_fixture(kAudioFixtures[1], render_sampler_fixture(), 1);
-        ensure_fixture(kAudioFixtures[2], render_resonator_fixture(), 1);
-        ensure_fixture(kAudioFixtures[3], render_granular_fixture(), 2);
-        ensure_fixture(kAudioFixtures[4], render_mixer_fixture(), 2);
-        ensure_fixture(kAudioFixtures[5], render_long_random_take_fixture(), 1);
-        ensure_fixture(kAudioFixtures[6], render_reseed_variant(0xCAFEu), 1);
-        ensure_fixture(kAudioFixtures[7], render_reseed_variant(0xBEEFu), 1);
+        const auto filters = parse_filter_tokens();
+        if (!filters.empty()) {
+            std::cout << "[offline-native-golden] active filters:";
+            for (const auto& token : filters) {
+                std::cout << ' ' << token;
+            }
+            std::cout << std::endl;
+        }
 
-        ensure_log_fixture(kLogFixtures[0], render_euclid_log());
-        ensure_log_fixture(kLogFixtures[1], render_burst_log());
-        ensure_log_fixture(kLogFixtures[2], render_reseed_log_fixture());
+        maybe_emit_audio(kAudioFixtures[0], 1, [] { return make_drone(); }, filters);
+        maybe_emit_audio(kAudioFixtures[1], 1, [] { return render_sampler_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[2], 1, [] { return render_resonator_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[3], 2, [] { return render_granular_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[4], 2, [] { return render_mixer_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[5], 1, [] { return render_long_random_take_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[6], 1, [] { return render_reseed_variant(0xCAFEu); }, filters);
+        maybe_emit_audio(kAudioFixtures[7], 1, [] { return render_reseed_variant(0xBEEFu); }, filters);
+
+        maybe_emit_log(kLogFixtures[0], [] { return render_euclid_log(); }, filters);
+        maybe_emit_log(kLogFixtures[1], [] { return render_burst_log(); }, filters);
+        maybe_emit_log(kLogFixtures[2], [] { return render_reseed_log_fixture(); }, filters);
 
         std::cout << "Native golden fixtures refreshed." << std::endl;
         return 0;
