@@ -19,15 +19,15 @@ import json
 from pathlib import Path
 import sys
 import wave
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 FNV_OFFSET = 1469598103934665603
 FNV_PRIME = 0x100000001B3
 
 
-def _parse_note_overrides(raw_notes: Optional[List[str]]) -> dict[str, str]:
-    overrides: dict[str, str] = {}
+def _parse_note_overrides(raw_notes: Optional[List[str]]) -> Dict[str, str]:
+    overrides: Dict[str, str] = {}
     if not raw_notes:
         return overrides
     for entry in raw_notes:
@@ -100,10 +100,10 @@ def _read_pcm(path: Path) -> Tuple[bytes, int, int, int]:
     return payload, frame_rate, frames, channels
 
 
-def _merge_fixture(existing: dict[str, dict],
-                   overrides: dict[str, str],
+def _merge_fixture(existing: Dict[str, Dict[str, Any]],
+                   overrides: Dict[str, str],
                    fixture_name: str,
-                   data: dict) -> dict:
+                   data: Dict[str, Any]) -> Dict[str, Any]:
     merged = existing.get(fixture_name, {}).copy()
     merged.update(data)
     if fixture_name in overrides:
@@ -115,7 +115,7 @@ def _merge_fixture(existing: dict[str, dict],
 
 def compute_manifest(fixtures_root: Path,
                      manifest_path: Path,
-                     note_overrides: dict[str, str]) -> Tuple[dict, list[dict]]:
+                     note_overrides: Dict[str, str]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     manifest = _load_manifest(manifest_path)
     fixtures_root_list = manifest.get("fixtures", [])
     if not isinstance(fixtures_root_list, list):
@@ -126,7 +126,7 @@ def compute_manifest(fixtures_root: Path,
     for path in _scan_fixtures(fixtures_root):
         suffix = path.suffix.lower()
         name = path.stem
-        data: dict[str, object] = {
+        data: Dict[str, object] = {
             "name": name,
             "path": str(path).replace("\\", "/"),
         }
@@ -177,7 +177,7 @@ def compute_manifest(fixtures_root: Path,
     return manifest, fixtures
 
 
-def render_table(fixtures: List[dict]) -> str:
+def render_table(fixtures: List[Dict[str, Any]]) -> str:
     if not fixtures:
         return "(no fixtures discovered)"
     header = f"{'Fixture':20} {'Kind':6} {'Hash':18} {'Summary':>24}"
