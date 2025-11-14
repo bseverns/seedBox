@@ -136,6 +136,9 @@ as tutorials.
   couch.
 - **Documentary mode?** Read the roadmaps in `docs/` and drop ideas directly in
   Markdown. We treat documentation as part of the jam session.
+- **Live input microscope?** `docs/tutorials/live_input_prime_mode.md` walks the
+  simulator through the new `SeedPrimeMode::kLiveInput` path so you can verify the
+  mock "live-in" buffer without ever plugging in hardware.【F:docs/tutorials/live_input_prime_mode.md†L1-L69】
 - **Example safari?** The tests inside [`tests/test_app`](tests/test_app) and
   [`tests/test_patterns`](tests/test_patterns) are intentionally verbose. Read
   them like workshop demos, then riff with your own cases.

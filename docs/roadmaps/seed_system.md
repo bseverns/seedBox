@@ -82,3 +82,6 @@ Unity tests keep us honest:
   survive reseeds and even engine swaps without desyncing the router caches.
 - The same suite also smokes the Quantize control by faking the MN42 CC stream
   and making sure the sampler hears the snapped pitch immediately.
+- `test_seed_prime_modes.cpp` now includes a simulator walk that fires a
+  granular voice on the live-input lane, proving the "live-in" alias is respected
+  even with the codec stubbed out.【F:tests/test_app/test_seed_prime_modes.cpp†L55-L90】
