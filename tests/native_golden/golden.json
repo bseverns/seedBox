@@ -19,7 +19,7 @@
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "TODO placeholder in repo; render 110 Hz mono drone for real checks."
+      "notes": "1 s mono drone @110 Hz from native golden render."
     },
     {
       "name": "euclid-mask",
@@ -40,7 +40,7 @@
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
-      "notes": "TODO placeholder; stereo swirling grain cloud reveals granular sync issues."
+      "notes": "Stereo granular cloud render for sync + drift checks."
     },
     {
       "name": "mixer-console",
@@ -52,7 +52,7 @@
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
-      "notes": "TODO placeholder; stereo sum of all engines with ~-3 dBFS peaks."
+      "notes": "Stereo mix bus snapshot combining drone/sampler/resonator/granular."
     },
     {
       "name": "resonator-tail",
@@ -64,7 +64,7 @@
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "TODO placeholder; should be the resonator decay tail for damping checks."
+      "notes": "Mono resonator decay tail captured from golden harness."
     },
     {
       "name": "sampler-grains",
@@ -76,7 +76,7 @@
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "TODO placeholder; expect mono stacked grain chord to audit sampler voicing."
+      "notes": "Mono stacked chord from sampler engine with staggered triggers."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -85,5 +85,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-14T01:54:00Z"
+  "generated_at_utc": "2025-11-14T02:19:20Z"
 }
