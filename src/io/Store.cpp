@@ -197,7 +197,10 @@ bool StoreEeprom::load(std::string_view slot, std::vector<std::uint8_t>& out) co
 }
 
 bool StoreEeprom::save(std::string_view slot, const std::vector<std::uint8_t>& data) {
-  if constexpr (SeedBoxConfig::kQuietMode) {
+  // Quiet-mode labs can still persist presets when we're running the simulator;
+  // we only short-circuit writes on real hardware so classroom rigs stay read-only
+  // unless QUIET_MODE is cleared on purpose.
+  if constexpr (SeedBoxConfig::kQuietMode && SeedBoxConfig::kHardwareBuild) {
     (void)slot;
     (void)data;
     return false;
@@ -382,7 +385,9 @@ bool StoreSd::load(std::string_view slot, std::vector<std::uint8_t>& out) const 
 }
 
 bool StoreSd::save(std::string_view slot, const std::vector<std::uint8_t>& data) {
-  if constexpr (SeedBoxConfig::kQuietMode) {
+  // Same story as the EEPROM backend: native sims may write freely while
+  // hardware quiet-mode stays locked down.
+  if constexpr (SeedBoxConfig::kQuietMode && SeedBoxConfig::kHardwareBuild) {
     (void)slot;
     (void)data;
     return false;
