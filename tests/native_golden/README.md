@@ -7,10 +7,9 @@ truth about what we heard.
 
 ## What runs today
 
-> **Heads-up:** the repository ships placeholder `.wav` files — little TODO manifestos
-> that explain what each render should sound like. Running the harness overwrites
-> them locally with the real audio, but we keep the textual postcards in git so
-> we aren't clogging history with binaries.
+> **Reality check:** the repo now ships the actual golden renders. They're fresh
+> captures from the offline harness, so hashes in git line up with what's on disk.
+> Re-run the harness if you change an engine and commit the new pressings right away.
 
 1. `tests/native_golden/test_main.cpp` still prints the 1-second 110 Hz drone to
    `build/fixtures/drone-intro.wav`, but it also forges a sampler chord stack,
