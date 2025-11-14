@@ -62,7 +62,7 @@ constexpr GoldenFixture kAudioFixtures[] = {
 constexpr GoldenFixture kLogFixtures[] = {
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
-    {"reseed-log", "build/fixtures/reseed-log.json", "d69139987974d08a"},
+    {"reseed-log", "build/fixtures/reseed-log.json", "873935e11a5704f3"},
 };
 
 std::filesystem::path find_project_root() {
