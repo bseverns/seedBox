@@ -19,13 +19,14 @@ import json
 from pathlib import Path
 import sys
 import wave
+from typing import List, Optional, Tuple
 
 
 FNV_OFFSET = 1469598103934665603
 FNV_PRIME = 0x100000001B3
 
 
-def _parse_note_overrides(raw_notes: list[str] | None) -> dict[str, str]:
+def _parse_note_overrides(raw_notes: Optional[List[str]]) -> dict[str, str]:
     overrides: dict[str, str] = {}
     if not raw_notes:
         return overrides
@@ -78,14 +79,14 @@ def _load_manifest(path: Path) -> dict:
     }
 
 
-def _scan_fixtures(fixtures_root: Path) -> list[Path]:
+def _scan_fixtures(fixtures_root: Path) -> List[Path]:
     if not fixtures_root.exists():
         return []
     allowed = {".wav", ".txt"}
     return sorted(p for p in fixtures_root.rglob("*") if p.is_file() and p.suffix.lower() in allowed)
 
 
-def _read_pcm(path: Path) -> tuple[bytes, int, int, int]:
+def _read_pcm(path: Path) -> Tuple[bytes, int, int, int]:
     with wave.open(str(path), "rb") as wav:
         sample_width = wav.getsampwidth()
         if sample_width != 2:
@@ -114,7 +115,7 @@ def _merge_fixture(existing: dict[str, dict],
 
 def compute_manifest(fixtures_root: Path,
                      manifest_path: Path,
-                     note_overrides: dict[str, str]) -> tuple[dict, list[dict]]:
+                     note_overrides: dict[str, str]) -> Tuple[dict, list[dict]]:
     manifest = _load_manifest(manifest_path)
     fixtures_root_list = manifest.get("fixtures", [])
     if not isinstance(fixtures_root_list, list):
@@ -176,7 +177,7 @@ def compute_manifest(fixtures_root: Path,
     return manifest, fixtures
 
 
-def render_table(fixtures: list[dict]) -> str:
+def render_table(fixtures: List[dict]) -> str:
     if not fixtures:
         return "(no fixtures discovered)"
     header = f"{'Fixture':20} {'Kind':6} {'Hash':18} {'Summary':>24}"
@@ -201,7 +202,7 @@ def render_table(fixtures: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def main(argv: list[str]) -> int:
+def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--fixtures-root",
