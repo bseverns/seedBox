@@ -128,8 +128,9 @@ as tutorials.
 
 - **Just want to hear something?** Plug in a Teensy 4.0, follow the wiring in
   `docs/` (the map now leans fully into 1/8" Type-A MIDI jacks riding beside
-  USB), then build the `teensy40` target in PlatformIO (the older
-  `teensy40_usbmidiserial` alias still works if your muscle memory insists).
+  USB), then build the `teensy40` target in PlatformIO. The old
+  `teensy40_usbmidiserial` alias has been shipped off to the retirement home —
+  update your scripts and enjoy the shorter name.
 - **No hardware handy?** Run the `native` environment. It uses the same logic as
   the hardware build and spits out logs/tests so you can tweak algorithms on the
   couch.
@@ -149,8 +150,11 @@ like a zine.
 3. Grab project dependencies: `pio pkg install`
 4. Run the fast tests (no hardware required): `pio test -e native`
 5. When you're ready for the real synth, build the Teensy target:
-   `pio run -e teensy40` *(or `-e teensy40_usbmidiserial` if you're running an
-   old script — we kept the alias on purpose).* 
+   `pio run -e teensy40`.
+
+> ⚡️ Heads up: `teensy40_usbmidiserial` is now officially deprecated and removed
+> from `platformio.ini`. Swap any dusty scripts over to `teensy40` so future
+> releases don't catch you flat-footed.
 
 ## Quiet mode (default sandbox state)
 
@@ -167,7 +171,7 @@ SeedBox now boots with `QUIET_MODE=1`. That means:
 Want the full-noise experience? Flip the flag by overriding the PlatformIO env:
 
 ```ini
-[env:teensy40_usbmidiserial]
+[env:teensy40]
 build_flags =
   ${env.build_flags}
   -D SEEDBOX_HW=1
@@ -261,7 +265,7 @@ sequenceDiagram
   participant PIO as PlatformIO
   Dev->>CI: push / PR
   CI->>PIO: run `pio test -e native`
-  CI->>PIO: run `pio run -e teensy40_usbmidiserial`
+  CI->>PIO: run `pio run -e teensy40`
   PIO-->>CI: status + logs
   CI-->>Dev: badges flip + artifacts/ snapshots
 ```

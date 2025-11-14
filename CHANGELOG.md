@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardened seed workflows and UI hints by tightening macros, quantize state
   transitions, and swing pop-over behavior.
 
+### Deprecated
+- Retired the legacy `teensy40_usbmidiserial` PlatformIO env; `teensy40` now
+  stands alone, so update local scripts before the next release cycle.
+
 ### Fixed
 - Patched a stack of build issues: MidiRouter backend creation/declarations,
   CLI warnings, duplicate helpers, AppState members/braces, storage state
