@@ -1,3 +1,3 @@
 #pragma once
-#define SEEDBOX_GIT "nogit"
-#define SEEDBOX_BUILT "2025-11-13 21:28:31"
+#define SEEDBOX_GIT "ba40290"
+#define SEEDBOX_BUILT "2025-11-14 14:37:25"
