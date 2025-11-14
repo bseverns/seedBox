@@ -917,34 +917,6 @@ void AppState::toggleClockProvider() {
 void AppState::primeSeeds(uint32_t masterSeed) {
   masterSeed_ = masterSeed ? masterSeed : 0x5EEDB0B1u;
 
-  if constexpr (SeedBoxConfig::kQuietMode) {
-    seeds_.clear();
-    ClockProvider* provider = clock_ ? clock_ : &internalClock_;
-    scheduler_ = PatternScheduler(provider);
-    selectClockProvider(provider);
-    scheduler_.setBpm(0.f);
-    scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
-    seedEngineSelections_.clear();
-    seedLock_.clear();
-    tapTempoHistory_.clear();
-    presetBuffer_ = PresetBuffer{};
-    setFocusSeed(0);
-    seedsPrimed_ = true;
-    externalTransportRunning_ = false;
-    transportLatchedRunning_ = false;
-    transportGateHeld_ = false;
-    followExternalClockEnabled_ = false;
-    debugMetersEnabled_ = false;
-    transportLatchEnabled_ = false;
-    mn42HelloSeen_ = false;
-    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-    updateClockDominance();
-    hal::io::writeDigital(kStatusLedPin, false);
-    captureDisplaySnapshot(displayCache_, uiStateCache_);
-    displayDirty_ = true;
-    return;
-  }
-
   const std::vector<uint8_t> previousSelections = seedEngineSelections_;
   const std::vector<Seed> previousSeeds = seeds_;
   const uint8_t previousFocus = focusSeed_;
@@ -1037,7 +1009,8 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   transportLatchedRunning_ = false;
   transportGateHeld_ = false;
   updateClockDominance();
-  hal::io::writeDigital(kStatusLedPin, true);
+  const bool ledOn = !SeedBoxConfig::kQuietMode;
+  hal::io::writeDigital(kStatusLedPin, ledOn);
   displayDirty_ = true;
 }
 
@@ -1158,11 +1131,6 @@ float AppState::currentTapTempoBpm() const {
 }
 
 void AppState::onExternalClockTick() {
-  if constexpr (SeedBoxConfig::kQuietMode) {
-    externalTransportRunning_ = true;
-    updateClockDominance();
-    return;
-  }
   if (!seedsPrimed_) {
     primeSeeds(masterSeed_);
   }
