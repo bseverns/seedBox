@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 
 #include "SeedBoxConfig.h"
 #include "engine/Resonator.h"
@@ -101,11 +102,27 @@ void OfflineRenderer::mixSamplerEvents(const std::vector<SamplerEvent>& events) 
 
   Sampler sampler;
   sampler.init();
+
+  std::vector<Sampler::VoiceState> voices;
+  voices.reserve(events.size());
+  std::unordered_set<std::uint32_t> seenHandles;
+
   std::uint32_t maxWhen = 0;
   for (const auto& evt : events) {
     sampler.trigger(evt.seed, evt.whenSamples);
     maxWhen = std::max(maxWhen, evt.whenSamples);
+
+    for (std::uint8_t i = 0; i < Sampler::kMaxVoices; ++i) {
+      const auto voice = sampler.voice(i);
+      if (!voice.active) {
+        continue;
+      }
+      if (seenHandles.insert(voice.handle).second) {
+        voices.push_back(voice);
+      }
+    }
   }
+
   const std::size_t tail = static_cast<std::size_t>(settings_.sampleRate * 2.0);
   ensureBuffer(static_cast<std::size_t>(maxWhen) + tail + 1);
 
@@ -113,12 +130,7 @@ void OfflineRenderer::mixSamplerEvents(const std::vector<SamplerEvent>& events) 
   const double sustainHold = settings_.samplerSustainHold;
   const double baseFrequencies[] = {110.0, 164.81, 220.0, 261.63, 329.63, 392.0, 523.25};
 
-  for (std::uint8_t i = 0; i < Sampler::kMaxVoices; ++i) {
-    const auto voice = sampler.voice(i);
-    if (!voice.active) {
-      continue;
-    }
-
+  for (const auto& voice : voices) {
     const double freqBase = baseFrequencies[voice.sampleIndex % std::size(baseFrequencies)];
     const double freq = freqBase * static_cast<double>(voice.playbackRate);
     const double pan = 0.5 * (static_cast<double>(voice.leftGain) + static_cast<double>(voice.rightGain));
@@ -159,21 +171,32 @@ void OfflineRenderer::mixResonatorEvents(const std::vector<ResonatorEvent>& even
 
   ResonatorBank bank;
   bank.init(ResonatorBank::Mode::kSim);
+  std::vector<ResonatorBank::VoiceState> voices;
+  voices.reserve(events.size());
+  std::unordered_set<std::uint32_t> seenHandles;
+
   std::uint32_t maxWhen = 0;
   for (const auto& evt : events) {
     bank.trigger(evt.seed, evt.whenSamples);
     maxWhen = std::max(maxWhen, evt.whenSamples);
+
+    for (std::uint8_t i = 0; i < ResonatorBank::kMaxVoices; ++i) {
+      const auto voice = bank.voice(i);
+      if (!voice.active) {
+        continue;
+      }
+      if (seenHandles.insert(voice.handle).second) {
+        voices.push_back(voice);
+      }
+    }
   }
+
   const std::size_t tail = static_cast<std::size_t>(settings_.sampleRate * 4.0);
   ensureBuffer(static_cast<std::size_t>(maxWhen) + tail + 1);
 
   const double framesPerSecond = settings_.sampleRate;
 
-  for (std::uint8_t i = 0; i < ResonatorBank::kMaxVoices; ++i) {
-    const auto voice = bank.voice(i);
-    if (!voice.active) {
-      continue;
-    }
+  for (const auto& voice : voices) {
     const std::size_t start = static_cast<std::size_t>(voice.startSample);
     const double burst = static_cast<double>(voice.burstGain);
     const double damping = static_cast<double>(voice.damping);
