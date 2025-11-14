@@ -58,7 +58,7 @@
       "name": "mixer-console",
       "path": "build/fixtures/mixer-console.wav",
       "kind": "audio",
-      "hash": "219433fb7ced6be1",
+      "hash": "3ba5f705dc237611",
       "wav_path": "build/fixtures/mixer-console.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,

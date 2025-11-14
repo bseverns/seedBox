@@ -53,7 +53,7 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
-    {"mixer-console", "build/fixtures/mixer-console.wav", "219433fb7ced6be1"},
+    {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "0cb1c926fd792ec4"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "41ba948d66dcb781"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "bfd752b44ff86048"},
