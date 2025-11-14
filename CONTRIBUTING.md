@@ -48,8 +48,11 @@ so run it often while iterating.
 ### Teensy 4.0 hardware shakedown
 
 ```bash
-pio run -e teensy40_usbmidiserial
+pio run -e teensy40
 ```
+
+> The retired `teensy40_usbmidiserial` alias is gone from `platformio.ini`; if a
+> local script still calls it, swap the env name before the next jam session.
 
 If you're flashing hardware, follow up with a real play test. Listen for xruns,
 clicks, or other signs of buffer pain.
