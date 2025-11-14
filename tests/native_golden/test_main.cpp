@@ -56,6 +56,7 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"mixer-console", "build/fixtures/mixer-console.wav", "219433fb7ced6be1"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "0cb1c926fd792ec4"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "41ba948d66dcb781"},
+    {"long-random-take", "build/fixtures/long-random-take.wav", "bfd752b44ff86048"},
 };
 
 constexpr GoldenFixture kLogFixtures[] = {
@@ -676,6 +677,39 @@ std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed) {
     return std::vector<int16_t>(pcm.begin(), pcm.end());
 }
 
+
+std::vector<int16_t> render_long_random_take_fixture() {
+    constexpr double kDurationSeconds = 30.0;
+    constexpr std::uint32_t kMasterSeed = 0x30F00Du;
+    constexpr int kBpm = 120;
+    constexpr int kPasses = 10;
+
+    std::vector<reseed::StemDefinition> stems = reseed::defaultStems();
+    stems.push_back({"tape rattle", 4, reseed::EngineKind::kSampler});
+    stems.push_back({"clank shimmer", 5, reseed::EngineKind::kResonator});
+
+    const auto plan = reseed::makeBouncePlan(stems, kMasterSeed, kSampleRate, kBpm, kPasses);
+
+    offline::RenderSettings settings;
+    settings.sampleRate = kSampleRate;
+    settings.frames = static_cast<std::size_t>(kDurationSeconds * kSampleRate);
+    settings.samplerSustainHold = 0.35;
+    settings.normalizeTarget = 0.9;
+
+    offline::OfflineRenderer renderer(settings);
+    renderer.mixSamplerEvents(plan.samplerEvents);
+    renderer.mixResonatorEvents(plan.resonatorEvents);
+    const auto& pcm = renderer.finalize();
+
+    std::vector<int16_t> trimmed(settings.frames, 0);
+    const std::size_t copy_count = std::min(trimmed.size(), pcm.size());
+    std::copy_n(pcm.begin(), copy_count, trimmed.begin());
+    if (copy_count < trimmed.size()) {
+        std::fill(trimmed.begin() + copy_count, trimmed.end(), 0);
+    }
+    return trimmed;
+}
+
 std::string render_reseed_log_fixture() {
     const auto& stems = reseed::defaultStems();
     const auto plan_a = reseed::makeBouncePlan(stems, 0xCAFEu, kSampleRate, 124, 3);
@@ -939,6 +973,22 @@ void test_render_reseed_b_golden() {
     assert_manifest_contains(manifest_body, kAudioFixtures[6]);
 }
 
+void test_render_long_take_golden() {
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(kAudioFixtures[7].path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_long_random_take_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write long random take WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[7].expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, kAudioFixtures[7]);
+}
+
 void test_log_euclid_burst_golden() {
     const std::string euclid_log = render_euclid_log();
     const std::string burst_log = render_burst_log();
@@ -1001,6 +1051,7 @@ int main(int, char**) {
     RUN_TEST(test_render_mixer_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);
+    RUN_TEST(test_render_long_take_golden);
     RUN_TEST(test_log_euclid_burst_golden);
     RUN_TEST(test_log_reseed_golden);
 #else

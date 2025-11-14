@@ -13,7 +13,7 @@
       "name": "drone-intro",
       "path": "build/fixtures/drone-intro.wav",
       "kind": "audio",
-      "hash": "84acfe9c8bc08156",
+      "hash": "f53315eb7db89d33",
       "wav_path": "build/fixtures/drone-intro.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -34,7 +34,7 @@
       "name": "granular-haze",
       "path": "build/fixtures/granular-haze.wav",
       "kind": "audio",
-      "hash": "27540ebd82897c04",
+      "hash": "769c3d774ce0dadf",
       "wav_path": "build/fixtures/granular-haze.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -43,40 +43,28 @@
       "notes": "TODO placeholder; stereo swirling grain cloud reveals granular sync issues."
     },
     {
+      "name": "long-random-take",
+      "path": "build/fixtures/long-random-take.wav",
+      "kind": "audio",
+      "hash": "bfd752b44ff86048",
+      "wav_path": "build/fixtures/long-random-take.wav",
+      "sample_rate_hz": 48000,
+      "frames": 1440000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": ""
+    },
+    {
       "name": "mixer-console",
       "path": "build/fixtures/mixer-console.wav",
       "kind": "audio",
-      "hash": "d287ee0851f39e21",
+      "hash": "219433fb7ced6be1",
       "wav_path": "build/fixtures/mixer-console.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": "TODO placeholder; stereo sum of all engines with ~-3 dBFS peaks."
-    },
-    {
-      "name": "resonator-tail",
-      "path": "build/fixtures/resonator-tail.wav",
-      "kind": "audio",
-      "hash": "7e42dabb52b5851e",
-      "wav_path": "build/fixtures/resonator-tail.wav",
-      "sample_rate_hz": 48000,
-      "frames": 48000,
-      "channels": 1,
-      "channel_layout": "mono",
-      "notes": "TODO placeholder; should be the resonator decay tail for damping checks."
-    },
-    {
-      "name": "sampler-grains",
-      "path": "build/fixtures/sampler-grains.wav",
-      "kind": "audio",
-      "hash": "49d34cf772fe0389",
-      "wav_path": "build/fixtures/sampler-grains.wav",
-      "sample_rate_hz": 48000,
-      "frames": 48000,
-      "channels": 1,
-      "channel_layout": "mono",
-      "notes": "TODO placeholder; expect mono stacked grain chord to audit sampler voicing."
     },
     {
       "name": "reseed-A",
@@ -88,7 +76,7 @@
       "frames": 401033,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "Offline bounce for seed 0xCAFE from examples/02_reseed."
+      "notes": ""
     },
     {
       "name": "reseed-B",
@@ -100,16 +88,31 @@
       "frames": 401033,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "Offline bounce for seed 0xBEEF from examples/02_reseed."
+      "notes": ""
     },
     {
-      "name": "reseed-log",
-      "path": "build/fixtures/reseed-log.json",
-      "kind": "log",
-      "hash": "d69139987974d08a",
-      "bytes": 3817,
-      "lines": 51,
-      "notes": "Structured reseed shuffle log captured alongside the stems."
+      "name": "resonator-tail",
+      "path": "build/fixtures/resonator-tail.wav",
+      "kind": "audio",
+      "hash": "e329aa6faffb39f4",
+      "wav_path": "build/fixtures/resonator-tail.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": "TODO placeholder; should be the resonator decay tail for damping checks."
+    },
+    {
+      "name": "sampler-grains",
+      "path": "build/fixtures/sampler-grains.wav",
+      "kind": "audio",
+      "hash": "630fbfadca574688",
+      "wav_path": "build/fixtures/sampler-grains.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": "TODO placeholder; expect mono stacked grain chord to audit sampler voicing."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -118,5 +121,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-14T14:18:08Z"
+  "generated_at_utc": "2025-11-14T14:42:55Z"
 }

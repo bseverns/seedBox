@@ -34,6 +34,7 @@ CXXFLAGS=(
 
 SOURCES=(
   tools/native_golden_offline.cpp
+  examples/shared/offline_renderer.cpp
   tests/native_golden/wav_helpers.cpp
   src/hal/board_native.cpp
   src/hal/hal_audio.cpp
