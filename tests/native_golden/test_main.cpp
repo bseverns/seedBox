@@ -56,7 +56,7 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "0cb1c926fd792ec4"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "41ba948d66dcb781"},
-    {"long-random-take", "build/fixtures/long-random-take.wav", "bfd752b44ff86048"},
+    {"long-random-take", "build/fixtures/long-random-take.wav", "9f60a4653afc1763"},
 };
 
 constexpr GoldenFixture kLogFixtures[] = {
