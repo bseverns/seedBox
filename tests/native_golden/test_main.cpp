@@ -27,6 +27,9 @@
 #include "io/MidiRouter.h"
 #include "wav_helpers.hpp"
 
+#include "../../examples/shared/offline_renderer.hpp"
+#include "../../examples/shared/reseed_playbook.hpp"
+
 #ifndef ENABLE_GOLDEN
 #define ENABLE_GOLDEN 0
 #endif
@@ -51,11 +54,14 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "769c3d774ce0dadf"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "219433fb7ced6be1"},
+    {"reseed-A", "build/fixtures/reseed-A.wav", "0cb1c926fd792ec4"},
+    {"reseed-B", "build/fixtures/reseed-B.wav", "41ba948d66dcb781"},
 };
 
 constexpr GoldenFixture kLogFixtures[] = {
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
+    {"reseed-log", "build/fixtures/reseed-log.json", "d69139987974d08a"},
 };
 
 std::filesystem::path find_project_root() {
@@ -660,6 +666,27 @@ std::vector<int16_t> render_mixer_fixture() {
     return samples;
 }
 
+std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed) {
+    const auto& stems = reseed::defaultStems();
+    const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
+    offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
+    renderer.mixSamplerEvents(plan.samplerEvents);
+    renderer.mixResonatorEvents(plan.resonatorEvents);
+    const auto& pcm = renderer.finalize();
+    return std::vector<int16_t>(pcm.begin(), pcm.end());
+}
+
+std::string render_reseed_log_fixture() {
+    const auto& stems = reseed::defaultStems();
+    const auto plan_a = reseed::makeBouncePlan(stems, 0xCAFEu, kSampleRate, 124, 3);
+    const auto plan_b = reseed::makeBouncePlan(stems, 0xBEEFu, kSampleRate, 124, 3);
+
+    std::vector<reseed::BounceLogBlock> blocks;
+    blocks.push_back({"A", 0xCAFEu, "out/reseed-A.wav", plan_a.logEntries});
+    blocks.push_back({"B", 0xBEEFu, "out/reseed-B.wav", plan_b.logEntries});
+    return reseed::serializeEventLog(stems, blocks, kSampleRate, 124, 3);
+}
+
 std::string fnv1a_bytes(const std::string& bytes) {
     constexpr std::uint64_t kOffset = 1469598103934665603ull;
     constexpr std::uint64_t kPrime = 1099511628211ull;
@@ -880,6 +907,38 @@ void test_render_mixer_golden() {
     assert_manifest_contains(manifest_body, kAudioFixtures[4]);
 }
 
+void test_render_reseed_a_golden() {
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(kAudioFixtures[5].path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_reseed_variant(0xCAFEu);
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-A golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[5].expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, kAudioFixtures[5]);
+}
+
+void test_render_reseed_b_golden() {
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(kAudioFixtures[6].path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_reseed_variant(0xBEEFu);
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-B golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[6].expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, kAudioFixtures[6]);
+}
+
 void test_log_euclid_burst_golden() {
     const std::string euclid_log = render_euclid_log();
     const std::string burst_log = render_burst_log();
@@ -897,6 +956,18 @@ void test_log_euclid_burst_golden() {
     const std::string manifest_body = load_manifest();
     assert_manifest_contains(manifest_body, kLogFixtures[0]);
     assert_manifest_contains(manifest_body, kLogFixtures[1]);
+}
+
+void test_log_reseed_golden() {
+    const std::string reseed_log = render_reseed_log_fixture();
+    const bool log_ok = write_text_file(kLogFixtures[2].path, reseed_log);
+    TEST_ASSERT_TRUE_MESSAGE(log_ok, "Failed to write reseed event log");
+
+    const std::string hash = fnv1a_bytes(reseed_log);
+    TEST_ASSERT_EQUAL_STRING(kLogFixtures[2].expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, kLogFixtures[2]);
 }
 
 #else
@@ -928,7 +999,10 @@ int main(int, char**) {
     RUN_TEST(test_render_resonator_golden);
     RUN_TEST(test_render_granular_golden);
     RUN_TEST(test_render_mixer_golden);
+    RUN_TEST(test_render_reseed_a_golden);
+    RUN_TEST(test_render_reseed_b_golden);
     RUN_TEST(test_log_euclid_burst_golden);
+    RUN_TEST(test_log_reseed_golden);
 #else
     RUN_TEST(test_golden_mode_disabled);
 #endif

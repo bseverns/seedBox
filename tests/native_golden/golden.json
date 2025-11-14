@@ -77,6 +77,39 @@
       "channels": 1,
       "channel_layout": "mono",
       "notes": "TODO placeholder; expect mono stacked grain chord to audit sampler voicing."
+    },
+    {
+      "name": "reseed-A",
+      "path": "build/fixtures/reseed-A.wav",
+      "kind": "audio",
+      "hash": "0cb1c926fd792ec4",
+      "wav_path": "build/fixtures/reseed-A.wav",
+      "sample_rate_hz": 48000,
+      "frames": 401033,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": "Offline bounce for seed 0xCAFE from examples/02_reseed."
+    },
+    {
+      "name": "reseed-B",
+      "path": "build/fixtures/reseed-B.wav",
+      "kind": "audio",
+      "hash": "41ba948d66dcb781",
+      "wav_path": "build/fixtures/reseed-B.wav",
+      "sample_rate_hz": 48000,
+      "frames": 401033,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": "Offline bounce for seed 0xBEEF from examples/02_reseed."
+    },
+    {
+      "name": "reseed-log",
+      "path": "build/fixtures/reseed-log.json",
+      "kind": "log",
+      "hash": "d69139987974d08a",
+      "bytes": 3817,
+      "lines": 51,
+      "notes": "Structured reseed shuffle log captured alongside the stems."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -85,5 +118,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-14T01:54:00Z"
+  "generated_at_utc": "2025-11-14T14:18:08Z"
 }
