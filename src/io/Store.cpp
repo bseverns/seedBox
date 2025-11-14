@@ -3,6 +3,7 @@
 #include <array>
 #include <cstring>
 #include <string_view>
+#include "app/Preset.h"
 #if !SEEDBOX_HW
   #include <filesystem>
   #include <fstream>
@@ -19,6 +20,10 @@ constexpr std::uint8_t kVersion = 1u;
 
 constexpr std::uint8_t kCompressedMarker = 0x00u;
 constexpr std::uint8_t kTokenMarker = 0x1Fu;
+// EEPROM has a strict byte ceiling, so we stash a compact binary fallback when
+// JSON (even after token compression) refuses to fit. `kBinaryMarker` lets the
+// loader spot that alternate encoding and inflate it back into JSON on demand.
+constexpr std::uint8_t kBinaryMarker = 0x42u;
 
 // Raw-string tokens mirror verbatim JSON fragments. The custom delimiter keeps
 // the punctuation readable so future tweaks don't devolve into escape soup.
@@ -113,8 +118,247 @@ std::vector<std::uint8_t> compressPresetBlob(const std::vector<std::uint8_t>& in
   return result;
 }
 
+void appendUint32(std::vector<std::uint8_t>& out, std::uint32_t value) {
+  out.push_back(static_cast<std::uint8_t>(value & 0xFFu));
+  out.push_back(static_cast<std::uint8_t>((value >> 8u) & 0xFFu));
+  out.push_back(static_cast<std::uint8_t>((value >> 16u) & 0xFFu));
+  out.push_back(static_cast<std::uint8_t>((value >> 24u) & 0xFFu));
+}
+
+void appendFloat(std::vector<std::uint8_t>& out, float value) {
+  std::uint32_t bits = 0;
+  static_assert(sizeof(bits) == sizeof(value), "float and uint32_t must match");
+  std::memcpy(&bits, &value, sizeof(bits));
+  appendUint32(out, bits);
+}
+
+bool readUint8(const std::vector<std::uint8_t>& data, std::size_t& offset, std::uint8_t& out) {
+  if (offset >= data.size()) {
+    return false;
+  }
+  out = data[offset++];
+  return true;
+}
+
+bool readUint32(const std::vector<std::uint8_t>& data, std::size_t& offset, std::uint32_t& out) {
+  if (offset + 4 > data.size()) {
+    return false;
+  }
+  out = static_cast<std::uint32_t>(data[offset]) |
+        (static_cast<std::uint32_t>(data[offset + 1]) << 8u) |
+        (static_cast<std::uint32_t>(data[offset + 2]) << 16u) |
+        (static_cast<std::uint32_t>(data[offset + 3]) << 24u);
+  offset += 4;
+  return true;
+}
+
+bool readFloat(const std::vector<std::uint8_t>& data, std::size_t& offset, float& out) {
+  std::uint32_t bits = 0;
+  if (!readUint32(data, offset, bits)) {
+    return false;
+  }
+  std::memcpy(&out, &bits, sizeof(out));
+  return true;
+}
+
+std::vector<std::uint8_t> encodePresetBinary(const seedbox::Preset& preset) {
+  std::vector<std::uint8_t> out;
+  out.reserve(512);
+  out.push_back(kBinaryMarker);
+
+  const std::uint8_t slotLen = static_cast<std::uint8_t>(std::min<std::size_t>(preset.slot.size(), 0xFFu));
+  out.push_back(slotLen);
+  out.insert(out.end(), preset.slot.begin(), preset.slot.begin() + static_cast<std::ptrdiff_t>(slotLen));
+
+  appendUint32(out, preset.masterSeed);
+  out.push_back(preset.focusSeed);
+  appendFloat(out, preset.clock.bpm);
+  out.push_back(preset.clock.followExternal ? 1u : 0u);
+  out.push_back(preset.clock.debugMeters ? 1u : 0u);
+  out.push_back(preset.clock.transportLatch ? 1u : 0u);
+  out.push_back(static_cast<std::uint8_t>(preset.page));
+
+  const std::uint8_t engineCount = static_cast<std::uint8_t>(std::min<std::size_t>(preset.engineSelections.size(), 0xFFu));
+  out.push_back(engineCount);
+  for (std::size_t i = 0; i < engineCount; ++i) {
+    out.push_back(preset.engineSelections[i]);
+  }
+
+  const std::uint8_t seedCount = static_cast<std::uint8_t>(std::min<std::size_t>(preset.seeds.size(), 0xFFu));
+  out.push_back(seedCount);
+  for (std::size_t i = 0; i < seedCount; ++i) {
+    const Seed& seed = preset.seeds[i];
+    appendUint32(out, seed.id);
+    appendUint32(out, seed.prng);
+    out.push_back(static_cast<std::uint8_t>(seed.source));
+    appendUint32(out, seed.lineage);
+    appendFloat(out, seed.pitch);
+    appendFloat(out, seed.envA);
+    appendFloat(out, seed.envD);
+    appendFloat(out, seed.envS);
+    appendFloat(out, seed.envR);
+    appendFloat(out, seed.density);
+    appendFloat(out, seed.probability);
+    appendFloat(out, seed.jitterMs);
+    appendFloat(out, seed.tone);
+    appendFloat(out, seed.spread);
+    out.push_back(seed.engine);
+    out.push_back(seed.sampleIdx);
+    appendFloat(out, seed.mutateAmt);
+    appendFloat(out, seed.granular.grainSizeMs);
+    appendFloat(out, seed.granular.sprayMs);
+    appendFloat(out, seed.granular.transpose);
+    appendFloat(out, seed.granular.windowSkew);
+    appendFloat(out, seed.granular.stereoSpread);
+    out.push_back(seed.granular.source);
+    out.push_back(seed.granular.sdSlot);
+    appendFloat(out, seed.resonator.exciteMs);
+    appendFloat(out, seed.resonator.damping);
+    appendFloat(out, seed.resonator.brightness);
+    appendFloat(out, seed.resonator.feedback);
+    out.push_back(seed.resonator.mode);
+    out.push_back(seed.resonator.bank);
+  }
+
+  return out;
+}
+
+std::vector<std::uint8_t> decodePresetBinary(const std::vector<std::uint8_t>& stored) {
+  if (stored.size() < 2 || stored[0] != kBinaryMarker) {
+    return {};
+  }
+
+  std::size_t offset = 1;
+  std::uint8_t slotLen = 0;
+  if (!readUint8(stored, offset, slotLen)) {
+    return {};
+  }
+  if (offset + slotLen > stored.size()) {
+    return {};
+  }
+
+  seedbox::Preset preset{};
+  preset.slot.assign(reinterpret_cast<const char*>(&stored[offset]), slotLen);
+  offset += slotLen;
+
+  std::uint32_t masterSeed = 0;
+  if (!readUint32(stored, offset, masterSeed)) {
+    return {};
+  }
+  preset.masterSeed = masterSeed;
+
+  std::uint8_t focus = 0;
+  if (!readUint8(stored, offset, focus)) {
+    return {};
+  }
+  preset.focusSeed = focus;
+
+  float bpm = 0.f;
+  if (!readFloat(stored, offset, bpm)) {
+    return {};
+  }
+  preset.clock.bpm = bpm;
+
+  std::uint8_t follow = 0;
+  std::uint8_t debug = 0;
+  std::uint8_t latch = 0;
+  if (!readUint8(stored, offset, follow) || !readUint8(stored, offset, debug) ||
+      !readUint8(stored, offset, latch)) {
+    return {};
+  }
+  preset.clock.followExternal = (follow != 0);
+  preset.clock.debugMeters = (debug != 0);
+  preset.clock.transportLatch = (latch != 0);
+
+  std::uint8_t page = 0;
+  if (!readUint8(stored, offset, page)) {
+    return {};
+  }
+  preset.page = static_cast<seedbox::PageId>(page);
+
+  std::uint8_t engineCount = 0;
+  if (!readUint8(stored, offset, engineCount)) {
+    return {};
+  }
+  preset.engineSelections.resize(engineCount);
+  for (std::size_t i = 0; i < engineCount; ++i) {
+    std::uint8_t sel = 0;
+    if (!readUint8(stored, offset, sel)) {
+      return {};
+    }
+    preset.engineSelections[i] = sel;
+  }
+
+  std::uint8_t seedCount = 0;
+  if (!readUint8(stored, offset, seedCount)) {
+    return {};
+  }
+  preset.seeds.resize(seedCount);
+  for (std::size_t i = 0; i < seedCount; ++i) {
+    Seed seed{};
+    if (!readUint32(stored, offset, seed.id) || !readUint32(stored, offset, seed.prng)) {
+      return {};
+    }
+    std::uint8_t source = 0;
+    if (!readUint8(stored, offset, source)) {
+      return {};
+    }
+    seed.source = static_cast<Seed::Source>(source);
+    if (!readUint32(stored, offset, seed.lineage) || !readFloat(stored, offset, seed.pitch) ||
+        !readFloat(stored, offset, seed.envA) || !readFloat(stored, offset, seed.envD) ||
+        !readFloat(stored, offset, seed.envS) || !readFloat(stored, offset, seed.envR) ||
+        !readFloat(stored, offset, seed.density) || !readFloat(stored, offset, seed.probability) ||
+        !readFloat(stored, offset, seed.jitterMs) || !readFloat(stored, offset, seed.tone) ||
+        !readFloat(stored, offset, seed.spread)) {
+      return {};
+    }
+    std::uint8_t engine = 0;
+    std::uint8_t sampleIdx = 0;
+    if (!readUint8(stored, offset, engine) || !readUint8(stored, offset, sampleIdx)) {
+      return {};
+    }
+    seed.engine = engine;
+    seed.sampleIdx = sampleIdx;
+    if (!readFloat(stored, offset, seed.mutateAmt) || !readFloat(stored, offset, seed.granular.grainSizeMs) ||
+        !readFloat(stored, offset, seed.granular.sprayMs) || !readFloat(stored, offset, seed.granular.transpose) ||
+        !readFloat(stored, offset, seed.granular.windowSkew) ||
+        !readFloat(stored, offset, seed.granular.stereoSpread)) {
+      return {};
+    }
+    std::uint8_t granularSource = 0;
+    std::uint8_t granularSlot = 0;
+    if (!readUint8(stored, offset, granularSource) || !readUint8(stored, offset, granularSlot)) {
+      return {};
+    }
+    seed.granular.source = granularSource;
+    seed.granular.sdSlot = granularSlot;
+    if (!readFloat(stored, offset, seed.resonator.exciteMs) ||
+        !readFloat(stored, offset, seed.resonator.damping) ||
+        !readFloat(stored, offset, seed.resonator.brightness) ||
+        !readFloat(stored, offset, seed.resonator.feedback)) {
+      return {};
+    }
+    std::uint8_t mode = 0;
+    std::uint8_t bank = 0;
+    if (!readUint8(stored, offset, mode) || !readUint8(stored, offset, bank)) {
+      return {};
+    }
+    seed.resonator.mode = mode;
+    seed.resonator.bank = bank;
+    preset.seeds[i] = seed;
+  }
+
+  return preset.serialize();
+}
+
 std::vector<std::uint8_t> decompressPresetBlob(const std::vector<std::uint8_t>& stored) {
-  if (stored.empty() || stored[0] != kCompressedMarker) {
+  if (stored.empty()) {
+    return stored;
+  }
+  if (stored[0] == kBinaryMarker) {
+    return decodePresetBinary(stored);
+  }
+  if (stored[0] != kCompressedMarker) {
     return stored;
   }
 
@@ -186,7 +430,8 @@ bool StoreEeprom::load(std::string_view slot, std::vector<std::uint8_t>& out) co
   for (const auto& e : entries) {
     if (e.slot == slot) {
       auto decoded = decompressPresetBlob(e.data);
-      if (decoded.empty() && !e.data.empty() && e.data[0] == kCompressedMarker) {
+      if (decoded.empty() && !e.data.empty() &&
+          (e.data[0] == kCompressedMarker || e.data[0] == kBinaryMarker)) {
         return false;
       }
       out = std::move(decoded);
@@ -211,11 +456,24 @@ bool StoreEeprom::save(std::string_view slot, const std::vector<std::uint8_t>& d
   }
   auto entries = decode(raw);
   auto it = std::find_if(entries.begin(), entries.end(), [&](const Entry& e) { return e.slot == slot; });
-  const auto compressed = compressPresetBlob(data);
+  auto payload = compressPresetBlob(data);
+  // When token compression alone can't squeeze the preset under the configured
+  // capacity, fall back to a binary struct dump.  The decoder inflates it back
+  // into JSON during `load` so the rest of the app stays oblivious.
+  if (payload.size() > capacity_) {
+    seedbox::Preset parsed{};
+    if (!seedbox::Preset::deserialize(data, parsed)) {
+      return false;
+    }
+    payload = encodePresetBinary(parsed);
+    if (payload.empty() || payload.size() > capacity_) {
+      return false;
+    }
+  }
   if (it == entries.end()) {
-    entries.push_back(Entry{std::string(slot), compressed});
+    entries.push_back(Entry{std::string(slot), payload});
   } else {
-    it->data = compressed;
+    it->data = payload;
   }
   const auto encoded = encode(entries);
   if (encoded.empty()) {
