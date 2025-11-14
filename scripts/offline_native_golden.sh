@@ -40,8 +40,6 @@ SOURCES=(
   src/hal/hal_io.cpp
   src/hal/hal_midi_serial7.cpp
   src/io/MidiRouter.cpp
-  src/io/Storage.cpp
-  src/io/Store.cpp
   src/engine/Sampler.cpp
   src/engine/EngineRouter.cpp
   src/engine/Resonator.cpp

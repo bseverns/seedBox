@@ -1,0 +1,4 @@
+# Euclid engine mask
+steps=16 fills=5 rotate=3 master_seed=0xe0c10bad
+mask:X..X..X..X..X...
+gates:10010010010010001001001001001000

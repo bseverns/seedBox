@@ -1,0 +1,2 @@
+TODO: Render drone-intro.wav as a one-second, 110 Hz sine drone at 48 kHz, mono, amplitude 0.5 (roughly -6 dBFS). When the golden harness runs, this placeholder gets replaced by the actual PCM render.
+
