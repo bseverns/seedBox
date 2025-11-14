@@ -32,6 +32,13 @@ truth about what we heard.
 4. The Unity test refuses to pass if **any** declared artifact is missing or if
    the manifest hash falls out of sync. Broken receipts? Broken build.
 
+### 30-second long take — deterministic chaos on tape
+
+- `test_render_long_take_golden` bounces six stems through the reseed playbook at 120 BPM for a full 30-second ride. The shuffle order comes from master seed `0x30F00D`, so every pass is wild but repeatable.
+- Skip the full suite when you just want the mixtape: `./tests/native_golden/render_long_take.sh` sets `ENABLE_GOLDEN=1` and filters PlatformIO down to the long-take capture (assumes the `pio` CLI is on your path; otherwise fall back to `./scripts/offline_native_golden.sh`).
+- The WAV lands at `build/fixtures/long-random-take.wav`. Fire up `python -m http.server` in the repo root and you get a local playback link at [http://localhost:8000/build/fixtures/long-random-take.wav](http://localhost:8000/build/fixtures/long-random-take.wav).
+- After any recut, run `python scripts/compute_golden_hashes.py --write` so `tests/native_golden/golden.json` keeps shouting the right hash.
+
 ## Refresh loop (aka “cutting a new pressing”)
 
 ```bash

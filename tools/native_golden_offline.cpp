@@ -29,6 +29,9 @@
 #include "engine/Sampler.h"
 #include "tests/native_golden/wav_helpers.hpp"
 
+#include "../examples/shared/offline_renderer.hpp"
+#include "../examples/shared/reseed_playbook.hpp"
+
 namespace {
 
 constexpr std::size_t kDroneFrames = 48000;
@@ -46,11 +49,15 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "769c3d774ce0dadf"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "219433fb7ced6be1"},
+    {"long-random-take", "build/fixtures/long-random-take.wav", "bfd752b44ff86048"},
+    {"reseed-A", "build/fixtures/reseed-A.wav", "0cb1c926fd792ec4"},
+    {"reseed-B", "build/fixtures/reseed-B.wav", "41ba948d66dcb781"},
 };
 
 constexpr GoldenFixture kLogFixtures[] = {
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
+    {"reseed-log", "build/fixtures/reseed-log.json", "d69139987974d08a"},
 };
 
 std::vector<int16_t> make_drone() {
@@ -495,6 +502,59 @@ std::string fnv1a_bytes(const std::string& bytes) {
     return oss.str();
 }
 
+std::vector<int16_t> render_long_random_take_fixture() {
+    constexpr double kDurationSeconds = 30.0;
+    constexpr std::uint32_t kMasterSeed = 0x30F00Du;
+    constexpr int kBpm = 120;
+    constexpr int kPasses = 10;
+
+    std::vector<reseed::StemDefinition> stems = reseed::defaultStems();
+    stems.push_back({"tape rattle", 4, reseed::EngineKind::kSampler});
+    stems.push_back({"clank shimmer", 5, reseed::EngineKind::kResonator});
+
+    const auto plan = reseed::makeBouncePlan(stems, kMasterSeed, kSampleRate, kBpm, kPasses);
+
+    offline::RenderSettings settings;
+    settings.sampleRate = kSampleRate;
+    settings.frames = static_cast<std::size_t>(kDurationSeconds * kSampleRate);
+    settings.samplerSustainHold = 0.35;
+    settings.normalizeTarget = 0.9;
+
+    offline::OfflineRenderer renderer(settings);
+    renderer.mixSamplerEvents(plan.samplerEvents);
+    renderer.mixResonatorEvents(plan.resonatorEvents);
+    const auto& pcm = renderer.finalize();
+
+    std::vector<int16_t> trimmed(settings.frames, 0);
+    const std::size_t copy_count = std::min(trimmed.size(), pcm.size());
+    std::copy_n(pcm.begin(), copy_count, trimmed.begin());
+    if (copy_count < trimmed.size()) {
+        std::fill(trimmed.begin() + copy_count, trimmed.end(), 0);
+    }
+    return trimmed;
+}
+std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed) {
+    const auto& stems = reseed::defaultStems();
+    const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
+    offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
+    renderer.mixSamplerEvents(plan.samplerEvents);
+    renderer.mixResonatorEvents(plan.resonatorEvents);
+    const auto& pcm = renderer.finalize();
+    return std::vector<int16_t>(pcm.begin(), pcm.end());
+}
+
+std::string render_reseed_log_fixture() {
+    const auto& stems = reseed::defaultStems();
+    const auto plan_a = reseed::makeBouncePlan(stems, 0xCAFEu, kSampleRate, 124, 3);
+    const auto plan_b = reseed::makeBouncePlan(stems, 0xBEEFu, kSampleRate, 124, 3);
+
+    std::vector<reseed::BounceLogBlock> blocks;
+    blocks.push_back({"A", 0xCAFEu, "out/reseed-A.wav", plan_a.logEntries});
+    blocks.push_back({"B", 0xBEEFu, "out/reseed-B.wav", plan_b.logEntries});
+
+    return reseed::serializeEventLog(stems, blocks, kSampleRate, 124, 3);
+}
+
 std::string render_euclid_log() {
     EuclidEngine engine;
     Engine::PrepareContext prep{};
@@ -635,9 +695,13 @@ int main() {
         ensure_fixture(kAudioFixtures[2], render_resonator_fixture(), 1);
         ensure_fixture(kAudioFixtures[3], render_granular_fixture(), 2);
         ensure_fixture(kAudioFixtures[4], render_mixer_fixture(), 2);
+        ensure_fixture(kAudioFixtures[5], render_long_random_take_fixture(), 1);
+        ensure_fixture(kAudioFixtures[6], render_reseed_variant(0xCAFEu), 1);
+        ensure_fixture(kAudioFixtures[7], render_reseed_variant(0xBEEFu), 1);
 
         ensure_log_fixture(kLogFixtures[0], render_euclid_log());
         ensure_log_fixture(kLogFixtures[1], render_burst_log());
+        ensure_log_fixture(kLogFixtures[2], render_reseed_log_fixture());
 
         std::cout << "Native golden fixtures refreshed." << std::endl;
         return 0;
