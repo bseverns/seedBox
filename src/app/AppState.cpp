@@ -1776,6 +1776,20 @@ const Seed* AppState::debugScheduledSeed(uint8_t index) const {
   return scheduler_.seedForDebug(static_cast<size_t>(index));
 }
 
+void AppState::armGranularLiveInput(bool enabled) {
+  engines_.granular().armLiveInput(enabled);
+}
+
+GranularEngine::GrainVoice AppState::debugGranularVoice(uint8_t index) const {
+  return engines_.granular().voice(index);
+}
+
+#if !SEEDBOX_HW
+GranularEngine::SimHardwareVoice AppState::debugGranularSimVoice(uint8_t index) const {
+  return engines_.granular().simHardwareVoice(index);
+}
+#endif
+
 seedbox::Preset AppState::snapshotPreset(std::string_view slot) const {
   seedbox::Preset preset;
   preset.slot = slot.empty() ? std::string(kDefaultPresetSlot) : std::string(slot);

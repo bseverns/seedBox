@@ -113,6 +113,11 @@ public:
   void seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode);
   void setSeedPrimeMode(SeedPrimeMode mode);
   SeedPrimeMode seedPrimeMode() const { return seedPrimeMode_; }
+  void armGranularLiveInput(bool enabled);
+  GranularEngine::GrainVoice debugGranularVoice(uint8_t index) const;
+#if !SEEDBOX_HW
+  GranularEngine::SimHardwareVoice debugGranularSimVoice(uint8_t index) const;
+#endif
 
   void seedPageToggleLock(uint8_t index);
   void seedPageToggleGlobalLock();

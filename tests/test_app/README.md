@@ -26,7 +26,10 @@ lesson plan.
   the snapped pitch immediately.【F:tests/test_app/test_seed_lock_behaviour.cpp†L11-L74】
 * `test_seed_prime_modes.cpp` focuses on the live-input prime mode, asserting we
   tag every seed with `Seed::Source::kLiveInput` plus the granular live slot, and
-  that engine assignments stay untouched across a reseed.【F:tests/test_app/test_seed_prime_modes.cpp†L9-L41】
+  that engine assignments stay untouched across a reseed.【F:tests/test_app/test_seed_prime_modes.cpp†L9-L62】
+* The same suite now spins the simulator long enough to trigger a granular voice
+  on the live path, proving the "live-in" slot flips over even without the I²S
+  codec present.【F:tests/test_app/test_seed_prime_modes.cpp†L55-L90】
 * `test_presets.cpp` stress-tests the preset lane promised in the roadmap by
   round-tripping a captured genome set through the EEPROM store and verifying the
   crossfade helper preserves granular params during the blend.【F:tests/test_app/test_presets.cpp†L13-L48】

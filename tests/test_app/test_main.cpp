@@ -19,6 +19,7 @@ void test_ascii_frame_matches_boot_snapshot();
 void test_ascii_renderer_tracks_engine_swaps();
 void test_live_input_prime_tags_seeds_as_live();
 void test_live_input_prime_respects_all_engine_assignments();
+void test_live_input_prime_triggers_live_voice_in_sim();
 void test_initial_mode_home();
 void test_seed_button_transitions_to_seeds();
 void test_shift_long_press_returns_home();
@@ -50,6 +51,7 @@ int main(int, char**) {
   RUN_TEST(test_ascii_renderer_tracks_engine_swaps);
   RUN_TEST(test_live_input_prime_tags_seeds_as_live);
   RUN_TEST(test_live_input_prime_respects_all_engine_assignments);
+  RUN_TEST(test_live_input_prime_triggers_live_voice_in_sim);
   RUN_TEST(test_initial_mode_home);
   RUN_TEST(test_seed_button_transitions_to_seeds);
   RUN_TEST(test_shift_long_press_returns_home);
