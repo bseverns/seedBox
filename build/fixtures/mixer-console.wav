@@ -1,0 +1,2 @@
+TODO: Render mixer-console.wav as the stereo console sum of sampler, resonator, and granular fixtures at 48 kHz. Aim for healthy headroom (~-3 dBFS peaks) so mix-bus regressions jump out.
+

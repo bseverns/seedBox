@@ -1,0 +1,3 @@
+# Burst engine trigger cluster
+cluster_count=6 spacing_samples=720 master_seed=0xb0057bad
+pending:2048,2768,3488,4208,4928,5648

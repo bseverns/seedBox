@@ -1,0 +1,2 @@
+TODO: Render resonator-tail.wav as the mono, one-second resonator decay after a plucked impulse at 48 kHz. This should splash into a shimmering tail so we can hear damping tweaks.
+

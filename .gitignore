@@ -2,9 +2,12 @@
 /.vscode
 .DS_Store
 *.log
-build/
+build/*
+!build/fixtures/
+!build/fixtures/**
 *.swp
 *.swo
 *.wav
+!build/fixtures/*.wav
 /out/
 /artifacts/
