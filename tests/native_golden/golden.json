@@ -46,7 +46,7 @@
       "name": "long-random-take",
       "path": "build/fixtures/long-random-take.wav",
       "kind": "audio",
-      "hash": "9f60a4653afc1763",
+      "hash": "97e954c9e2a909df",
       "wav_path": "build/fixtures/long-random-take.wav",
       "sample_rate_hz": 48000,
       "frames": 1440000,
