@@ -111,7 +111,7 @@ echo "[offline-native-golden] rendering fixtures..."
 
 if [[ ${REFRESH_MANIFEST} -eq 1 ]]; then
   echo "[offline-native-golden] refreshing manifest..."
-  python scripts/compute_golden_hashes.py --write
+  python3 scripts/compute_golden_hashes.py --write
 else
   echo "[offline-native-golden] skipping manifest refresh (per --skip-manifest)"
 fi
