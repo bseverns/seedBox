@@ -24,7 +24,9 @@ hashes to actually mean something.
   native golden harness. It compiles `tools/native_golden_offline.cpp`, renders
   everything into `build/fixtures/`, and refreshes the manifest.
 - Alternatively run `pio test -e native_golden` with `ENABLE_GOLDEN=1`, then
-  rehash with `python scripts/compute_golden_hashes.py --write`.
+  rehash with `python3 scripts/compute_golden_hashes.py --write` (the script
+  insists on Python 3.7+, so calling it through `python3` saves you from dusty
+  aliases).
 - Never hand-edit the fixtures; the hashes in
   [`tests/native_golden/golden.json`](../../tests/native_golden/golden.json) must
   stay in lock-step with these files. Update the manifest immediately after

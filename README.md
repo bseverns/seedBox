@@ -69,9 +69,10 @@ pio test -e native --filter test_app --test-name test_preset_round_trip_via_eepr
   binary from inside `.pio/`, the WAVs land in the repo root where docs and
   scripts expect them. It mirrors the standard native toolchain but bakes in the
   flag so cached binaries never ghost the renders.
-- `scripts/compute_golden_hashes.py --write` recomputes hashes and rewrites
+- `python3 scripts/compute_golden_hashes.py --write` recomputes hashes and rewrites
   `tests/native_golden/golden.json` so reviewers can diff sound changes instead
-  of guessing.
+  of guessing (the helper refuses to run on anything older than Python 3.7, so
+  skip the creaky `python` shim).
 - The harness refuses to pass if either the WAV or the manifest entry ghosts
   out, so every merge ships with receipts.【F:tests/native_golden/test_main.cpp†L101-L135】
 - Learn the full ritual in [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md)

@@ -31,11 +31,15 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 
 ```bash
 pio test -e native_golden
-python scripts/compute_golden_hashes.py --write
+python3 scripts/compute_golden_hashes.py --write
 ```
 
 The `native_golden` env is just the standard native config with the flag wired
 in, which keeps CI from caching a non-golden binary between runs.
+
+(`scripts/compute_golden_hashes.py` insists on Python 3.7+, so lean on the
+explicit `python3` binary even if your shell still points `python` at the
+ancient 2.x ghosts.)
 
 Registry acting up or hacking offline? Run `./scripts/offline_native_golden.sh`
 to compile the standalone helper, regenerate every fixture, and refresh the

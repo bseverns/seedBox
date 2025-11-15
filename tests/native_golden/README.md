@@ -37,7 +37,7 @@ truth about what we heard.
 - `test_render_long_take_golden` bounces six stems through the reseed playbook at 120 BPM for a full 30-second ride. The shuffle order comes from master seed `0x30F00D`, so every pass is wild but repeatable.
 - Skip the full suite when you just want the mixtape: `./tests/native_golden/render_long_take.sh` sets `ENABLE_GOLDEN=1` and filters PlatformIO down to the long-take capture. When PlatformIO ghosts you, the script now auto-hands the job to the offline harness so you still get fresh audio on disk.
 - The WAV lands at `build/fixtures/long-random-take.wav`. Fire up `python -m http.server` in the repo root and you get a local playback link at [http://localhost:8000/build/fixtures/long-random-take.wav](http://localhost:8000/build/fixtures/long-random-take.wav).
-- After any recut, run `python scripts/compute_golden_hashes.py --write` so `tests/native_golden/golden.json` keeps shouting the right hash.
+- After any recut, run `python3 scripts/compute_golden_hashes.py --write` so `tests/native_golden/golden.json` keeps shouting the right hash (the script bails without Python 3.7+, so dodge the legacy `python` alias and go straight for `python3`).
 
 ## Refresh loop (aka “cutting a new pressing”)
 
@@ -46,10 +46,10 @@ truth about what we heard.
 pio test -e native_golden
 
 # 2. Recompute hashes and commit the manifest update.
-python scripts/compute_golden_hashes.py --write
+python3 scripts/compute_golden_hashes.py --write
 
 # 3. (Optional) annotate liner notes.
-python scripts/compute_golden_hashes.py --note drone-intro="v1 sine reference" --write
+python3 scripts/compute_golden_hashes.py --note drone-intro="v1 sine reference" --write
 ```
 
 That dedicated env mirrors the vanilla native build but bakes in the flag so we

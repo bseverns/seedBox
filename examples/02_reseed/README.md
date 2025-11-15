@@ -44,11 +44,14 @@ in step with the example. When you tweak the rendering recipe:
    ```
 3. Update the manifest hashes:
    ```sh
-   python scripts/compute_golden_hashes.py --write \
+   python3 scripts/compute_golden_hashes.py --write \
      --note reseed-A="seed 0xCAFE offline stem" \
      --note reseed-B="seed 0xBEEF offline stem" \
      --note reseed-log="paired event log"
    ```
+
+   *(Yep, it has to be `python3`: the hash script enforces Python 3.7+ and will
+   hiss if your default `python` still points at the prehistoric interpreter.)*
 
 Treat the README like a studio notebook: scribble why you changed things, not
 just what flipped.
