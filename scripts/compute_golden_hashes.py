@@ -11,11 +11,22 @@ By default the script runs in dry-run mode and prints a tidy table. Pass
 preserved unless you override them with ``--note fixture-name="fresh note"``.
 """
 
+from __future__ import print_function
+
+import sys
+
+if sys.version_info < (3, 7):  # pragma: no cover - guard for misconfigured envs
+    sys.stderr.write(
+        "error: compute_golden_hashes.py requires Python 3.7+ (found {}.{}).\n".format(
+            sys.version_info[0], sys.version_info[1]
+        )
+    )
+    sys.exit(1)
+
 import argparse
 import datetime as _dt
 import json
 from pathlib import Path
-import sys
 import wave
 try:
     from typing import Any, Dict, List, Optional, Tuple
