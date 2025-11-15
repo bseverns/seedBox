@@ -8,7 +8,7 @@ plenty of breadcrumbs, and room to sketch your own experiments.
 
 | Folder | What you'll find | Why it matters |
 | --- | --- | --- |
-| `app/` | High-level conductors like `AppState` and UI snapshot helpers. | Keeps the instrument's mood steady and understandable. |
+| `app/` | High-level conductors like `AppState` and UI snapshot helpers. See [field notes](app/README.md). | Keeps the instrument's mood steady and understandable. |
 | `engine/` | Audio engines (sampler stubs today, more wild stuff tomorrow). | Where seeds become sound textures. |
 | `io/` | MIDI, display, codec glue — all the hardware conversations. | Lets the same code behave on laptop + Teensy. |
 | `profiles/` | Seed recipes and macro maps. | Defines what a "granular seed" or other persona means. |
