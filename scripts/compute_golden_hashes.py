@@ -11,23 +11,25 @@ By default the script runs in dry-run mode and prints a tidy table. Pass
 preserved unless you override them with ``--note fixture-name="fresh note"``.
 """
 
-from __future__ import annotations
-
 import argparse
 import datetime as _dt
 import json
 from pathlib import Path
 import sys
 import wave
-from typing import Any, Dict, List, Optional, Tuple
+try:
+    from typing import Any, Dict, List, Optional, Tuple
+except ImportError:  # pragma: no cover - typing is optional on old Python
+    Any = Dict = List = Optional = Tuple = object  # type: ignore[misc,assignment]
 
 
 FNV_OFFSET = 1469598103934665603
 FNV_PRIME = 0x100000001B3
 
 
-def _parse_note_overrides(raw_notes: Optional[List[str]]) -> Dict[str, str]:
-    overrides: Dict[str, str] = {}
+def _parse_note_overrides(raw_notes):
+    # type: (Optional[List[str]]) -> Dict[str, str]
+    overrides = {}  # type: Dict[str, str]
     if not raw_notes:
         return overrides
     for entry in raw_notes:
@@ -41,7 +43,8 @@ def _parse_note_overrides(raw_notes: Optional[List[str]]) -> Dict[str, str]:
     return overrides
 
 
-def _fnv64(payload: bytes) -> str:
+def _fnv64(payload):
+    # type: (bytes) -> str
     state = FNV_OFFSET
     mask = (1 << 64) - 1
     for byte in payload:
@@ -50,7 +53,8 @@ def _fnv64(payload: bytes) -> str:
     return f"{state:016x}"
 
 
-def _fnv64_pcm16(payload: bytes) -> str:
+def _fnv64_pcm16(payload):
+    # type: (bytes) -> str
     state = FNV_OFFSET
     mask = (1 << 64) - 1
     if len(payload) % 2 != 0:
@@ -65,7 +69,8 @@ def _fnv64_pcm16(payload: bytes) -> str:
     return f"{state:016x}"
 
 
-def _load_manifest(path: Path) -> dict:
+def _load_manifest(path):
+    # type: (Path) -> Dict[str, Any]
     if path.exists():
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
@@ -79,14 +84,16 @@ def _load_manifest(path: Path) -> dict:
     }
 
 
-def _scan_fixtures(fixtures_root: Path) -> List[Path]:
+def _scan_fixtures(fixtures_root):
+    # type: (Path) -> List[Path]
     if not fixtures_root.exists():
         return []
     allowed = {".wav", ".txt"}
     return sorted(p for p in fixtures_root.rglob("*") if p.is_file() and p.suffix.lower() in allowed)
 
 
-def _read_pcm(path: Path) -> Tuple[bytes, int, int, int]:
+def _read_pcm(path):
+    # type: (Path) -> Tuple[bytes, int, int, int]
     with wave.open(str(path), "rb") as wav:
         sample_width = wav.getsampwidth()
         if sample_width != 2:
@@ -126,10 +133,11 @@ def _read_pcm(path: Path) -> Tuple[bytes, int, int, int]:
     return payload, frame_rate, frames, channels
 
 
-def _merge_fixture(existing: Dict[str, Dict[str, Any]],
-                   overrides: Dict[str, str],
-                   fixture_name: str,
-                   data: Dict[str, Any]) -> Dict[str, Any]:
+def _merge_fixture(existing,
+                   overrides,
+                   fixture_name,
+                   data):
+    # type: (Dict[str, Dict[str, Any]], Dict[str, str], str, Dict[str, Any]) -> Dict[str, Any]
     merged = existing.get(fixture_name, {}).copy()
     merged.update(data)
     if fixture_name in overrides:
@@ -139,9 +147,10 @@ def _merge_fixture(existing: Dict[str, Dict[str, Any]],
     return merged
 
 
-def compute_manifest(fixtures_root: Path,
-                     manifest_path: Path,
-                     note_overrides: Dict[str, str]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def compute_manifest(fixtures_root,
+                     manifest_path,
+                     note_overrides):
+    # type: (Path, Path, Dict[str, str]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]
     manifest = _load_manifest(manifest_path)
     fixtures_root_list = manifest.get("fixtures", [])
     if not isinstance(fixtures_root_list, list):
@@ -152,10 +161,10 @@ def compute_manifest(fixtures_root: Path,
     for path in _scan_fixtures(fixtures_root):
         suffix = path.suffix.lower()
         name = path.stem
-        data: Dict[str, object] = {
+        data = {
             "name": name,
             "path": str(path).replace("\\", "/"),
-        }
+        }  # type: Dict[str, Any]
         if suffix == ".wav":
             payload, sample_rate, frames, channels = _read_pcm(path)
             hash_hex = _fnv64_pcm16(payload)
@@ -203,7 +212,8 @@ def compute_manifest(fixtures_root: Path,
     return manifest, fixtures
 
 
-def render_table(fixtures: List[Dict[str, Any]]) -> str:
+def render_table(fixtures):
+    # type: (List[Dict[str, Any]]) -> str
     if not fixtures:
         return "(no fixtures discovered)"
     header = f"{'Fixture':20} {'Kind':6} {'Hash':18} {'Summary':>24}"
@@ -228,7 +238,8 @@ def render_table(fixtures: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def main(argv: List[str]) -> int:
+def main(argv):
+    # type: (List[str]) -> int
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--fixtures-root",
