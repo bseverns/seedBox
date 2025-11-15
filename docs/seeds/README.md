@@ -52,11 +52,10 @@ prime straight into `Sampler::configureVoice`, where the playback rate scales by
 `pow(2, pitch / 12)` — a +7 semitone boost is ≈1.498x playback speed, so RAM
 voices should chirp brighter.【F:src/engine/Sampler.cpp†L175-L205】
 
-Running `python -m platformio run -e native` would normally rebuild the sim, but
-the hosted environment blocks outbound requests to `registry.platformio.org`.
-PlatformIO stalled while installing the `native@1.2.1` platform and eventually
-surfaced a proxy `403 Forbidden`.【c6c6f2†L1-L4】【c53756†L1-L41】 After capturing
-that behaviour I reverted the pitch hack so the repo stays clean.
+Running `python -m platformio run -e native` rebuilds the sim; if your studio rig
+is air-gapped or a CI sandbox, make sure you've already mirrored the PlatformIO
+platforms you care about so the build can rage offline. After capturing the
+pitch delta I dropped the hack so the repo stays clean.
 
 ## Tooling sketches
 
