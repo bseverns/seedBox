@@ -307,7 +307,7 @@ def main(argv):
         with args.manifest.open("w", encoding="utf-8") as handle:
             json.dump(manifest, handle, indent=2)
             handle.write("\n")
-        print("\nmanifest updated → {}".format(args.manifest))
+        print("\nmanifest updated -> {}".format(args.manifest))
     else:
         print("\n(dry run — re-run with --write to update the manifest)")
     return 0
