@@ -6,13 +6,15 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 
 ## Current footprint
 
-- **Render target:** `tests/native_golden/test_main.cpp` now prints nine audio
-  fixtures (including the new quadraphonic `quad-bus.wav`) and three control
+- **Render target:** `tests/native_golden/test_main.cpp` now prints ten audio
+  fixtures (including the new quadraphonic `quad-bus.wav` and the fresh
+  six-lane `surround-stage.wav`) and three control
   logs when `ENABLE_GOLDEN=1`. In addition to the 110 Hz mono drone, sampler
   chord stack, and resonator tail collage we now ship a stereo granular wash
   (`granular-haze.wav`, rendered by `render_granular_fixture()`), a stereo
   master-bus composite (`mixer-console.wav`, blended by `render_mixer_fixture()`),
-  a surround-ready mixdown (`quad-bus.wav`), and two reseed passes. Euclid,
+  a surround-ready mixdown (`quad-bus.wav`), a mid-side seasoned LCR/LFE layout
+  (`surround-stage.wav`), and two reseed passes. Euclid,
   Burst, and reseed event transcripts still tag along so reviewers can diff
   timing logic beside the WAVs. PlatformIO bakes the absolute project root into
   `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a `SEEDBOX_PROJECT_ROOT`

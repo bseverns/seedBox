@@ -758,6 +758,124 @@ std::vector<int16_t> render_quadraphonic_fixture() {
     return samples;
 }
 
+std::vector<int16_t> render_surround_fixture() {
+    const auto mixer = render_mixer_fixture();
+    const auto granular = render_granular_fixture();
+    const auto sampler = render_sampler_fixture();
+    const auto resonator = render_resonator_fixture();
+    const auto drone = make_drone();
+    const auto reseed_a = render_reseed_variant(0x5EEDu);
+
+    constexpr std::size_t kChannels = 6u;  // L, R, C, LFE, side-L, side-R
+    const std::size_t frames = kDroneFrames;
+    std::array<std::vector<double>, kChannels> bus{};
+    for (auto& lane : bus) {
+        lane.assign(frames, 0.0);
+    }
+
+    auto accumulate_mono = [&](const std::vector<int16_t>& mono, const std::array<double, kChannels>& gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t limit = std::min(frames, mono.size());
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += sample * gains[ch];
+            }
+        }
+    };
+
+    auto accumulate_stereo = [&](const std::vector<int16_t>& stereo,
+                                 const std::array<double, kChannels>& left_gains,
+                                 const std::array<double, kChannels>& right_gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t sample_count = stereo.size() / 2u;
+        const std::size_t limit = std::min(frames, sample_count);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double left = static_cast<double>(stereo[2u * i]) * scale;
+            const double right = static_cast<double>(stereo[2u * i + 1u]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += left * left_gains[ch];
+                bus[ch][i] += right * right_gains[ch];
+            }
+        }
+    };
+
+    auto accumulate_mid_side = [&](const std::vector<int16_t>& stereo, double mid_gain, double side_gain) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t sample_count = stereo.size() / 2u;
+        const std::size_t limit = std::min(frames, sample_count);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double left = static_cast<double>(stereo[2u * i]) * scale;
+            const double right = static_cast<double>(stereo[2u * i + 1u]) * scale;
+            const double mid = 0.5 * (left + right);
+            const double side = 0.5 * (left - right);
+            bus[2][i] += mid * mid_gain;
+            bus[4][i] += (mid - side) * side_gain;
+            bus[5][i] += (mid + side) * side_gain;
+        }
+    };
+
+    auto accumulate_lfe = [&](const std::vector<int16_t>& mono, double gain) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t limit = std::min(frames, mono.size());
+        double state = 0.0;
+        const double pole = 0.035;
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            state += (sample - state) * pole;
+            bus[3][i] += state * gain;
+        }
+    };
+
+    accumulate_mono(drone, {0.30, 0.30, 0.18, 0.00, 0.12, 0.12});
+    accumulate_mono(resonator, {0.34, 0.26, 0.28, 0.16, 0.12, 0.10});
+    accumulate_mono(sampler, {0.22, 0.24, 0.32, 0.00, 0.30, 0.26});
+    accumulate_mono(reseed_a, {0.08, 0.12, 0.06, 0.00, -0.24, 0.24});
+
+    accumulate_stereo(granular, {0.42, 0.10, 0.16, 0.00, 0.18, -0.12},
+                      {0.10, 0.42, 0.16, 0.00, -0.12, 0.18});
+    accumulate_stereo(mixer, {0.55, 0.08, 0.22, 0.00, 0.15, -0.06}, {0.08, 0.55, 0.22, 0.00, -0.06, 0.15});
+    accumulate_mid_side(mixer, 0.65, 0.72);
+
+    accumulate_lfe(drone, 0.65);
+    accumulate_lfe(resonator, 0.45);
+    accumulate_lfe(sampler, 0.35);
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double surround_diff = 0.08 * (bus[4][i] - bus[5][i]);
+        bus[0][i] += surround_diff;
+        bus[1][i] -= surround_diff;
+
+        const double lfe_push = bus[3][i] * 0.04;
+        bus[2][i] += lfe_push;
+        bus[4][i] += lfe_push * 0.5;
+        bus[5][i] += lfe_push * 0.5;
+
+        for (auto& lane : bus) {
+            lane[i] = std::tanh(lane[i] * 1.05);
+        }
+    }
+
+    double max_abs = 0.0;
+    for (const auto& lane : bus) {
+        for (double sample : lane) {
+            max_abs = std::max(max_abs, std::abs(sample));
+        }
+    }
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+
+    std::vector<int16_t> samples(frames * kChannels);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        for (std::size_t ch = 0; ch < kChannels; ++ch) {
+            const double value = bus[ch][frame] * scale;
+            const auto quantized = static_cast<long>(std::lround(value * 32767.0));
+            samples[frame * kChannels + ch] =
+                static_cast<int16_t>(std::clamp<long>(quantized, -32768L, 32767L));
+        }
+    }
+    return samples;
+}
+
 std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed) {
     const auto& stems = reseed::defaultStems();
     const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
@@ -1069,6 +1187,26 @@ void test_render_quadraphonic_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_surround_golden() {
+    const auto* fixture = find_audio_fixture("surround-stage");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "surround-stage fixture metadata missing");
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.channels = 6;
+    request.samples = render_surround_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write surround golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
 void test_render_reseed_a_golden() {
     const auto* fixture = find_audio_fixture("reseed-A");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-A fixture metadata missing");
@@ -1198,6 +1336,7 @@ int main(int, char**) {
     RUN_TEST(test_render_granular_golden);
     RUN_TEST(test_render_mixer_golden);
     RUN_TEST(test_render_quadraphonic_golden);
+    RUN_TEST(test_render_surround_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);
     RUN_TEST(test_render_long_take_golden);

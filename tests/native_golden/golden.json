@@ -134,6 +134,18 @@
       "channels": 1,
       "channel_layout": "mono",
       "notes": "Stacked sampler grains (root/fifth/ninth) to catch voicing and detune drift."
+    },
+    {
+      "name": "surround-stage",
+      "path": "build/fixtures/surround-stage.wav",
+      "kind": "audio",
+      "hash": "9c84f53d8632a144",
+      "wav_path": "build/fixtures/surround-stage.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 6,
+      "channel_layout": "6-channel",
+      "notes": "Hybrid LCR/LFE + mid-side surround stem that hammers the WAV writer with >4 buses."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -142,5 +154,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-15T19:20:17Z"
+  "generated_at_utc": "2025-11-15T20:23:59Z"
 }

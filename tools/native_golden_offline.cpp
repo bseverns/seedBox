@@ -39,6 +39,8 @@ namespace {
 constexpr std::size_t kDroneFrames = 48000;
 constexpr double kSampleRate = 48000.0;
 
+std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed);
+
 struct GoldenFixture {
     const char* name;
     const char* path;
@@ -51,6 +53,8 @@ constexpr GoldenFixture kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
+    {"quad-bus", "build/fixtures/quad-bus.wav", "2e1656a463a978d5"},
+    {"surround-stage", "build/fixtures/surround-stage.wav", "9c84f53d8632a144"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
@@ -569,6 +573,205 @@ std::vector<int16_t> render_mixer_fixture() {
     return samples;
 }
 
+std::vector<int16_t> render_quadraphonic_fixture() {
+    const auto mixer = render_mixer_fixture();
+    const auto granular = render_granular_fixture();
+    const auto sampler = render_sampler_fixture();
+    const auto resonator = render_resonator_fixture();
+    const auto drone = make_drone();
+    const auto reseed_a = render_reseed_variant(0xCAFEu);
+    const auto reseed_b = render_reseed_variant(0xBEEFu);
+
+    constexpr std::size_t kChannels = 4u;
+    const std::size_t frames = kDroneFrames;
+    std::array<std::vector<double>, kChannels> bus{};
+    for (auto& lane : bus) {
+        lane.assign(frames, 0.0);
+    }
+
+    auto accumulate_mono = [&](const std::vector<int16_t>& mono, const std::array<double, kChannels>& gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t limit = std::min(frames, mono.size());
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += sample * gains[ch];
+            }
+        }
+    };
+
+    auto accumulate_stereo = [&](const std::vector<int16_t>& stereo,
+                                 const std::array<double, kChannels>& left_gains,
+                                 const std::array<double, kChannels>& right_gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t sample_count = stereo.size() / 2u;
+        const std::size_t limit = std::min(frames, sample_count);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double left = static_cast<double>(stereo[2u * i]) * scale;
+            const double right = static_cast<double>(stereo[2u * i + 1u]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += left * left_gains[ch];
+                bus[ch][i] += right * right_gains[ch];
+            }
+        }
+    };
+
+    accumulate_mono(drone, {0.25, 0.25, 0.10, 0.10});
+    accumulate_mono(sampler, {0.20, 0.35, 0.30, 0.18});
+    accumulate_mono(resonator, {0.32, 0.22, 0.14, 0.36});
+    accumulate_stereo(granular, {0.28, 0.10, 0.26, -0.18}, {0.10, 0.28, -0.18, 0.26});
+    accumulate_stereo(mixer, {0.48, 0.16, 0.20, 0.20}, {0.16, 0.48, 0.20, 0.20});
+    accumulate_mono(reseed_a, {0.30, 0.18, 0.42, 0.24});
+    accumulate_mono(reseed_b, {0.18, 0.30, 0.24, 0.42});
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double front_avg = 0.5 * (bus[0][i] + bus[1][i]);
+        const double rear_avg = 0.5 * (bus[2][i] + bus[3][i]);
+        const double tilt = 0.08 * (front_avg - rear_avg);
+        bus[0][i] += tilt;
+        bus[1][i] += tilt;
+        bus[2][i] -= tilt;
+        bus[3][i] -= tilt;
+    }
+
+    double max_abs = 0.0;
+    for (const auto& lane : bus) {
+        for (double sample : lane) {
+            max_abs = std::max(max_abs, std::abs(sample));
+        }
+    }
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+
+    std::vector<int16_t> samples(frames * kChannels);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        for (std::size_t ch = 0; ch < kChannels; ++ch) {
+            const double value = bus[ch][frame] * scale;
+            const auto quantized = static_cast<long>(std::lround(value * 32767.0));
+            samples[frame * kChannels + ch] =
+                static_cast<int16_t>(std::clamp<long>(quantized, -32768L, 32767L));
+        }
+    }
+    return samples;
+}
+
+std::vector<int16_t> render_surround_fixture() {
+    const auto mixer = render_mixer_fixture();
+    const auto granular = render_granular_fixture();
+    const auto sampler = render_sampler_fixture();
+    const auto resonator = render_resonator_fixture();
+    const auto drone = make_drone();
+    const auto reseed_a = render_reseed_variant(0x5EEDu);
+
+    constexpr std::size_t kChannels = 6u;
+    const std::size_t frames = kDroneFrames;
+    std::array<std::vector<double>, kChannels> bus{};
+    for (auto& lane : bus) {
+        lane.assign(frames, 0.0);
+    }
+
+    auto accumulate_mono = [&](const std::vector<int16_t>& mono, const std::array<double, kChannels>& gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t limit = std::min(frames, mono.size());
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += sample * gains[ch];
+            }
+        }
+    };
+
+    auto accumulate_stereo = [&](const std::vector<int16_t>& stereo,
+                                 const std::array<double, kChannels>& left_gains,
+                                 const std::array<double, kChannels>& right_gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t sample_count = stereo.size() / 2u;
+        const std::size_t limit = std::min(frames, sample_count);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double left = static_cast<double>(stereo[2u * i]) * scale;
+            const double right = static_cast<double>(stereo[2u * i + 1u]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += left * left_gains[ch];
+                bus[ch][i] += right * right_gains[ch];
+            }
+        }
+    };
+
+    auto accumulate_mid_side = [&](const std::vector<int16_t>& stereo, double mid_gain, double side_gain) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t sample_count = stereo.size() / 2u;
+        const std::size_t limit = std::min(frames, sample_count);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double left = static_cast<double>(stereo[2u * i]) * scale;
+            const double right = static_cast<double>(stereo[2u * i + 1u]) * scale;
+            const double mid = 0.5 * (left + right);
+            const double side = 0.5 * (left - right);
+            bus[2][i] += mid * mid_gain;
+            bus[4][i] += (mid - side) * side_gain;
+            bus[5][i] += (mid + side) * side_gain;
+        }
+    };
+
+    auto accumulate_lfe = [&](const std::vector<int16_t>& mono, double gain) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t limit = std::min(frames, mono.size());
+        double state = 0.0;
+        const double pole = 0.035;
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            state += (sample - state) * pole;
+            bus[3][i] += state * gain;
+        }
+    };
+
+    accumulate_mono(drone, {0.30, 0.30, 0.18, 0.00, 0.12, 0.12});
+    accumulate_mono(resonator, {0.34, 0.26, 0.28, 0.16, 0.12, 0.10});
+    accumulate_mono(sampler, {0.22, 0.24, 0.32, 0.00, 0.30, 0.26});
+    accumulate_mono(reseed_a, {0.08, 0.12, 0.06, 0.00, -0.24, 0.24});
+
+    accumulate_stereo(granular, {0.42, 0.10, 0.16, 0.00, 0.18, -0.12},
+                      {0.10, 0.42, 0.16, 0.00, -0.12, 0.18});
+    accumulate_stereo(mixer, {0.55, 0.08, 0.22, 0.00, 0.15, -0.06}, {0.08, 0.55, 0.22, 0.00, -0.06, 0.15});
+    accumulate_mid_side(mixer, 0.65, 0.72);
+
+    accumulate_lfe(drone, 0.65);
+    accumulate_lfe(resonator, 0.45);
+    accumulate_lfe(sampler, 0.35);
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double surround_diff = 0.08 * (bus[4][i] - bus[5][i]);
+        bus[0][i] += surround_diff;
+        bus[1][i] -= surround_diff;
+
+        const double lfe_push = bus[3][i] * 0.04;
+        bus[2][i] += lfe_push;
+        bus[4][i] += lfe_push * 0.5;
+        bus[5][i] += lfe_push * 0.5;
+
+        for (auto& lane : bus) {
+            lane[i] = std::tanh(lane[i] * 1.05);
+        }
+    }
+
+    double max_abs = 0.0;
+    for (const auto& lane : bus) {
+        for (double sample : lane) {
+            max_abs = std::max(max_abs, std::abs(sample));
+        }
+    }
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+
+    std::vector<int16_t> samples(frames * kChannels);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        for (std::size_t ch = 0; ch < kChannels; ++ch) {
+            const double value = bus[ch][frame] * scale;
+            const auto quantized = static_cast<long>(std::lround(value * 32767.0));
+            samples[frame * kChannels + ch] =
+                static_cast<int16_t>(std::clamp<long>(quantized, -32768L, 32767L));
+        }
+    }
+    return samples;
+}
+
 std::string fnv1a_bytes(const std::string& bytes) {
     constexpr std::uint64_t kOffset = 1469598103934665603ull;
     constexpr std::uint64_t kPrime = 1099511628211ull;
@@ -809,9 +1012,11 @@ int main() {
         maybe_emit_audio(kAudioFixtures[2], 1, [] { return render_resonator_fixture(); }, filters);
         maybe_emit_audio(kAudioFixtures[3], 2, [] { return render_granular_fixture(); }, filters);
         maybe_emit_audio(kAudioFixtures[4], 2, [] { return render_mixer_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[5], 1, [] { return render_long_random_take_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[6], 1, [] { return render_reseed_variant(0xCAFEu); }, filters);
-        maybe_emit_audio(kAudioFixtures[7], 1, [] { return render_reseed_variant(0xBEEFu); }, filters);
+        maybe_emit_audio(kAudioFixtures[5], 4, [] { return render_quadraphonic_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[6], 6, [] { return render_surround_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[7], 1, [] { return render_long_random_take_fixture(); }, filters);
+        maybe_emit_audio(kAudioFixtures[8], 1, [] { return render_reseed_variant(0xCAFEu); }, filters);
+        maybe_emit_audio(kAudioFixtures[9], 1, [] { return render_reseed_variant(0xBEEFu); }, filters);
 
         maybe_emit_log(kLogFixtures[0], [] { return render_euclid_log(); }, filters);
         maybe_emit_log(kLogFixtures[1], [] { return render_burst_log(); }, filters);

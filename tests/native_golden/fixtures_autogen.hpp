@@ -21,6 +21,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
+    {"surround-stage", "build/fixtures/surround-stage.wav", "9c84f53d8632a144"},
 };
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
 
