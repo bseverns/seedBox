@@ -1,0 +1,2 @@
+# drone-intro control log
+frames=48000 sample_rate_hz=48000 freq_hz=110 amplitude=0.5

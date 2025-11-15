@@ -1,0 +1,10 @@
+# mixer-console control log
+frames=48000 sample_rate_hz=48000
+mono_sources:
+  drone-intro -> L=0.50 R=0.50
+  sampler-grains -> L=0.35 R=0.55
+  resonator-tail -> L=0.40 R=0.30
+stereo_sources:
+  granular-haze -> gain=0.65/0.65
+bus_fx: crossfeed=0.12 saturate=1.10
+normalize=0.92

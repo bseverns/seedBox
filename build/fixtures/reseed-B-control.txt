@@ -1,0 +1,15 @@
+# reseed-B control log
+master_seed=0xbeef bpm=124 passes=3
+event,name,lane,when_samples,seed_id,prng,engine
+0,snare clipping,1,0,1,0x418393c4,0
+1,kick compost,0,23226,2,0x9f8081f6,0
+2,hat patina,3,46452,3,0x25e2988a,0
+3,ride oxidation,2,69677,4,0x87dbcbc0,2
+4,hat patina,3,92903,5,0x2cb45416,0
+5,ride oxidation,2,116129,6,0xa5d1550c,2
+6,snare clipping,1,139355,7,0xdf0a355,0
+7,kick compost,0,162581,8,0xa13f21c4,0
+8,kick compost,0,185806,9,0x52b08067,0
+9,snare clipping,1,209032,10,0x3f06715d,0
+10,hat patina,3,232258,11,0x1267d3e,0
+11,ride oxidation,2,255484,12,0xf329e397,2

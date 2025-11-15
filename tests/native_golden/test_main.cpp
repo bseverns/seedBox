@@ -142,6 +142,11 @@ std::vector<int16_t> make_drone() {
         const auto quantized = static_cast<long>(std::lround(scaled * 32767.0));
         samples[i] = static_cast<int16_t>(std::clamp<long>(quantized, -32768L, 32767L));
     }
+    std::ostringstream control;
+    control << "# drone-intro control log" << '\n';
+    control << "frames=" << kDroneFrames << " sample_rate_hz=" << static_cast<int>(kSampleRate)
+            << " freq_hz=" << kDroneFreqHz << " amplitude=" << kDroneAmplitude << '\n';
+    (void)emit_control_log("drone-intro", control.str());
     return samples;
 }
 
@@ -259,8 +264,11 @@ struct SamplerVoiceSpec {
     std::uint32_t when;
 };
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed);
+std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
+                                           const char* control_fixture_name = nullptr);
 std::vector<int16_t> render_long_random_take_fixture();
+bool write_text_file(const std::string& manifest_path, const std::string& body);
+bool emit_control_log(const char* fixture_name, const std::string& body);
 
 Seed make_sampler_seed(std::uint32_t id,
                        std::uint8_t sample_idx,
@@ -330,9 +338,22 @@ std::vector<int16_t> render_sampler_fixture() {
         {make_sampler_seed(3, 6, 9.0f, 0.02f, 0.18f, 0.4f, 0.5f, 0.8f, 0.85f), 16000u},
     };
 
-    for (const auto& spec : voices) {
+    std::ostringstream control;
+    control << "# sampler-grains control log" << '\n';
+    control << "frames=" << kDroneFrames << " sample_rate_hz=" << static_cast<int>(kSampleRate)
+            << " voices=" << std::size(voices) << '\n';
+    control << "voice,when_samples,id,sample,pitch,envA,envD,envS,envR,tone,spread" << '\n';
+    control << std::fixed << std::setprecision(4);
+
+    for (std::size_t idx = 0; idx < std::size(voices); ++idx) {
+        const auto& spec = voices[idx];
         sampler.trigger(spec.seed, spec.when);
+        control << idx << ',' << spec.when << ',' << spec.seed.id << ','
+                << static_cast<int>(spec.seed.sampleIdx) << ',' << spec.seed.pitch << ','
+                << spec.seed.envA << ',' << spec.seed.envD << ',' << spec.seed.envS << ','
+                << spec.seed.envR << ',' << spec.seed.tone << ',' << spec.seed.spread << '\n';
     }
+    (void)emit_control_log("sampler-grains", control.str());
 
     std::vector<double> mix(kDroneFrames, 0.0);
     const double sustain_hold = 0.25;
@@ -430,9 +451,23 @@ std::vector<int16_t> render_resonator_fixture() {
         {make_resonator_seed(12, 5.0f, 5.0f, 0.48f, 0.45f, 0.6f, 0, 4), 12000u},
     };
 
-    for (const auto& spec : specs) {
+    std::ostringstream control;
+    control << "# resonator-tail control log" << '\n';
+    control << "frames=" << kDroneFrames << " sample_rate_hz=" << static_cast<int>(kSampleRate)
+            << " voices=" << std::size(specs) << '\n';
+    control << "voice,when_samples,id,pitch,excite_ms,damping,brightness,feedback,mode,bank" << '\n';
+    control << std::fixed << std::setprecision(4);
+
+    for (std::size_t idx = 0; idx < std::size(specs); ++idx) {
+        const auto& spec = specs[idx];
         bank.trigger(spec.seed, spec.when);
+        control << idx << ',' << spec.when << ',' << spec.seed.id << ',' << spec.seed.pitch << ','
+                << spec.seed.resonator.exciteMs << ',' << spec.seed.resonator.damping << ','
+                << spec.seed.resonator.brightness << ',' << spec.seed.resonator.feedback << ','
+                << static_cast<int>(spec.seed.resonator.mode) << ','
+                << static_cast<int>(spec.seed.resonator.bank) << '\n';
     }
+    (void)emit_control_log("resonator-tail", control.str());
 
     std::vector<double> mix(kDroneFrames, 0.0);
     for (std::uint8_t i = 0; i < ResonatorBank::kMaxVoices; ++i) {
@@ -548,9 +583,36 @@ std::vector<int16_t> render_granular_fixture() {
          20000u, 246.94, 0.08},
     };
 
-    for (const auto& spec : specs) {
+    auto granular_source_label = [](GranularEngine::Source source) {
+        switch (source) {
+            case GranularEngine::Source::kLiveInput:
+                return "live";
+            case GranularEngine::Source::kSdClip:
+                return "sd";
+            default:
+                return "unknown";
+        }
+    };
+
+    std::ostringstream control;
+    control << "# granular-haze control log" << '\n';
+    control << "frames=" << kDroneFrames << " sample_rate_hz=" << static_cast<int>(kSampleRate)
+            << " voices=" << std::size(specs) << '\n';
+    control << "voice,when_samples,id,pitch,transpose,grain_ms,spray_ms,window_skew,spread,source,sd_slot,carrier_hz,drift" << '\n';
+    control << std::fixed << std::setprecision(4);
+
+    for (std::size_t idx = 0; idx < std::size(specs); ++idx) {
+        const auto& spec = specs[idx];
         engine.trigger(spec.seed, spec.when);
+        control << idx << ',' << spec.when << ',' << spec.seed.id << ',' << spec.seed.pitch << ','
+                << spec.seed.granular.transpose << ',' << spec.seed.granular.grainSizeMs << ','
+                << spec.seed.granular.sprayMs << ',' << spec.seed.granular.windowSkew << ','
+                << spec.seed.granular.stereoSpread << ','
+                << granular_source_label(static_cast<GranularEngine::Source>(spec.seed.granular.source))
+                << ',' << static_cast<int>(spec.seed.granular.sdSlot) << ',' << specs[idx].carrier_hz
+                << ',' << specs[idx].drift_amount << '\n';
     }
+    (void)emit_control_log("granular-haze", control.str());
 
     std::vector<double> left(kDroneFrames, 0.0);
     std::vector<double> right(kDroneFrames, 0.0);
@@ -634,9 +696,17 @@ std::vector<int16_t> render_mixer_fixture() {
         }
     };
 
+    std::ostringstream control;
+    control << "# mixer-console control log" << '\n';
+    control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate) << '\n';
+    control << "mono_sources:" << '\n';
+
     accumulate_mono(drone, 0.5, 0.5);
+    control << "  drone-intro -> L=0.50 R=0.50" << '\n';
     accumulate_mono(sampler, 0.35, 0.55);
+    control << "  sampler-grains -> L=0.35 R=0.55" << '\n';
     accumulate_mono(resonator, 0.4, 0.3);
+    control << "  resonator-tail -> L=0.40 R=0.30" << '\n';
 
     const double granular_scale = 1.0 / 32768.0;
     for (std::size_t frame = 0; frame < frames && (frame * 2u + 1u) < granular.size(); ++frame) {
@@ -645,6 +715,8 @@ std::vector<int16_t> render_mixer_fixture() {
         left[frame] += l * 0.65;
         right[frame] += r * 0.65;
     }
+    control << "stereo_sources:" << '\n';
+    control << "  granular-haze -> gain=0.65/0.65" << '\n';
 
     for (std::size_t i = 0; i < frames; ++i) {
         const double cross = 0.12 * (left[i] - right[i]);
@@ -653,6 +725,7 @@ std::vector<int16_t> render_mixer_fixture() {
         left[i] = std::tanh(left[i] * 1.1);
         right[i] = std::tanh(right[i] * 1.1);
     }
+    control << "bus_fx: crossfeed=0.12 saturate=1.10" << '\n';
 
     double max_abs = 0.0;
     for (std::size_t i = 0; i < frames; ++i) {
@@ -668,6 +741,8 @@ std::vector<int16_t> render_mixer_fixture() {
         samples[2u * i + 1u] = static_cast<int16_t>(
             std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768, 32767));
     }
+    control << "normalize=0.92" << '\n';
+    (void)emit_control_log("mixer-console", control.str());
     return samples;
 }
 
@@ -714,6 +789,19 @@ std::vector<int16_t> render_quadraphonic_fixture() {
         }
     };
 
+    std::ostringstream control;
+    control << "# quad-bus control log" << '\n';
+    control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate) << '\n';
+    control << "mono routing:" << '\n';
+    control << "  drone-intro -> [0.25,0.25,0.10,0.10]" << '\n';
+    control << "  sampler-grains -> [0.20,0.35,0.30,0.18]" << '\n';
+    control << "  resonator-tail -> [0.32,0.22,0.14,0.36]" << '\n';
+    control << "  reseed-A -> [0.30,0.18,0.42,0.24]" << '\n';
+    control << "  reseed-B -> [0.18,0.30,0.24,0.46]" << '\n';
+    control << "stereo routing:" << '\n';
+    control << "  granular-haze -> L[0.28,0.10,0.26,-0.18] R[0.10,0.28,-0.18,0.26]" << '\n';
+    control << "  mixer-console -> L[0.48,0.16,0.20,0.20] R[0.16,0.48,0.20,0.20]" << '\n';
+
     accumulate_mono(drone, {0.25, 0.25, 0.10, 0.10});
     accumulate_mono(sampler, {0.20, 0.35, 0.30, 0.18});
     accumulate_mono(resonator, {0.32, 0.22, 0.14, 0.36});
@@ -755,16 +843,40 @@ std::vector<int16_t> render_quadraphonic_fixture() {
                 std::clamp<long>(quantized, -32768L, 32767L));
         }
     }
+    control << "bus_fx:" << '\n';
+    control << "  front_side_feed=0.55" << '\n';
+    control << "  tilt=0.12" << '\n';
+    control << "  saturate=1.08" << '\n';
+    control << "normalize=0.92" << '\n';
+    (void)emit_control_log("quad-bus", control.str());
     return samples;
 }
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed) {
+std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
+                                           const char* control_fixture_name) {
     const auto& stems = reseed::defaultStems();
     const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
     offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
     renderer.mixSamplerEvents(plan.samplerEvents);
     renderer.mixResonatorEvents(plan.resonatorEvents);
     const auto& pcm = renderer.finalize();
+
+    if (control_fixture_name != nullptr) {
+        std::ostringstream control;
+        control << "# " << control_fixture_name << " control log" << '\n';
+        control << "master_seed=0x" << std::hex << std::nouppercase << master_seed << std::dec
+                << " bpm=124 passes=3" << '\n';
+        control << "event,name,lane,when_samples,seed_id,prng,engine" << '\n';
+        for (std::size_t idx = 0; idx < plan.logEntries.size(); ++idx) {
+            const auto& entry = plan.logEntries[idx];
+            control << idx << ',' << entry.name << ',' << entry.lane << ',' << entry.whenSamples
+                    << ',' << entry.seedId << ',' << "0x" << std::hex << std::nouppercase
+                    << entry.prng << std::dec << ','
+                    << static_cast<int>(entry.engine == reseed::EngineKind::kResonator ? 2 : 0)
+                    << '\n';
+        }
+        (void)emit_control_log(control_fixture_name, control.str());
+    }
     return std::vector<int16_t>(pcm.begin(), pcm.end());
 }
 
@@ -793,6 +905,20 @@ std::vector<int16_t> render_long_random_take_fixture() {
     const auto& pcm = renderer.finalize();
 
     const std::size_t frames = settings.frames;
+    std::ostringstream control;
+    control << "# long-random-take control log" << '\n';
+    control << "master_seed=0x" << std::hex << std::nouppercase << kMasterSeed << std::dec
+            << " bpm=" << kBpm << " passes=" << kPasses << '\n';
+    control << "event,name,lane,when_samples,seed_id,prng,engine" << '\n';
+    for (std::size_t idx = 0; idx < plan.logEntries.size(); ++idx) {
+        const auto& entry = plan.logEntries[idx];
+        control << idx << ',' << entry.name << ',' << entry.lane << ',' << entry.whenSamples
+                << ',' << entry.seedId << ',' << "0x" << std::hex << std::nouppercase << entry.prng
+                << std::dec << ','
+                << static_cast<int>(entry.engine == reseed::EngineKind::kResonator ? 2 : 0) << '\n';
+    }
+    (void)emit_control_log("long-random-take", control.str());
+
     std::vector<int16_t> trimmed(frames * 2u, 0);
     const std::size_t available_frames = std::min(frames, pcm.size());
     for (std::size_t i = 0; i < available_frames; ++i) {
@@ -912,6 +1038,14 @@ bool write_text_file(const std::string& manifest_path, const std::string& body) 
     (void)body;
     return false;
 #endif
+}
+
+bool emit_control_log(const char* fixture_name, const std::string& body) {
+    if (fixture_name == nullptr || *fixture_name == '\0') {
+        return false;
+    }
+    const std::string path = std::string("build/fixtures/") + fixture_name + "-control.txt";
+    return write_text_file(path, body);
 }
 
 std::string load_manifest() {
@@ -1076,7 +1210,7 @@ void test_render_reseed_a_golden() {
     golden::WavWriteRequest request{};
     request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.samples = render_reseed_variant(0xCAFEu);
+    request.samples = render_reseed_variant(0xCAFEu, "reseed-A");
 
     const bool write_ok = golden::write_wav_16(request);
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-A golden WAV");
@@ -1095,7 +1229,7 @@ void test_render_reseed_b_golden() {
     golden::WavWriteRequest request{};
     request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
-    request.samples = render_reseed_variant(0xBEEFu);
+    request.samples = render_reseed_variant(0xBEEFu, "reseed-B");
 
     const bool write_ok = golden::write_wav_16(request);
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-B golden WAV");
