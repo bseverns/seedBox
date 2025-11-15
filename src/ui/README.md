@@ -49,5 +49,6 @@ Want to peek at live frames while running firmware on a host build? Flip the con
 * When you bolt on new UI states, sketch the story first: what line in the frame should change, and can the state machine narrate it without conditional soup in the renderer?
 * Tests don't need to know about pixels. Keep asserting on strings and let `AsciiOledView` prove that the math matches the hardware glyphs.
 * If you're prototyping a new layout, edit `ComposeTextFrame` and run the ASCII renderer in a loop. It will show you exactly what the OLED would say, without lifting the soldering iron.
+* Need slide-ready examples? Grab the snapshots in [`docs/ui_ascii_gallery.md`](../../docs/ui_ascii_gallery.md) or rerun the matching test to print fresh frames.【F:docs/ui_ascii_gallery.md†L1-L84】
 
 Now go draw something true.
