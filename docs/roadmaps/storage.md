@@ -14,6 +14,11 @@ implementation stands and how we expect it to grow.
     builds. Native runs keep the bytes in RAM; hardware hits the real EEPROM.
   - `StoreSd`: optional but wired up so future labs can target SD cards or host
     directories.
+- **Legacy helpers now real.** `Storage::loadSeedBank("eeprom:alpha")` and
+  `Storage::saveScene("sd:workshop/jam")` now do the grown-up thing. They parse
+  the `Store` contract, decode/encode JSON presets, and respect quiet mode's
+  write lock on hardware while native builds write under `out/storage/` for
+  deterministic tests.
 - **Quiet mode guardrails.** `QUIET_MODE` keeps every store read-only, so student
   rigs don't silently overwrite each other.
 - **Preset schema (`app/Preset.*`).** JSON payload that captures: clock data,
