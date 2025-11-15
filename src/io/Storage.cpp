@@ -28,7 +28,13 @@
 #if SEEDBOX_HW
   #include <Arduino.h>
   #include <SdFat.h>
-  static SdFat SD;
+  namespace {
+  // Teensy's Arduino core ships both the legacy SD wrapper (`SDClass SD`) and
+  // Bill Greiman's SdFat implementation.  The legacy symbol stomps on any
+  // attempt to declare our own `SD`, so keep our instance tucked behind a
+  // different banner.
+  SdFat gSdFat;
+  }
 #else
   #include <filesystem>
   #include <fstream>
@@ -223,9 +229,9 @@ bool ensureSdReady() {
   static bool mounted = false;
   if (!initialised) {
 #if defined(BUILTIN_SDCARD)
-    mounted = SD.begin(BUILTIN_SDCARD);
+    mounted = gSdFat.begin(BUILTIN_SDCARD);
 #else
-    mounted = SD.begin();
+    mounted = gSdFat.begin();
 #endif
     initialised = true;
   }
@@ -256,8 +262,8 @@ bool ensureSdDirectories(const std::string& absolutePath) {
       prefix.push_back('/');
     }
     prefix += absolutePath.substr(start, length);
-    if (!SD.exists(prefix.c_str())) {
-      if (!SD.mkdir(prefix.c_str())) {
+    if (!gSdFat.exists(prefix.c_str())) {
+      if (!gSdFat.mkdir(prefix.c_str())) {
         return false;
       }
     }
@@ -346,7 +352,7 @@ bool loadSeedBank(const char* path, std::vector<Seed>& out) {
       if (sdPath.front() != '/') {
         sdPath.insert(sdPath.begin(), '/');
       }
-      FsFile file = SD.open(sdPath.c_str(), O_RDONLY);
+      FsFile file = gSdFat.open(sdPath.c_str(), O_RDONLY);
       if (!file) {
         return false;
       }
@@ -416,7 +422,7 @@ bool saveScene(const char* path) {
       if (!ensureSdDirectories(sdPath)) {
         return false;
       }
-      FsFile file = SD.open(sdPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+      FsFile file = gSdFat.open(sdPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
       if (!file) {
         return false;
       }
