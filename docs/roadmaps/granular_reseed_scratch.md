@@ -31,9 +31,12 @@ edges welcome.
 * Roadmap still sketches CPU sanity chores (perf HUD, histogram, SD stress,
   mixer profiling) with no automation yet. Flagging them here so they don't fall
   off the radar when we chase DSP polish.【F:docs/roadmaps/granular.md†L72-L79】
-* No automated probe for the Teensy `AudioEffectGranular` quirks—tests only check
-  the sim stub today. A smoke test targeting hardware builds would verify the
-  `beginPitchShift()` fallback stays wired.【F:docs/roadmaps/granular.md†L40-L46】【F:tests/test_engine/test_granular_voice_budget.cpp†L86-L103】
+* `tests/test_hardware/test_granular_teensy.cpp` now exercises the Teensy
+  `AudioEffectGranular` directly, asserting that the
+  `beginPitchShift()` fallback stays wired and that the mixer fan-out exposes
+  unique DSP handles across the pool. Run it with
+  `pio test -e teensy40 --filter test_hardware` to confirm the wiring on real
+  silicon.【F:tests/test_hardware/test_granular_teensy.cpp†L1-L83】
 * `pio test -e native --filter test_engine` can't currently fetch the `native` platform
   because the registry blocks our outbound requests (403), so the coverage story
   still lives on paper until CI (or a cached toolchain) comes online.【eddf39†L1-L9】
