@@ -3,6 +3,7 @@
 #include <string>
 #include <unity.h>
 #include "app/AppState.h"
+#include "hal/Board.h"
 #include "ui/AsciiOledView.h"
 
 namespace {
@@ -15,6 +16,12 @@ std::string CaptureFrame(AppState& app) {
   view.present(snapshot, ui);
   TEST_ASSERT_TRUE_MESSAGE(view.hasFrames(), "AsciiOledView did not capture a frame");
   return view.latest();
+}
+
+void RunTicks(AppState& app, int count) {
+  for (int i = 0; i < count; ++i) {
+    app.tick();
+  }
 }
 
 std::string FirstLine(const std::string& frame) {
@@ -47,7 +54,9 @@ char ClockGlyph(const std::string& statusLine) {
 
 void test_ui_gallery_snapshots() {
   {
-    AppState app;
+    hal::nativeBoardReset();
+    auto& board = hal::nativeBoard();
+    AppState app(board);
     app.initSim();
     app.seedPageToggleGlobalLock();
     const std::string frame = CaptureFrame(app);
@@ -57,10 +66,22 @@ void test_ui_gallery_snapshots() {
   }
 
   {
-    AppState app;
+    hal::nativeBoardReset();
+    auto& board = hal::nativeBoard();
+    AppState app(board);
     app.initSim();
-    app.enterSwingMode();
-    app.adjustSwing(0.17f);
+
+    hal::nativeBoardFeed("btn tap down");
+    hal::nativeBoardFeed("wait 520ms");
+    hal::nativeBoardFeed("btn tap up");
+    RunTicks(app, 96);
+    TEST_ASSERT_EQUAL(AppState::Mode::SWING, app.mode());
+
+    hal::nativeBoardFeed("enc seed 3");
+    hal::nativeBoardFeed("enc density 2");
+    RunTicks(app, 8);
+    TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.17f, app.swingPercent());
+
     const std::string frame = CaptureFrame(app);
     PrintFrame("swing-edit", frame);
     const std::string banner = FirstLine(frame);
@@ -69,7 +90,9 @@ void test_ui_gallery_snapshots() {
   }
 
   {
-    AppState app;
+    hal::nativeBoardReset();
+    auto& board = hal::nativeBoard();
+    AppState app(board);
     app.initSim();
     app.onExternalTransportStart();
     const std::string frame = CaptureFrame(app);
