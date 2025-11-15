@@ -19,7 +19,7 @@
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "TODO placeholder in repo; render 110 Hz mono drone for real checks."
+      "notes": "110 Hz mono drone capture that proves the DSP plumbing is awake."
     },
     {
       "name": "euclid-mask",
@@ -40,7 +40,7 @@
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
-      "notes": "TODO placeholder; stereo swirling grain cloud reveals granular sync issues."
+      "notes": "Stereo grain cloud with slow swirl to make sync and width slips obvious."
     },
     {
       "name": "long-random-take",
@@ -64,7 +64,7 @@
       "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
-      "notes": "TODO placeholder; stereo sum of all engines with ~-3 dBFS peaks."
+      "notes": "Stereo console mix of every engine hitting around -3 dBFS for bus sanity."
     },
     {
       "name": "reseed-A",
@@ -100,7 +100,7 @@
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "TODO placeholder; should be the resonator decay tail for damping checks."
+      "notes": "Plucked resonator tail that spotlights damping and feedback tweaks."
     },
     {
       "name": "sampler-grains",
@@ -112,7 +112,7 @@
       "frames": 48000,
       "channels": 1,
       "channel_layout": "mono",
-      "notes": "TODO placeholder; expect mono stacked grain chord to audit sampler voicing."
+      "notes": "Stacked sampler grains (root/fifth/ninth) to catch voicing and detune drift."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",

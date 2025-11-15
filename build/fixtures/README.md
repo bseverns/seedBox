@@ -10,11 +10,11 @@ hashes to actually mean something.
 
 | Fixture | Story | Format |
 | --- | --- | --- |
-| `drone-intro.wav` | Mono 110 Hz drone for "is the DSP pipeline even awake?" sanity checks. | 48 kHz, mono | 
-| `sampler-grains.wav` | Staggered sampler voices stacking root/fifth/ninth grains so voicing bugs scream. | 48 kHz, mono |
-| `resonator-tail.wav` | Plucked impulse sloshing through the resonator decay tail; damping tweaks show up instantly. | 48 kHz, mono |
-| `granular-haze.wav` | Stereo grain cloud with slow drift to smoke out sync/width regressions. | 48 kHz, stereo |
-| `mixer-console.wav` | Console bus capture after routing the other fixtures together, peaks around -3 dBFS. | 48 kHz, stereo |
+| `drone-intro.wav` | 110 Hz mono drone capture that proves the DSP plumbing is awake. | 48 kHz, mono | 
+| `sampler-grains.wav` | Stacked sampler grains (root/fifth/ninth) to catch voicing and detune drift. | 48 kHz, mono |
+| `resonator-tail.wav` | Plucked resonator tail that spotlights damping and feedback tweaks. | 48 kHz, mono |
+| `granular-haze.wav` | Stereo grain cloud with slow swirl to make sync and width slips obvious. | 48 kHz, stereo |
+| `mixer-console.wav` | Stereo console mix of every engine hitting around -3 dBFS for bus sanity. | 48 kHz, stereo |
 | `euclid-mask.txt` | Euclidean trigger mask parameters + bitmask dump. | text |
 | `burst-cluster.txt` | Burst engine trigger spacing log for deterministic scheduling. | text |
 
