@@ -8,61 +8,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Added a hardware board abstraction with input event plumbing and controller
-  tests so the firmware targets Teensy hardware and the simulator with the same
-  mental model.
-- Introduced clock provider modules, engine router metadata, Euclid/Burst
-  generators, and swing/tap/prime gestures to flesh out the sequencing
-  workflow.
-- Built preset storage backends with EEPROM compression plus a config narrator
-  CI script so configuration/state handling stays predictable.
-- Landed scripted walkthrough/timing goldens and a native entry point to widen
-  coverage for CI and local repros.
+- Dropped a full native golden harness pipeline (hash compute script, fixtures,
+  orchestrated harness entry point) so we can snapshot-regress the audio engine
+  without touching hardware.
+- Delivered a scale quantizer tutorial: new docs, PlatformIO example project,
+  tests, and a narrated walkthrough that doubles as a regression suite.
+- Added CLI toggles and runtime hooks to the Sprout simulator so folks can
+  rehearse reseed/transport tricks from the keyboard while we polish the panel.
+- Annotated the seed genome struct, granular/reseed roadmap coverage, and
+  golden-harness playbooks with lab-style READMEs to keep the intent
+  teachable.
 
 ### Changed
-- Swapped to the SparkFun Qwiic OLED, adopted Type-A TRS MIDI with a Serial7
-  driver, normalized MN42 channel handling, and mapped seed/density controls to
-  hardware so the panel matches firmware expectations.
-- Upgraded audio clocking by raising simulator and hardware sample rates to
-  48 kHz, centralizing audio memory budgeting, cascading resonator mixers, and
-  tightening quiet-mode/transport routing.
-- Hardened seed workflows and UI hints by tightening macros, quantize state
-  transitions, and swing pop-over behavior.
+- Radically broadened the native golden harness gallery (new fixtures, longer
+  takes, console/mixer probes) and refreshed expected hashes to match the new
+  capture format.
+- Reworked simulator walkthroughs and docs to highlight CLI flows, reseed
+  timing, and external clock priming now that the harness guards those paths.
 
 ### Deprecated
-- Retired the legacy `teensy40_usbmidiserial` PlatformIO env; `teensy40` now
-  stands alone, so update local scripts before the next release cycle.
+- No deprecations this cycle—keep riding the current env lineup.
 
 ### Fixed
-- Patched a stack of build issues: MidiRouter backend creation/declarations,
-  CLI warnings, duplicate helpers, AppState members/braces, storage state
-  transitions, ArduinoJson document construction, and PlatformIO guard usage.
-- Resolved native build/test instabilities including double-main definitions,
-  guard semantics, debug clock toggles, and quiet-mode alignment with the
-  golden harness.
-- Stabilized engine scheduling by fixing external clock handoffs, pattern
-  scheduler sample math, MN42 handshake resets, granular SD fallback, and
-  transport jitter.
+- Cleared a pile of hash drift, golden refresh failures, and reseed log shuffle
+  nondeterminism uncovered by the new harness workflow.
+- Smoothed out native test build quirks (double mains, guard semantics, debug
+  clock toggles) uncovered while wiring the compute script into CI.
 
 ### Documentation
-- Sketched the next calibration + release checklist so future-us has a
-  dog-eared map instead of a hazy memory.
-- Expanded README, builder, and roadmap docs with hardware lists, examples, and
-  teaching notes; refreshed badges and clarified Teensy model targeting.
-- Annotated tests and Teensy sources with teaching-friendly comment blocks for
-  density, external MIDI priority, MN42 CC intent, resonator voice pools, and
-  simulator expectations.
+- Punched up READMEs across docs/, examples/, and tests/ with intent-first
+  narratives, wiring diagrams, and "what to listen for" callouts.
+- Documented granular/reseed coverage, the seed genome, and the golden harness
+  roadmap so contributors can trace signal flow before touching C++.
+- Logged how we expect folks to narrate changelog updates so the future crew
+  sees the same punk-leaning, lab-notebook vibe we're aiming for when they add
+  their own riffs.
 
 ### Tests
-- Added scripted walkthrough regressions, timing goldens, and expanded native
-  plus hardware CI (including config narration) to keep the harness
+- Assembled scripted walkthrough regressions, timing goldens, and expanded
+  native plus hardware CI (including config narration) to keep the harness
   authoritative.
 - Broadened quiet-mode, swing logging, and simulator audio regression coverage
   to track new behaviors.
+- Regenerated golden hashes and fixtures after every harness tweak so CI stays
+  in lockstep with the captured audio truth tables.
 
 ### Wishlist
-- Audio fixture recordings and reference spectra are still on the wishlist;
-  they'll land once we lock in the signal chain.
+- Nothing on deck this cycle—the wishlist is clear while we let the harness
+  bake. Future experiments will land once the crew files fresh tickets.
 ## [0.1.0] - 2024-05-28
 
 ### Added
