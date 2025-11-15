@@ -13,14 +13,14 @@ struct FixtureInfo {
 
 constexpr FixtureInfo kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
-    {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
-    {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
-    {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
+    {"granular-haze", "build/fixtures/granular-haze.wav", "3b7ed2ac55256cb4"},
+    {"long-random-take", "build/fixtures/long-random-take.wav", "6992c99c1df10bcd"},
+    {"mixer-console", "build/fixtures/mixer-console.wav", "a340a998065edf87"},
     {"quad-bus", "build/fixtures/quad-bus.wav", "2e1656a463a978d5"},
-    {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
-    {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
-    {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
-    {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
+    {"reseed-A", "build/fixtures/reseed-A.wav", "5ae997bb370add99"},
+    {"reseed-B", "build/fixtures/reseed-B.wav", "f64a0e15fbe31db3"},
+    {"resonator-tail", "build/fixtures/resonator-tail.wav", "327c77a22de7d5ad"},
+    {"sampler-grains", "build/fixtures/sampler-grains.wav", "2ce0225ee5d7294f"},
     {"surround-bus", "build/fixtures/surround-bus.wav", "dbafae2da8a1ac60"},
 };
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
