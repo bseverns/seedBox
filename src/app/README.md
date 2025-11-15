@@ -22,6 +22,55 @@ engine tweak without diffing half the codebase.【F:src/app/AppState.cpp†L515-
 Once you understand this router, the rest of the control flow reads like liner
 notes.
 
+### Gesture-to-audio signal chain
+
+When you spin an encoder or punch a chord on the panel, the data flow is
+tight enough to trace without a microscope:
+
+1. **Input capture** – `InputEvents` samples the hardware matrix, debounces it,
+   and exposes a high-level queue each frame. `AppState::tick()` always calls
+   `input_.update()` before anything else, so the queue is fresh when we start
+   reacting.【F:src/app/AppState.cpp†L480-L510】
+2. **Intent routing** – `AppState::processInputEvents()` walks those events,
+   juggling reseed requests, clock negotiations, and per-page gestures. Each
+   handler either mutates state directly or sets flags (`reseedRequested_`,
+   `swingPageRequested_`, etc.) that `tick()` will honor later in the same
+   frame.【F:src/app/AppState.cpp†L492-L555】
+3. **Scheduler directives** – Once the flags are handled, `AppState::tick()`
+   feeds the pattern scheduler: reseeding seeds, refreshing BPM, and letting the
+   active clock provider fire `clock_->onTick()`, which steps the scheduler's
+   timeline. That scheduler owns the future trigger list for every
+   seed.【F:src/app/AppState.cpp†L486-L539】【F:src/app/AppState.cpp†L985-L1003】
+4. **Engine dispatch** – The scheduler was bootstrapped with
+   `EngineRouter::dispatchThunk`, so every scheduled hit ends up calling
+   `EngineRouter::triggerSeed()`, which sanitizes the target engine and hands it
+   the seed payload with a timestamp.【F:src/app/AppState.cpp†L988-L1003】【F:src/engine/EngineRouter.cpp†L180-L208】
+
+That's the whole pipeline: human gesture → input event → AppState reaction →
+scheduled trigger → engine onSeed callback. The scripted walk-through in
+`tests/test_app/test_app.cpp` is basically an acceptance test for this chain,
+so read it side-by-side with the functions above when you're debugging or
+teaching a workshop.【F:tests/test_app/test_app.cpp†L28-L137】
+
+```mermaid
+sequenceDiagram
+    participant Panel as Panel Gestures
+    participant Input as InputEvents
+    participant App as AppState
+    participant Sched as PatternScheduler
+    participant Router as EngineRouter
+    participant Engine as Engine*
+
+    Panel->>Input: sample() / debounce()
+    App->>Input: update()
+    Input-->>App: events()
+    App->>App: processInputEvents()
+    App->>Sched: add/update seeds, onTick()
+    Sched-->>Router: dispatchThunk(seed, when)
+    Router->>Router: triggerSeed()
+    Router->>Engine: onSeed(seed, when)
+```
+
 ## Clock — groove arbitrator
 
 The `ClockProvider` family is a tiny interface that lets the scheduler speak the
