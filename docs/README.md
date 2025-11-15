@@ -14,6 +14,8 @@ not intimidate.
 | `hardware_bill_of_materials.md` | Shopping list + sourcing lore for the physical rig. | Before you smash the "buy" button. |
 | `roadmaps/` | Long-form design notes for current and future engines. | When you're planning a feature or trying to understand the vision. |
 | `tutorials/scale_quantizer_flow.md` | Step-by-step quantizer lab that hooks UI experiments into `util::ScaleQuantizer`. | When you want to demo or test the scale quantizer story. |
+| `tutorials/hal_poke_lab.md` | Mock HAL walkthrough for scripting audio pumps and GPIO edges without hardware. | When you need to write or explain tests that drive the panel via the simulator. |
+| `tutorials/euclid_burst_pattern_lab.md` | Rhythm lab charting Euclid masks and Burst trigger clusters with reproducible logs. | When you’re teaching sequencer maths or validating new groove presets. |
 | `calibration_guide.md` | Bench ritual for lining up hardware behaviour with firmware expectations, complete with log prompts. | Right after you assemble or service a unit and before demoing it. |
 | `wiring_gallery.md` | Photo-friendly wiring reference that links each connection to the code relying on it. | While laying out harnesses or validating a builder’s work. |
 | `troubleshooting_log.md` | Rolling ledger of failures, fixes, and the tests that proved them. | The moment a rig misbehaves or when closing out a calibration run. |
