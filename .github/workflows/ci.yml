@@ -105,6 +105,10 @@ jobs:
           fi
           python scripts/compute_golden_hashes.py --write
 
+      - name: Regenerate golden fixture header
+        if: ${{ matrix.name == 'native' }}
+        run: python scripts/generate_native_golden_header.py
+
       - name: Stage golden fixtures for upload
         if: ${{ matrix.name == 'native' }}
         run: |

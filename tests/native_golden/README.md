@@ -13,9 +13,10 @@ truth about what we heard.
 
 1. `tests/native_golden/test_main.cpp` still prints the 1-second 110 Hz drone to
    `build/fixtures/drone-intro.wav`, but it also forges a sampler chord stack,
-   a resonator tail collage, and deterministic Euclid/Burst debug logs. The new
-   WAVs (`sampler-grains.wav`, `resonator-tail.wav`) and logs
-   (`euclid-mask.txt`, `burst-cluster.txt`) live beside the original drone so
+   a resonator tail collage, a quadraphonic mixdown, and deterministic
+   Euclid/Burst debug logs. The new WAVs (`sampler-grains.wav`,
+   `resonator-tail.wav`, `quad-bus.wav`) and logs (`euclid-mask.txt`,
+   `burst-cluster.txt`, `reseed-log.json`) live beside the original drone so
    reviewers can audition or diff each engine in isolation. PlatformIO now
    injects the absolute repo path as `SEEDBOX_PROJECT_ROOT_HINT`, the harness
    honors a `SEEDBOX_PROJECT_ROOT` override when you need to aim somewhere
@@ -28,7 +29,9 @@ truth about what we heard.
 3. `scripts/compute_golden_hashes.py` now scans `build/fixtures/` for both WAV
    and `.txt` artifacts and updates `tests/native_golden/golden.json` with their
    hashes, audio metadata (rate/frames/channels), or log metadata (line + byte
-   counts). Drop `--note name="liner note"` to annotate any entry.
+   counts). Drop `--note name="liner note"` to annotate any entry, and then run
+   `scripts/generate_native_golden_header.py` so `fixtures_autogen.hpp` stays in
+   lockstep.
 4. The Unity test refuses to pass if **any** declared artifact is missing or if
    the manifest hash falls out of sync. Broken receipts? Broken build.
 

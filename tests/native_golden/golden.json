@@ -31,6 +31,15 @@
       "notes": ""
     },
     {
+      "name": "reseed-log",
+      "path": "build/fixtures/reseed-log.json",
+      "kind": "log",
+      "hash": "873935e11a5704f3",
+      "bytes": 3815,
+      "lines": 51,
+      "notes": ""
+    },
+    {
       "name": "granular-haze",
       "path": "build/fixtures/granular-haze.wav",
       "kind": "audio",
@@ -65,6 +74,18 @@
       "channels": 2,
       "channel_layout": "stereo",
       "notes": "Stereo console mix of every engine hitting around -3 dBFS for bus sanity."
+    },
+    {
+      "name": "quad-bus",
+      "path": "build/fixtures/quad-bus.wav",
+      "kind": "audio",
+      "hash": "2e1656a463a978d5",
+      "wav_path": "build/fixtures/quad-bus.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 4,
+      "channel_layout": "4-channel",
+      "notes": "Quad-bus mix layering sampler, resonator, granular, and reseed stems to regression-test surround staging."
     },
     {
       "name": "reseed-A",
@@ -121,5 +142,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-15T02:26:59Z"
+  "generated_at_utc": "2025-11-15T19:20:17Z"
 }
