@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Crunch hashes for rendered golden fixtures.
 
 This helper keeps the native golden harness honest by crawling the rendered
