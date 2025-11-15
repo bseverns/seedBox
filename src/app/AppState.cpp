@@ -22,6 +22,7 @@
 #include "SeedBoxConfig.h"
 #include "interop/mn42_map.h"
 #include "io/Storage.h"
+#include "interop/mn42_param_map.h"
 #include "util/RNG.h"
 #include "util/ScaleQuantizer.h"
 #include "engine/Granular.h"
@@ -38,7 +39,7 @@
 #endif
 
 namespace {
-constexpr uint8_t kEngineCycleCc = 20;
+constexpr uint8_t kEngineCycleCc = seedbox::interop::mn42::param::kEngineCycle;
 constexpr uint32_t kStorageLongPressFrames = 60;
 constexpr std::string_view kDefaultPresetSlot = "default";
 
@@ -1232,6 +1233,10 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
     return;
   }
 
+  if (applyMn42ParamControl(cc, val)) {
+    return;
+  }
+
   // Future CC maps will route through here once the macro table lands.
 }
 
@@ -1267,6 +1272,100 @@ void AppState::applyMn42ModeBits(uint8_t value) {
   } else if (transportLatchEnabled_) {
     transportLatchedRunning_ = externalTransportRunning_;
   }
+}
+
+bool AppState::applyMn42ParamControl(uint8_t controller, uint8_t value) {
+  using namespace seedbox::interop::mn42;
+  if (!LookupParam(controller)) {
+    return false;
+  }
+
+  if (controller == param::kFocusSeed) {
+    if (seeds_.empty()) {
+      setFocusSeed(0);
+      displayDirty_ = true;
+      return true;
+    }
+    const std::size_t count = seeds_.size();
+    const std::uint32_t scaled = static_cast<std::uint32_t>(value) * static_cast<std::uint32_t>(count);
+    const std::uint8_t target = static_cast<std::uint8_t>(std::min<std::size_t>(scaled / 128u, count - 1));
+    if (focusSeed_ != target) {
+      setFocusSeed(target);
+      displayDirty_ = true;
+    }
+    return true;
+  }
+
+  if (seeds_.empty()) {
+    return true;
+  }
+  const std::size_t count = seeds_.size();
+  const std::size_t idx = static_cast<std::size_t>(focusSeed_) % count;
+  if (seedLock_.seedLocked(idx)) {
+    return true;
+  }
+
+  Seed& seed = seeds_[idx];
+  bool changed = false;
+  const float normalized = static_cast<float>(value) / 127.f;
+
+  auto assignIfDifferent = [&](float& field, float target) {
+    if (std::fabs(field - target) > 1e-4f) {
+      field = target;
+      changed = true;
+    }
+  };
+
+  switch (controller) {
+    case param::kSeedPitch: {
+      constexpr float kRange = 48.f;   // ±24 semitones total span.
+      constexpr float kFloor = -24.f;
+      const float target = kFloor + (normalized * kRange);
+      assignIfDifferent(seed.pitch, target);
+      break;
+    }
+    case param::kSeedDensity: {
+      constexpr float kMaxDensity = 8.f;
+      const float target = std::clamp(normalized * kMaxDensity, 0.f, kMaxDensity);
+      assignIfDifferent(seed.density, target);
+      break;
+    }
+    case param::kSeedProbability: {
+      const float target = std::clamp(normalized, 0.f, 1.f);
+      assignIfDifferent(seed.probability, target);
+      break;
+    }
+    case param::kSeedJitter: {
+      constexpr float kMaxJitterMs = 30.f;
+      const float target = std::clamp(normalized * kMaxJitterMs, 0.f, kMaxJitterMs);
+      assignIfDifferent(seed.jitterMs, target);
+      break;
+    }
+    case param::kSeedTone: {
+      const float target = std::clamp(normalized, 0.f, 1.f);
+      assignIfDifferent(seed.tone, target);
+      break;
+    }
+    case param::kSeedSpread: {
+      const float target = std::clamp(normalized, 0.f, 1.f);
+      assignIfDifferent(seed.spread, target);
+      break;
+    }
+    case param::kSeedMutate: {
+      const float target = std::clamp(normalized, 0.f, 1.f);
+      assignIfDifferent(seed.mutateAmt, target);
+      break;
+    }
+    default:
+      return true;
+  }
+
+  if (changed) {
+    scheduler_.updateSeed(idx, seed);
+    engines_.onSeed(seed);
+    displayDirty_ = true;
+  }
+  return true;
 }
 
 void AppState::handleTransportGate(uint8_t value) {

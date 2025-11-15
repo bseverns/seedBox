@@ -195,6 +195,7 @@ private:
   void primeSeeds(uint32_t masterSeed);
   void updateClockDominance();
   void applyMn42ModeBits(uint8_t value);
+  bool applyMn42ParamControl(uint8_t controller, uint8_t value);
   void handleTransportGate(uint8_t value);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
