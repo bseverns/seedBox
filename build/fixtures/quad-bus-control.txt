@@ -1,0 +1,16 @@
+# quad-bus control log
+frames=48000 sample_rate_hz=48000
+mono routing:
+  drone-intro -> [0.25,0.25,0.10,0.10]
+  sampler-grains -> [0.20,0.35,0.30,0.18]
+  resonator-tail -> [0.32,0.22,0.14,0.36]
+  reseed-A -> [0.30,0.18,0.42,0.24]
+  reseed-B -> [0.18,0.30,0.24,0.46]
+stereo routing:
+  granular-haze -> L[0.28,0.10,0.26,-0.18] R[0.10,0.28,-0.18,0.26]
+  mixer-console -> L[0.48,0.16,0.20,0.20] R[0.16,0.48,0.20,0.20]
+bus_fx:
+  front_side_feed=0.55
+  tilt=0.12
+  saturate=1.08
+normalize=0.92

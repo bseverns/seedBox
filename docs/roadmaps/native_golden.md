@@ -7,8 +7,11 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 ## Current footprint
 
 - **Render target:** `tests/native_golden/test_main.cpp` now prints nine audio
-  fixtures (including the new quadraphonic `quad-bus.wav`) and three control
-  logs when `ENABLE_GOLDEN=1`. In addition to the 110 Hz mono drone, sampler
+  fixtures (including the new quadraphonic `quad-bus.wav`) and a matching set of
+  control logs when `ENABLE_GOLDEN=1`. Every WAV now drops a
+  `build/fixtures/<fixture>-control.txt` sibling (think `sampler-grains-control`
+  and `quad-bus-control`) that captures the deterministic seed schedule or MIDI
+  automation the render consumed. In addition to the 110 Hz mono drone, sampler
   chord stack, and resonator tail collage we now ship a stereo granular wash
   (`granular-haze.wav`, rendered by `render_granular_fixture()`), a stereo
   master-bus composite (`mixer-console.wav`, blended by `render_mixer_fixture()`),

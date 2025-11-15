@@ -26,8 +26,17 @@ constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudi
 
 constexpr FixtureInfo kLogFixtures[] = {
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
+    {"drone-intro-control", "build/fixtures/drone-intro-control.txt", "d902a9aecc33d807"},
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
+    {"granular-haze-control", "build/fixtures/granular-haze-control.txt", "412d5186c87b5cc0"},
+    {"long-random-take-control", "build/fixtures/long-random-take-control.txt", "8c149dfbb252a955"},
+    {"mixer-console-control", "build/fixtures/mixer-console-control.txt", "06483a56b2862b42"},
+    {"quad-bus-control", "build/fixtures/quad-bus-control.txt", "c2ca286b9338b4ce"},
+    {"reseed-A-control", "build/fixtures/reseed-A-control.txt", "869acd8f643ec981"},
+    {"reseed-B-control", "build/fixtures/reseed-B-control.txt", "ceb37aadebabee57"},
     {"reseed-log", "build/fixtures/reseed-log.json", "873935e11a5704f3"},
+    {"resonator-tail-control", "build/fixtures/resonator-tail-control.txt", "2712188b6c69ba9a"},
+    {"sampler-grains-control", "build/fixtures/sampler-grains-control.txt", "eef0854b3ed98143"},
 };
 constexpr std::size_t kLogFixtureCount = sizeof(kLogFixtures) / sizeof(kLogFixtures[0]);
 

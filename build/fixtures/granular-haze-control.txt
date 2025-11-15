@@ -1,0 +1,6 @@
+# granular-haze control log
+frames=48000 sample_rate_hz=48000 voices=3
+voice,when_samples,id,pitch,transpose,grain_ms,spray_ms,window_skew,spread,source,sd_slot,carrier_hz,drift
+0,4000,40,-5.0000,0.0000,95.0000,24.0000,-0.4500,0.3500,live,0,146.8300,0.1200
+1,12000,41,0.0000,7.0000,130.0000,18.0000,0.2500,0.8000,sd,1,196.0000,0.2000
+2,20000,42,7.0000,-5.0000,80.0000,12.0000,0.6500,0.6000,sd,2,246.9400,0.0800

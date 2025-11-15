@@ -1,0 +1,6 @@
+# resonator-tail control log
+frames=48000 sample_rate_hz=48000 voices=3
+voice,when_samples,id,pitch,excite_ms,damping,brightness,feedback,mode,bank
+0,0,10,-12.0000,12.0000,0.3500,0.5500,0.7200,1,0
+1,6000,11,-2.0000,8.0000,0.6200,0.8000,0.8500,1,2
+2,12000,12,5.0000,5.0000,0.4800,0.4500,0.6000,0,4
