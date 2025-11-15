@@ -36,6 +36,12 @@
 
 namespace {
 
+std::vector<::AppState*> gAppStack;
+
+::AppState* activeApp() {
+  return gAppStack.empty() ? nullptr : gAppStack.back();
+}
+
 enum class Backend { kEeprom, kSd };
 
 struct StorageSpec {
@@ -293,6 +299,25 @@ bool deserializePreset(const std::vector<std::uint8_t>& bytes, std::vector<Seed>
 
 namespace Storage {
 
+void registerApp(::AppState& app) {
+  const auto existing = std::find(gAppStack.begin(), gAppStack.end(), &app);
+  if (existing != gAppStack.end()) {
+    gAppStack.erase(existing);
+  }
+  gAppStack.push_back(&app);
+}
+
+void unregisterApp(const ::AppState& app) {
+  if (!gAppStack.empty() && gAppStack.back() == &app) {
+    gAppStack.pop_back();
+    return;
+  }
+  const auto existing = std::find(gAppStack.begin(), gAppStack.end(), &app);
+  if (existing != gAppStack.end()) {
+    gAppStack.erase(existing);
+  }
+}
+
 bool loadSeedBank(const char* path, std::vector<Seed>& out) {
   out.clear();
   const auto specOpt = parseSpec(path);
@@ -363,8 +388,11 @@ bool saveScene(const char* path) {
     return false;
   }
 
-  extern ::AppState app;
-  const seedbox::Preset snapshot = app.snapshotPreset(spec.slotLabel);
+  ::AppState* app = activeApp();
+  if (!app) {
+    return false;
+  }
+  const seedbox::Preset snapshot = app->snapshotPreset(spec.slotLabel);
   const std::vector<std::uint8_t> bytes = snapshot.serialize();
   if (bytes.empty()) {
     return false;

@@ -2,6 +2,8 @@
 #include <vector>
 #include "Seed.h"
 
+class AppState;
+
 namespace Storage {
 
   // Crack open a preset snapshot from either the EEPROM store or the SD/host
@@ -16,5 +18,12 @@ namespace Storage {
   // guardrails baked into the `Store` backends, while native builds land files in
   // a deterministic shim directory so tests can assert on the resulting blobs.
   bool saveScene(const char* path);
+
+  // Allow AppState instances to advertise themselves as the live runtime.  The
+  // storage helpers only ever need one active pointer — whichever AppState is
+  // currently shepherding the performance — so constructors register on entry
+  // and destructors unregister when they leave scope.
+  void registerApp(AppState& app);
+  void unregisterApp(const AppState& app);
 
 }

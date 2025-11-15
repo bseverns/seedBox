@@ -21,6 +21,7 @@
 #include <initializer_list>
 #include "SeedBoxConfig.h"
 #include "interop/mn42_map.h"
+#include "io/Storage.h"
 #include "util/RNG.h"
 #include "util/ScaleQuantizer.h"
 #include "engine/Granular.h"
@@ -30,7 +31,6 @@
 #if SEEDBOX_HW
   #include "HardwarePrelude.h"
   #include "AudioMemoryBudget.h"
-  #include "io/Storage.h"
 #endif
 
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
@@ -277,6 +277,7 @@ AppState::AppState(hal::Board& board) : board_(board), input_(board) {
     ioInitialised = true;
   }
   hal::io::setDigitalCallback(&AppState::digitalCallbackThunk, this);
+  Storage::registerApp(*this);
 }
 
 void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx) {
@@ -286,6 +287,7 @@ void AppState::audioCallbackTrampoline(const hal::audio::StereoBufferView& buffe
 }
 
 AppState::~AppState() {
+  Storage::unregisterApp(*this);
   hal::audio::stop();
   hal::audio::shutdown();
 }
