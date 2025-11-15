@@ -81,6 +81,12 @@ we mostly run the suite on laptops.
   Euclid and Burst display snapshots when `ENABLE_GOLDEN` is set. Peek at
   `artifacts/engine_snapshots.txt` whenever you need doc-ready screenshots of
   the status text.
+- **Teensy granular probes:** `tests/test_hardware/` adds the first
+  hardware-only assertions around `AudioEffectGranular`'s `beginPitchShift()`
+  fallback and the mixer fan-out wiring. Flash them with `pio test -e teensy40
+  --filter test_hardware`, then drop the serial log in
+  [`docs/hardware/granular_probes/`](../docs/hardware/granular_probes/README.md)
+  so the scratchpad findings get receipts.
 
 ## Writing new tests without dread
 
