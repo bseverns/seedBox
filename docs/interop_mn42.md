@@ -39,6 +39,29 @@ instead of retyping magic values.
 | `0x04` | `mode::kArpAccent` | MN42 accent lane punches harder. |
 | `0x08` | `mode::kLatchTransport` | Treat transport like a toggle instead of a momentary. |
 
+### Seed parameter ring (CC 20–28)
+
+MN42’s encoder ring spits the CCs captured in
+[`src/interop/mn42_param_map.h`](../src/interop/mn42_param_map.h). Every value
+targets the seed currently in focus. The maths is plain on purpose so students
+can sketch ranges on a whiteboard before touching code.【F:src/interop/mn42_param_map.h†L8-L58】
+
+| CC | Label | Translation | Intent notes |
+| --- | --- | --- | --- |
+| 20 | `Engine cycle` | `>=64` spins to the next engine, `<64` backs up. | Keeps parity with the front-panel engine encoder. |
+| 21 | `Focus seed` | Divide `0–127` into `seed_count` buckets. | Remote control over which genome the remaining macros nudge. |
+| 22 | `Seed pitch` | Map `0–127` → `-24..+24` semitones. | Quick octave sweeps for the focused seed. |
+| 23 | `Seed density` | Map `0–127` → `0..8` hits/beat. | Dials the Euclid engine toward drones or sparse hits. |
+| 24 | `Seed probability` | Map `0–127` → `0..1`. | Bernoulli gate weight — twist for ghost notes. |
+| 25 | `Seed jitter` | Map `0–127` → `0..30ms`. | Humanize timing without rewriting the sequencer. |
+| 26 | `Seed tone` | Map `0–127` → `0..1`. | Tilt EQ macro; 0 is dark, 1 is bright. |
+| 27 | `Seed spread` | Map `0–127` → `0..1`. | Stereo width from mono (0) to wide (1). |
+| 28 | `Seed mutate` | Map `0–127` → `0..1`. | Caps how wild the mutate encoder can swing. |
+
+`GetMutableParamMap()` exposes the same table at runtime so tests or alternate
+controllers can remix the assignments without recompiling. AppState grabs those
+entries and applies them verbatim when MN42 CCs roll in.【F:src/app/AppState.cpp†L1191-L1291】
+
 ## Wiring it up on the SeedBox side
 
 ```cpp
