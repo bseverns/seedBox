@@ -54,8 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in lockstep with the captured audio truth tables.
 
 ### Wishlist
-- Audio fixture recordings and reference spectra are still on the wishlist;
-  they'll land once we lock in the signal chain.
+- Nothing on deck this cycle—the wishlist is clear while we let the harness
+  bake. Future experiments will land once the crew files fresh tickets.
 ## [0.1.0] - 2024-05-28
 
 ### Added
