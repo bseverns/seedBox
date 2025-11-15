@@ -34,11 +34,15 @@ def _parse_note_overrides(raw_notes):
         return overrides
     for entry in raw_notes:
         if "=" not in entry:
-            raise ValueError(f"Malformed --note override '{entry}'. Use name=text.")
+            raise ValueError(
+                "Malformed --note override '{}'. Use name=text.".format(entry)
+            )
         name, text = entry.split("=", 1)
         name = name.strip()
         if not name:
-            raise ValueError(f"Malformed --note override '{entry}'. Fixture name missing.")
+            raise ValueError(
+                "Malformed --note override '{}'. Fixture name missing.".format(entry)
+            )
         overrides[name] = text.strip()
     return overrides
 
@@ -50,7 +54,7 @@ def _fnv64(payload):
     for byte in payload:
         state ^= byte
         state = (state * FNV_PRIME) & mask
-    return f"{state:016x}"
+    return "{:016x}".format(state)
 
 
 def _fnv64_pcm16(payload):
@@ -66,7 +70,7 @@ def _fnv64_pcm16(payload):
         state = (state * FNV_PRIME) & mask
         state ^= hi
         state = (state * FNV_PRIME) & mask
-    return f"{state:016x}"
+    return "{:016x}".format(state)
 
 
 def _load_manifest(path):
@@ -97,7 +101,9 @@ def _read_pcm(path):
     with wave.open(str(path), "rb") as wav:
         sample_width = wav.getsampwidth()
         if sample_width != 2:
-            raise ValueError(f"{path} is {sample_width * 8}-bit; expected 16-bit PCM")
+            raise ValueError(
+                "{} is {}-bit; expected 16-bit PCM".format(path, sample_width * 8)
+            )
         frames = wav.getnframes()
         frame_rate = wav.getframerate()
         channels = wav.getnchannels()
@@ -115,7 +121,9 @@ def _read_pcm(path):
         if actual_bytes < expected_bytes:
             deficit = expected_bytes - actual_bytes
             print(
-                f"warning: {path} truncated by {deficit} byte(s); padding with zeros",
+                "warning: {} truncated by {} byte(s); padding with zeros".format(
+                    path, deficit
+                ),
                 file=sys.stderr,
             )
             payload += b"\x00" * deficit
@@ -168,7 +176,9 @@ def compute_manifest(fixtures_root,
         if suffix == ".wav":
             payload, sample_rate, frames, channels = _read_pcm(path)
             hash_hex = _fnv64_pcm16(payload)
-            layout = "mono" if channels == 1 else ("stereo" if channels == 2 else f"{channels}-channel")
+            layout = "mono" if channels == 1 else (
+                "stereo" if channels == 2 else "{}-channel".format(channels)
+            )
             data.update(
                 {
                     "kind": "audio",
@@ -216,25 +226,33 @@ def render_table(fixtures):
     # type: (List[Dict[str, Any]]) -> str
     if not fixtures:
         return "(no fixtures discovered)"
-    header = f"{'Fixture':20} {'Kind':6} {'Hash':18} {'Summary':>24}"
+    header = "{:20} {:6} {:18} {:>24}".format("Fixture", "Kind", "Hash", "Summary")
     lines = [header, "-" * len(header)]
     for item in fixtures:
         kind = item.get("kind", "audio")
         if kind == "audio":
             if all(k in item for k in ("frames", "sample_rate_hz", "channels")):
                 layout = item.get("channel_layout")
-                summary = f"{item['frames']:d}f @ {item['sample_rate_hz']:d}Hz x{item['channels']:d}"
+                summary = "{:d}f @ {:d}Hz x{:d}".format(
+                    item["frames"], item["sample_rate_hz"], item["channels"]
+                )
                 if layout:
-                    summary += f" ({layout})"
+                    summary += " ({})".format(layout)
             else:
                 summary = "(missing audio metadata)"
         else:
             summary = (
-                f"{item.get('lines', 0)} lines / {item.get('bytes', 0)} bytes"
+                "{} lines / {} bytes".format(
+                    item.get("lines", 0), item.get("bytes", 0)
+                )
                 if "bytes" in item
                 else "(missing log metadata)"
             )
-        lines.append(f"{item['name']:20} {kind:6} {item['hash']:18} {summary:>24}")
+        lines.append(
+            "{:20} {:6} {:18} {:>24}".format(
+                item["name"], kind, item["hash"], summary
+            )
+        )
     return "\n".join(lines)
 
 
@@ -269,7 +287,7 @@ def main(argv):
         note_overrides = _parse_note_overrides(args.note)
         manifest, fixtures = compute_manifest(args.fixtures_root, args.manifest, note_overrides)
     except Exception as exc:  # pragma: no cover - CLI surfacing
-        print(f"error: {exc}", file=sys.stderr)
+        print("error: {}".format(exc), file=sys.stderr)
         return 1
 
     print(render_table(fixtures))
@@ -278,7 +296,7 @@ def main(argv):
         with args.manifest.open("w", encoding="utf-8") as handle:
             json.dump(manifest, handle, indent=2)
             handle.write("\n")
-        print(f"\nmanifest updated → {args.manifest}")
+        print("\nmanifest updated → {}".format(args.manifest))
     else:
         print("\n(dry run — re-run with --write to update the manifest)")
     return 0
