@@ -14,6 +14,7 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include <cstring>
 
 #include <unity.h>
 
@@ -29,6 +30,7 @@
 
 #include "../../examples/shared/offline_renderer.hpp"
 #include "../../examples/shared/reseed_playbook.hpp"
+#include "fixtures_autogen.hpp"
 
 #ifndef ENABLE_GOLDEN
 #define ENABLE_GOLDEN 0
@@ -42,28 +44,9 @@ constexpr double kDroneFreqHz = 110.0;
 constexpr double kDroneAmplitude = 0.5;
 constexpr char kManifestPath[] = "tests/native_golden/golden.json";
 
-struct GoldenFixture {
-    const char* name;
-    const char* path;
-    const char* expected_hash;
-};
-
-constexpr GoldenFixture kAudioFixtures[] = {
-    {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
-    {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
-    {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
-    {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
-    {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
-    {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
-    {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
-    {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
-};
-
-constexpr GoldenFixture kLogFixtures[] = {
-    {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
-    {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
-    {"reseed-log", "build/fixtures/reseed-log.json", "873935e11a5704f3"},
-};
+using native_golden::FixtureInfo;
+using native_golden::kAudioFixtures;
+using native_golden::kLogFixtures;
 
 std::filesystem::path find_project_root() {
     if (const char* override = std::getenv("SEEDBOX_PROJECT_ROOT")) {
@@ -110,6 +93,24 @@ std::filesystem::path fixture_root() {
     }
 #endif
     return find_project_root() / "build/fixtures";
+}
+
+const FixtureInfo* find_audio_fixture(const char* name) {
+    for (const auto& fixture : kAudioFixtures) {
+        if (std::strcmp(fixture.name, name) == 0) {
+            return &fixture;
+        }
+    }
+    return nullptr;
+}
+
+const FixtureInfo* find_log_fixture(const char* name) {
+    for (const auto& fixture : kLogFixtures) {
+        if (std::strcmp(fixture.name, name) == 0) {
+            return &fixture;
+        }
+    }
+    return nullptr;
 }
 
 std::filesystem::path fixture_disk_path(const std::string& manifest_path) {
@@ -257,6 +258,9 @@ struct SamplerVoiceSpec {
     Seed seed;
     std::uint32_t when;
 };
+
+std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed);
+std::vector<int16_t> render_long_random_take_fixture();
 
 Seed make_sampler_seed(std::uint32_t id,
                        std::uint8_t sample_idx,
@@ -667,6 +671,93 @@ std::vector<int16_t> render_mixer_fixture() {
     return samples;
 }
 
+std::vector<int16_t> render_quadraphonic_fixture() {
+    const auto mixer = render_mixer_fixture();
+    const auto granular = render_granular_fixture();
+    const auto sampler = render_sampler_fixture();
+    const auto resonator = render_resonator_fixture();
+    const auto drone = make_drone();
+    const auto reseed_a = render_reseed_variant(0xCAFEu);
+    const auto reseed_b = render_reseed_variant(0xBEEFu);
+
+    constexpr std::size_t kChannels = 4u;
+    const std::size_t frames = kDroneFrames;
+    std::array<std::vector<double>, kChannels> bus{};
+    for (auto& lane : bus) {
+        lane.assign(frames, 0.0);
+    }
+
+    auto accumulate_mono = [&](const std::vector<int16_t>& mono, const std::array<double, kChannels>& gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t limit = std::min(frames, mono.size());
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double sample = static_cast<double>(mono[i]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += sample * gains[ch];
+            }
+        }
+    };
+
+    auto accumulate_stereo = [&](const std::vector<int16_t>& stereo,
+                                 const std::array<double, kChannels>& left_gains,
+                                 const std::array<double, kChannels>& right_gains) {
+        const double scale = 1.0 / 32768.0;
+        const std::size_t sample_count = stereo.size() / 2u;
+        const std::size_t limit = std::min(frames, sample_count);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const double left = static_cast<double>(stereo[2u * i]) * scale;
+            const double right = static_cast<double>(stereo[2u * i + 1u]) * scale;
+            for (std::size_t ch = 0; ch < kChannels; ++ch) {
+                bus[ch][i] += left * left_gains[ch];
+                bus[ch][i] += right * right_gains[ch];
+            }
+        }
+    };
+
+    accumulate_mono(drone, {0.25, 0.25, 0.10, 0.10});
+    accumulate_mono(sampler, {0.20, 0.35, 0.30, 0.18});
+    accumulate_mono(resonator, {0.32, 0.22, 0.14, 0.36});
+    accumulate_stereo(granular, {0.28, 0.10, 0.26, -0.18}, {0.10, 0.28, -0.18, 0.26});
+    accumulate_stereo(mixer, {0.48, 0.16, 0.20, 0.20}, {0.16, 0.48, 0.20, 0.20});
+    accumulate_mono(reseed_a, {0.30, 0.18, 0.42, 0.24});
+    accumulate_mono(reseed_b, {0.18, 0.30, 0.24, 0.46});
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double front_mid = 0.5 * (bus[0][i] + bus[1][i]);
+        const double front_side = bus[0][i] - bus[1][i];
+        const double rear_mid = 0.5 * (bus[2][i] + bus[3][i]);
+
+        bus[2][i] += front_side * 0.55;
+        bus[3][i] -= front_side * 0.55;
+        const double tilt = 0.12 * (rear_mid - front_mid);
+        bus[0][i] -= tilt;
+        bus[1][i] += tilt;
+
+        for (std::size_t ch = 0; ch < kChannels; ++ch) {
+            bus[ch][i] = std::tanh(bus[ch][i] * 1.08);
+        }
+    }
+
+    double max_abs = 0.0;
+    for (std::size_t ch = 0; ch < kChannels; ++ch) {
+        for (double sample : bus[ch]) {
+            max_abs = std::max(max_abs, std::abs(sample));
+        }
+    }
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+
+    std::vector<int16_t> samples(frames * kChannels);
+    for (std::size_t i = 0; i < frames; ++i) {
+        for (std::size_t ch = 0; ch < kChannels; ++ch) {
+            const double value = bus[ch][i] * scale;
+            const auto quantized = static_cast<long>(std::lround(value * 32767.0));
+            samples[kChannels * i + ch] = static_cast<int16_t>(
+                std::clamp<long>(quantized, -32768L, 32767L));
+        }
+    }
+    return samples;
+}
+
 std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed) {
     const auto& stems = reseed::defaultStems();
     const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
@@ -830,7 +921,7 @@ std::string load_manifest() {
     return std::string{std::istreambuf_iterator<char>(manifest_stream), std::istreambuf_iterator<char>()};
 }
 
-void assert_manifest_contains(const std::string& manifest_body, const GoldenFixture& fixture) {
+void assert_manifest_contains(const std::string& manifest_body, const FixtureInfo& fixture) {
     const std::string expected_fixture = std::string{"\"name\": \""} + fixture.name + "\"";
     TEST_ASSERT_NOT_EQUAL_MESSAGE(std::string::npos, manifest_body.find(expected_fixture),
                                   "Manifest missing fixture entry");
@@ -858,8 +949,11 @@ void test_emit_flag_matrix() {
 }
 
 void test_render_and_compare_golden() {
+    const auto* fixture = find_audio_fixture("drone-intro");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "drone-intro fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    const auto disk_path = fixture_disk_path(kAudioFixtures[0].path);
+    const auto disk_path = fixture_disk_path(fixture->path);
     request.path = disk_path.string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = make_drone();
@@ -868,18 +962,21 @@ void test_render_and_compare_golden() {
     const std::string hash = golden::hash_pcm16(request.samples);
 
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write golden WAV fixture");
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[0].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     TEST_ASSERT_TRUE_MESSAGE(std::filesystem::exists(disk_path),
                              "Golden WAV missing on disk");
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[0]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_sampler_golden() {
+    const auto* fixture = find_audio_fixture("sampler-grains");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "sampler-grains fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[1].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_sampler_fixture();
 
@@ -887,15 +984,18 @@ void test_render_sampler_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write sampler golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[1].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[1]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_resonator_golden() {
+    const auto* fixture = find_audio_fixture("resonator-tail");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "resonator-tail fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[2].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_resonator_fixture();
 
@@ -903,15 +1003,18 @@ void test_render_resonator_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write resonator golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[2].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[2]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_granular_golden() {
+    const auto* fixture = find_audio_fixture("granular-haze");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "granular-haze fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[3].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.channels = 2;
     request.samples = render_granular_fixture();
@@ -920,15 +1023,18 @@ void test_render_granular_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write granular golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[3].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[3]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_mixer_golden() {
+    const auto* fixture = find_audio_fixture("mixer-console");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "mixer-console fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[4].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.channels = 2;
     request.samples = render_mixer_fixture();
@@ -937,15 +1043,38 @@ void test_render_mixer_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write mixer golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[4].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[4]);
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
+void test_render_quadraphonic_golden() {
+    const auto* fixture = find_audio_fixture("quad-bus");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "quad-bus fixture metadata missing");
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.channels = 4;
+    request.samples = render_quadraphonic_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write quadraphonic golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_reseed_a_golden() {
+    const auto* fixture = find_audio_fixture("reseed-A");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-A fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[5].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_reseed_variant(0xCAFEu);
 
@@ -953,15 +1082,18 @@ void test_render_reseed_a_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-A golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[5].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[5]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_reseed_b_golden() {
+    const auto* fixture = find_audio_fixture("reseed-B");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-B fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[6].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_reseed_variant(0xBEEFu);
 
@@ -969,15 +1101,18 @@ void test_render_reseed_b_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-B golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[6].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[6]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_render_long_take_golden() {
+    const auto* fixture = find_audio_fixture("long-random-take");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "long-random-take fixture metadata missing");
+
     golden::WavWriteRequest request{};
-    request.path = fixture_disk_path(kAudioFixtures[7].path).string();
+    request.path = fixture_disk_path(fixture->path).string();
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = render_long_random_take_fixture();
 
@@ -985,52 +1120,63 @@ void test_render_long_take_golden() {
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write long random take WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[7].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kAudioFixtures[7]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_log_euclid_burst_golden() {
+    const auto* euclid_fixture = find_log_fixture("euclid-mask");
+    const auto* burst_fixture = find_log_fixture("burst-cluster");
+    TEST_ASSERT_NOT_NULL_MESSAGE(euclid_fixture, "euclid-mask fixture metadata missing");
+    TEST_ASSERT_NOT_NULL_MESSAGE(burst_fixture, "burst-cluster fixture metadata missing");
+
     const std::string euclid_log = render_euclid_log();
     const std::string burst_log = render_burst_log();
 
-    const bool euclid_ok = write_text_file(kLogFixtures[0].path, euclid_log);
-    const bool burst_ok = write_text_file(kLogFixtures[1].path, burst_log);
+    const bool euclid_ok = write_text_file(euclid_fixture->path, euclid_log);
+    const bool burst_ok = write_text_file(burst_fixture->path, burst_log);
     TEST_ASSERT_TRUE_MESSAGE(euclid_ok, "Failed to write Euclid golden log");
     TEST_ASSERT_TRUE_MESSAGE(burst_ok, "Failed to write Burst golden log");
 
     const std::string euclid_hash = fnv1a_bytes(euclid_log);
     const std::string burst_hash = fnv1a_bytes(burst_log);
-    TEST_ASSERT_EQUAL_STRING(kLogFixtures[0].expected_hash, euclid_hash.c_str());
-    TEST_ASSERT_EQUAL_STRING(kLogFixtures[1].expected_hash, burst_hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(euclid_fixture->expected_hash, euclid_hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(burst_fixture->expected_hash, burst_hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kLogFixtures[0]);
-    assert_manifest_contains(manifest_body, kLogFixtures[1]);
+    assert_manifest_contains(manifest_body, *euclid_fixture);
+    assert_manifest_contains(manifest_body, *burst_fixture);
 }
 
 void test_log_reseed_golden() {
+    const auto* fixture = find_log_fixture("reseed-log");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-log fixture metadata missing");
+
     const std::string reseed_log = render_reseed_log_fixture();
-    const bool log_ok = write_text_file(kLogFixtures[2].path, reseed_log);
+    const bool log_ok = write_text_file(fixture->path, reseed_log);
     TEST_ASSERT_TRUE_MESSAGE(log_ok, "Failed to write reseed event log");
 
     const std::string hash = fnv1a_bytes(reseed_log);
-    TEST_ASSERT_EQUAL_STRING(kLogFixtures[2].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, kLogFixtures[2]);
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 #else
 
 void test_golden_mode_disabled() {
+    const auto* fixture = find_audio_fixture("drone-intro");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "drone-intro fixture metadata missing");
+
     golden::WavWriteRequest request{};
     request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
     request.samples = make_drone();
 
     const std::string hash = golden::hash_pcm16(request.samples);
-    TEST_ASSERT_EQUAL_STRING(kAudioFixtures[0].expected_hash, hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
 }
 
 #endif  // ENABLE_GOLDEN
@@ -1051,6 +1197,7 @@ int main(int, char**) {
     RUN_TEST(test_render_resonator_golden);
     RUN_TEST(test_render_granular_golden);
     RUN_TEST(test_render_mixer_golden);
+    RUN_TEST(test_render_quadraphonic_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);
     RUN_TEST(test_render_long_take_golden);
