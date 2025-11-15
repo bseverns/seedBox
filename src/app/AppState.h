@@ -34,6 +34,10 @@ struct StereoBufferView;
 }  // namespace audio
 }  // namespace hal
 
+namespace Storage {
+bool saveScene(const char* path);
+}
+
 // AppState is the mothership for everything the performer can poke at run time.
 // It owns the seed table, orchestrates scheduling, and provides a place for the
 // UI layer (physical or simulated) to read back human-friendly snapshots. The
@@ -232,6 +236,7 @@ private:
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
+  friend bool Storage::saveScene(const char* path);
   hal::Board& board_;
   InputEvents input_;
   Mode mode_{Mode::HOME};
