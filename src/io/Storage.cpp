@@ -363,7 +363,7 @@ bool saveScene(const char* path) {
     return false;
   }
 
-  extern AppState app;
+  extern ::AppState app;
   const seedbox::Preset snapshot = app.snapshotPreset(spec.slotLabel);
   const std::vector<std::uint8_t> bytes = snapshot.serialize();
   if (bytes.empty()) {
