@@ -215,6 +215,27 @@
       "bytes": 318,
       "lines": 6,
       "notes": ""
+    },
+    {
+      "name": "surround-bus",
+      "path": "build/fixtures/surround-bus.wav",
+      "kind": "audio",
+      "hash": "dbafae2da8a1ac60",
+      "wav_path": "build/fixtures/surround-bus.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 6,
+      "channel_layout": "6-channel",
+      "notes": "6-channel mid/side surround stack that stress-tests the PCM writer with front/rear crossfeeds."
+    },
+    {
+      "name": "surround-bus-control",
+      "path": "build/fixtures/surround-bus-control.txt",
+      "kind": "log",
+      "hash": "440ade6a5be15506",
+      "bytes": 660,
+      "lines": 15,
+      "notes": ""
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -223,5 +244,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-15T20:28:59Z"
+  "generated_at_utc": "2025-11-15T21:48:23Z"
 }
