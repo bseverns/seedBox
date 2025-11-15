@@ -70,7 +70,7 @@
       "name": "reseed-A",
       "path": "build/fixtures/reseed-A.wav",
       "kind": "audio",
-      "hash": "5e8e9157f31b5d8a",
+      "hash": "6bdbf0d855da618f",
       "wav_path": "build/fixtures/reseed-A.wav",
       "sample_rate_hz": 48000,
       "frames": 401033,
