@@ -40,19 +40,10 @@
       "notes": ""
     },
     {
-      "name": "reseed-log",
-      "path": "build/fixtures/reseed-log.json",
-      "kind": "log",
-      "hash": "873935e11a5704f3",
-      "bytes": 3815,
-      "lines": 51,
-      "notes": ""
-    },
-    {
       "name": "granular-haze",
       "path": "build/fixtures/granular-haze.wav",
       "kind": "audio",
-      "hash": "0ba2bd0c8e981ef5",
+      "hash": "3b7ed2ac55256cb4",
       "wav_path": "build/fixtures/granular-haze.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -73,7 +64,7 @@
       "name": "long-random-take",
       "path": "build/fixtures/long-random-take.wav",
       "kind": "audio",
-      "hash": "97e954c9e2a909df",
+      "hash": "6992c99c1df10bcd",
       "wav_path": "build/fixtures/long-random-take.wav",
       "sample_rate_hz": 48000,
       "frames": 2880000,
@@ -94,7 +85,7 @@
       "name": "mixer-console",
       "path": "build/fixtures/mixer-console.wav",
       "kind": "audio",
-      "hash": "3ba5f705dc237611",
+      "hash": "a340a998065edf87",
       "wav_path": "build/fixtures/mixer-console.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -136,7 +127,7 @@
       "name": "reseed-A",
       "path": "build/fixtures/reseed-A.wav",
       "kind": "audio",
-      "hash": "6bdbf0d855da618f",
+      "hash": "5ae997bb370add99",
       "wav_path": "build/fixtures/reseed-A.wav",
       "sample_rate_hz": 48000,
       "frames": 401033,
@@ -157,7 +148,7 @@
       "name": "reseed-B",
       "path": "build/fixtures/reseed-B.wav",
       "kind": "audio",
-      "hash": "998a54390940abbc",
+      "hash": "f64a0e15fbe31db3",
       "wav_path": "build/fixtures/reseed-B.wav",
       "sample_rate_hz": 48000,
       "frames": 447485,
@@ -175,10 +166,19 @@
       "notes": ""
     },
     {
+      "name": "reseed-log",
+      "path": "build/fixtures/reseed-log.json",
+      "kind": "log",
+      "hash": "873935e11a5704f3",
+      "bytes": 3815,
+      "lines": 51,
+      "notes": ""
+    },
+    {
       "name": "resonator-tail",
       "path": "build/fixtures/resonator-tail.wav",
       "kind": "audio",
-      "hash": "e329aa6faffb39f4",
+      "hash": "327c77a22de7d5ad",
       "wav_path": "build/fixtures/resonator-tail.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -199,7 +199,7 @@
       "name": "sampler-grains",
       "path": "build/fixtures/sampler-grains.wav",
       "kind": "audio",
-      "hash": "630fbfadca574688",
+      "hash": "2ce0225ee5d7294f",
       "wav_path": "build/fixtures/sampler-grains.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -215,6 +215,27 @@
       "bytes": 318,
       "lines": 6,
       "notes": ""
+    },
+    {
+      "name": "surround-bus",
+      "path": "build/fixtures/surround-bus.wav",
+      "kind": "audio",
+      "hash": "dbafae2da8a1ac60",
+      "wav_path": "build/fixtures/surround-bus.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 6,
+      "channel_layout": "6-channel",
+      "notes": "6-channel mid/side surround stack that stress-tests the PCM writer with front/rear crossfeeds."
+    },
+    {
+      "name": "surround-bus-control",
+      "path": "build/fixtures/surround-bus-control.txt",
+      "kind": "log",
+      "hash": "440ade6a5be15506",
+      "bytes": 660,
+      "lines": 15,
+      "notes": ""
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -223,5 +244,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-15T20:28:59Z"
+  "generated_at_utc": "2025-11-15T23:25:06Z"
 }

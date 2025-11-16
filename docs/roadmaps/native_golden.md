@@ -6,8 +6,9 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 
 ## Current footprint
 
-- **Render target:** `tests/native_golden/test_main.cpp` now prints nine audio
-  fixtures (including the new quadraphonic `quad-bus.wav`) and a matching set of
+- **Render target:** `tests/native_golden/test_main.cpp` now prints ten audio
+  fixtures (including the quadraphonic `quad-bus.wav` and the new 6-lane
+  `surround-bus.wav`) and a matching set of
   control logs when `ENABLE_GOLDEN=1`. Every WAV now drops a
   `build/fixtures/<fixture>-control.txt` sibling (think `sampler-grains-control`
   and `quad-bus-control`) that captures the deterministic seed schedule or MIDI
@@ -15,7 +16,8 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   chord stack, and resonator tail collage we now ship a stereo granular wash
   (`granular-haze.wav`, rendered by `render_granular_fixture()`), a stereo
   master-bus composite (`mixer-console.wav`, blended by `render_mixer_fixture()`),
-  a surround-ready mixdown (`quad-bus.wav`), and two reseed passes. Euclid,
+  a quad bus (`quad-bus.wav`), a six-channel mid/side surround layout
+  (`surround-bus.wav`), and two reseed passes. Euclid,
   Burst, and reseed event transcripts still tag along so reviewers can diff
   timing logic beside the WAVs. PlatformIO bakes the absolute project root into
   `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a `SEEDBOX_PROJECT_ROOT`
@@ -70,7 +72,10 @@ your flow snappy.
    gallery; the next frontier is pairing them with control streams (MIDI logs,
    modulation lanes) so reviewers get a full track sheet with each PR.
 2. **Multichannel adventures.** Stereo renders are live, so start sketching
-   surround/mid-side takes or alternate busses once the DSP matures.
+   surround/mid-side takes or alternate busses once the DSP matures. The
+   freshly added `surround-bus.wav` is a six-channel proof-of-life that folds
+   front mid/side energy into dedicated center/LFE lanes while crossfeeding the
+   surrounds.
 3. **CI artifacts.** The workflow now replays `pio test -e native_golden`,
    regenerates the autogen header, and uploads `build/fixtures/*` plus the
    refreshed manifest. Reviewers can grab the artifact bundle straight from the

@@ -9,5 +9,9 @@ build/*
 *.swo
 *.wav
 !build/fixtures/*.wav
+# The surround bus/quad bus renders are generated during tests/offline refreshes,
+# so we keep the blobs out of git to avoid churn and rely on the scripts instead.
+build/fixtures/quad-bus.wav
+build/fixtures/surround-bus.wav
 /out/
 /artifacts/

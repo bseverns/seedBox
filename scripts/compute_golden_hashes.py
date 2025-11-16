@@ -104,7 +104,9 @@ def _scan_fixtures(fixtures_root):
     # type: (Path) -> List[Path]
     if not fixtures_root.exists():
         return []
-    allowed = {".wav", ".txt"}
+    # We stash WAVs plus human-readable control logs (txt/json). Hash them all so
+    # the manifest stays in sync with the binary/audio payloads we check in.
+    allowed = {".wav", ".txt", ".json"}
     return sorted(p for p in fixtures_root.rglob("*") if p.is_file() and p.suffix.lower() in allowed)
 
 
