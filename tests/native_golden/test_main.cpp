@@ -264,8 +264,13 @@ struct SamplerVoiceSpec {
     std::uint32_t when;
 };
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
-                                           const char* control_fixture_name = nullptr);
+std::vector<int16_t> render_reseed_variant(
+    std::uint32_t master_seed,
+    const char* control_fixture_name = nullptr,
+    int bpm = 124,
+    int passes = 3,
+    const std::vector<reseed::StemDefinition>* stems_override = nullptr);
+std::vector<int16_t> render_granular_fixture();
 std::vector<int16_t> render_long_random_take_fixture();
 bool write_text_file(const std::string& manifest_path, const std::string& body);
 bool emit_control_log(const char* fixture_name, const std::string& body);
@@ -405,6 +410,100 @@ std::vector<int16_t> render_sampler_fixture() {
         samples[i] = static_cast<int16_t>(std::clamp<std::int32_t>(
             static_cast<std::int32_t>(std::lround(scaled * 32767.0)), -32768, 32767));
     }
+    return samples;
+}
+
+std::vector<int16_t> render_modulated_sampler_fixture() {
+    const auto sampler = render_sampler_fixture();
+    const auto granular = render_granular_fixture();
+
+    const std::size_t sampler_frames = sampler.size();
+    const std::size_t granular_frames = granular.size() / 2u;
+    const std::size_t frames = std::min({sampler_frames, granular_frames, kDroneFrames});
+
+    if (frames == 0) {
+        return {};
+    }
+
+    constexpr double sampler_scale = 1.0 / 32768.0;
+    constexpr double granular_scale = 1.0 / 32768.0;
+    constexpr std::size_t kAutomationStride = 128;
+
+    std::vector<double> tone(frames);
+    std::vector<double> spread(frames);
+    std::vector<double> grain_lfo(frames);
+    std::vector<double> left(frames);
+    std::vector<double> right(frames);
+
+    double last_sampler = 0.0;
+    double max_abs = 0.0;
+
+    const double normalization = (frames > 1) ? static_cast<double>(frames - 1u) : 1.0;
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        const double normalized = static_cast<double>(frame) / normalization;
+        const double tone_phase = normalized * 3.0;
+        const double spread_phase = normalized * 2.0 + 0.25;
+        const double lfo_phase = normalized * 0.5;
+
+        tone[frame] = 0.15 + 0.85 * 0.5 * (1.0 + std::sin(2.0 * M_PI * tone_phase));
+        spread[frame] = 0.05 + 0.95 * 0.5 * (1.0 + std::cos(2.0 * M_PI * spread_phase));
+        grain_lfo[frame] = 0.25 + 0.75 * 0.5 *
+                           (1.0 + std::sin(2.0 * M_PI * (lfo_phase + spread[frame] * 0.35)));
+
+        const double sampler_sample = static_cast<double>(sampler[frame]) * sampler_scale;
+        const double bright = sampler_sample - last_sampler;
+        last_sampler = sampler_sample;
+        const double shaped = (1.0 - tone[frame]) * sampler_sample + tone[frame] * bright;
+
+        const double pan_angle = spread[frame] * (M_PI * 0.5);
+        const double pan_l = std::cos(pan_angle);
+        const double pan_r = std::sin(pan_angle);
+
+        const double grain_l = (frame < granular_frames)
+                                   ? static_cast<double>(granular[2u * frame]) * granular_scale
+                                   : 0.0;
+        const double grain_r = (frame < granular_frames)
+                                   ? static_cast<double>(granular[2u * frame + 1u]) * granular_scale
+                                   : 0.0;
+        const double swirl = grain_lfo[frame];
+        const double swirl_l = grain_l * swirl;
+        const double swirl_r = grain_r * (1.0 - 0.5 * swirl);
+
+        left[frame] = shaped * pan_l + swirl_l;
+        right[frame] = shaped * pan_r + swirl_r;
+
+        max_abs = std::max({max_abs, std::abs(left[frame]), std::abs(right[frame])});
+    }
+
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+    std::vector<int16_t> samples(frames * 2u);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        const double l = left[frame] * scale;
+        const double r = right[frame] * scale;
+        samples[2u * frame] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768L, 32767L));
+        samples[2u * frame + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768L, 32767L));
+    }
+
+    std::ostringstream control;
+    control << "# modulated-sampler control log" << '\n';
+    control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate) << '\n';
+    control << "automation_stride_frames=" << kAutomationStride << '\n';
+    control << "frame,tone,spread,grain_lfo" << '\n';
+    control << std::fixed << std::setprecision(6);
+    for (std::size_t frame = 0; frame < frames; frame += kAutomationStride) {
+        control << frame << ',' << tone[frame] << ',' << spread[frame] << ',' << grain_lfo[frame]
+                << '\n';
+    }
+    if ((frames - 1u) % kAutomationStride != 0u) {
+        const std::size_t tail = frames - 1u;
+        control << tail << ',' << tone[tail] << ',' << spread[tail] << ',' << grain_lfo[tail]
+                << '\n';
+    }
+    control << "normalize=0.92" << '\n';
+    (void)emit_control_log("modulated-sampler", control.str());
+
     return samples;
 }
 
@@ -963,10 +1062,17 @@ std::vector<int16_t> render_surround_fixture() {
     return samples;
 }
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
-                                           const char* control_fixture_name) {
-    const auto& stems = reseed::defaultStems();
-    const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
+std::vector<int16_t> render_reseed_variant(
+    std::uint32_t master_seed,
+    const char* control_fixture_name,
+    int bpm,
+    int passes,
+    const std::vector<reseed::StemDefinition>* stems_override) {
+    const std::vector<reseed::StemDefinition>* stems = stems_override;
+    if (stems == nullptr) {
+        stems = &reseed::defaultStems();
+    }
+    const auto plan = reseed::makeBouncePlan(*stems, master_seed, kSampleRate, bpm, passes);
     offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
     renderer.mixSamplerEvents(plan.samplerEvents);
     renderer.mixResonatorEvents(plan.resonatorEvents);
@@ -976,7 +1082,7 @@ std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
         std::ostringstream control;
         control << "# " << control_fixture_name << " control log" << '\n';
         control << "master_seed=0x" << std::hex << std::nouppercase << master_seed << std::dec
-                << " bpm=124 passes=3" << '\n';
+                << " bpm=" << bpm << " passes=" << passes << '\n';
         control << "event,name,lane,when_samples,seed_id,prng,engine" << '\n';
         for (std::size_t idx = 0; idx < plan.logEntries.size(); ++idx) {
             const auto& entry = plan.logEntries[idx];
@@ -1235,6 +1341,26 @@ void test_render_sampler_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_modulated_sampler_golden() {
+    const auto* fixture = find_audio_fixture("modulated-sampler");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "modulated-sampler fixture metadata missing");
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.channels = 2;
+    request.samples = render_modulated_sampler_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write modulated sampler golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
 void test_render_resonator_golden() {
     const auto* fixture = find_audio_fixture("resonator-tail");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "resonator-tail fixture metadata missing");
@@ -1372,6 +1498,54 @@ void test_render_reseed_b_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_reseed_C_golden() {
+    const auto* fixture = find_audio_fixture("reseed-C");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-C fixture metadata missing");
+
+    constexpr int kBpm = 132;
+    constexpr int kPasses = 4;
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_reseed_variant(0xC0FFEEu, "reseed-C", kBpm, kPasses);
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-C golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
+void test_render_reseed_poly_golden() {
+    const auto* fixture = find_audio_fixture("reseed-poly");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-poly fixture metadata missing");
+
+    auto stems = reseed::defaultStems();
+    stems.push_back({"tape rattle", 4, reseed::EngineKind::kSampler});
+    stems.push_back({"clank shimmer", 5, reseed::EngineKind::kResonator});
+
+    constexpr int kBpm = 118;
+    constexpr int kPasses = 5;
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_reseed_variant(0xC001CAFEu, "reseed-poly", kBpm, kPasses, &stems);
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-poly golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
 void test_render_long_take_golden() {
     const auto* fixture = find_audio_fixture("long-random-take");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "long-random-take fixture metadata missing");
@@ -1459,6 +1633,7 @@ int main(int, char**) {
     RUN_TEST(test_emit_flag_matrix);
     RUN_TEST(test_render_and_compare_golden);
     RUN_TEST(test_render_sampler_golden);
+    RUN_TEST(test_render_modulated_sampler_golden);
     RUN_TEST(test_render_resonator_golden);
     RUN_TEST(test_render_granular_golden);
     RUN_TEST(test_render_mixer_golden);
@@ -1466,6 +1641,8 @@ int main(int, char**) {
     RUN_TEST(test_render_surround_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);
+    RUN_TEST(test_render_reseed_C_golden);
+    RUN_TEST(test_render_reseed_poly_golden);
     RUN_TEST(test_render_long_take_golden);
     RUN_TEST(test_log_euclid_burst_golden);
     RUN_TEST(test_log_reseed_golden);

@@ -152,8 +152,12 @@ bool should_emit(const FixtureInfo& spec,
 
 bool emit_control_log(const char* fixture_name, const std::string& body);
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
-                                           const char* control_fixture_name = nullptr);
+std::vector<int16_t> render_reseed_variant(
+    std::uint32_t master_seed,
+    const char* control_fixture_name = nullptr,
+    int bpm = 124,
+    int passes = 3,
+    const std::vector<reseed::StemDefinition>* stems_override = nullptr);
 
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
@@ -933,10 +937,17 @@ std::vector<int16_t> render_long_random_take_fixture() {
     }
     return trimmed;
 }
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
-                                           const char* control_fixture_name) {
-    const auto& stems = reseed::defaultStems();
-    const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
+std::vector<int16_t> render_reseed_variant(
+    std::uint32_t master_seed,
+    const char* control_fixture_name,
+    int bpm,
+    int passes,
+    const std::vector<reseed::StemDefinition>* stems_override) {
+    const std::vector<reseed::StemDefinition>* stems = stems_override;
+    if (stems == nullptr) {
+        stems = &reseed::defaultStems();
+    }
+    const auto plan = reseed::makeBouncePlan(*stems, master_seed, kSampleRate, bpm, passes);
     offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
     renderer.mixSamplerEvents(plan.samplerEvents);
     renderer.mixResonatorEvents(plan.resonatorEvents);
@@ -945,7 +956,7 @@ std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
         std::ostringstream control;
         control << "# " << control_fixture_name << " control log" << '\n';
         control << "master_seed=0x" << std::hex << std::nouppercase << master_seed << std::dec
-                << " bpm=124 passes=3" << '\n';
+                << " bpm=" << bpm << " passes=" << passes << '\n';
         control << "event,name,lane,when_samples,seed_id,prng,engine" << '\n';
         for (std::size_t idx = 0; idx < plan.logEntries.size(); ++idx) {
             const auto& entry = plan.logEntries[idx];
@@ -1173,6 +1184,18 @@ int main() {
                         [] { return render_reseed_variant(0xCAFEu, "reseed-A"); }, filters);
         maybe_emit_audio("reseed-B", 1,
                         [] { return render_reseed_variant(0xBEEFu, "reseed-B"); }, filters);
+        maybe_emit_audio("reseed-C", 1,
+                        [] { return render_reseed_variant(0xC0FFEEu, "reseed-C", 132, 4); }, filters);
+        maybe_emit_audio(
+            "reseed-poly",
+            1,
+            [] {
+                auto stems = reseed::defaultStems();
+                stems.push_back({"tape rattle", 4, reseed::EngineKind::kSampler});
+                stems.push_back({"clank shimmer", 5, reseed::EngineKind::kResonator});
+                return render_reseed_variant(0xC001CAFEu, "reseed-poly", 118, 5, &stems);
+            },
+            filters);
 
         maybe_emit_log("euclid-mask", [] { return render_euclid_log(); }, filters);
         maybe_emit_log("burst-cluster", [] { return render_burst_log(); }, filters);

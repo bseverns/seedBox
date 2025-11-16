@@ -103,6 +103,27 @@
       "notes": ""
     },
     {
+      "name": "modulated-sampler",
+      "path": "build/fixtures/modulated-sampler.wav",
+      "kind": "audio",
+      "hash": "e37cbd0f72ac4332",
+      "wav_path": "build/fixtures/modulated-sampler.wav",
+      "sample_rate_hz": 48000,
+      "frames": 25051,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": ""
+    },
+    {
+      "name": "modulated-sampler-control",
+      "path": "build/fixtures/modulated-sampler-control.txt",
+      "kind": "log",
+      "hash": "1b950922fea5dd08",
+      "bytes": 12457,
+      "lines": 381,
+      "notes": ""
+    },
+    {
       "name": "quad-bus",
       "path": "build/fixtures/quad-bus.wav",
       "kind": "audio",
@@ -166,12 +187,54 @@
       "notes": ""
     },
     {
+      "name": "reseed-C",
+      "path": "build/fixtures/reseed-C.wav",
+      "kind": "audio",
+      "hash": "f240c25eb071c2e0",
+      "wav_path": "build/fixtures/reseed-C.wav",
+      "sample_rate_hz": 48000,
+      "frames": 475637,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": ""
+    },
+    {
+      "name": "reseed-C-control",
+      "path": "build/fixtures/reseed-C-control.txt",
+      "kind": "log",
+      "hash": "fda53171aa1e1593",
+      "bytes": 744,
+      "lines": 19,
+      "notes": ""
+    },
+    {
       "name": "reseed-log",
       "path": "build/fixtures/reseed-log.json",
       "kind": "log",
       "hash": "873935e11a5704f3",
       "bytes": 3815,
       "lines": 51,
+      "notes": ""
+    },
+    {
+      "name": "reseed-poly",
+      "path": "build/fixtures/reseed-poly.wav",
+      "kind": "audio",
+      "hash": "96caba321ac33056",
+      "wav_path": "build/fixtures/reseed-poly.wav",
+      "sample_rate_hz": 48000,
+      "frames": 899798,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": ""
+    },
+    {
+      "name": "reseed-poly-control",
+      "path": "build/fixtures/reseed-poly-control.txt",
+      "kind": "log",
+      "hash": "1c9b1f09bf998d2a",
+      "bytes": 1327,
+      "lines": 33,
       "notes": ""
     },
     {
@@ -244,5 +307,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-16T01:52:42Z"
+  "generated_at_utc": "2025-11-16T03:09:21Z"
 }

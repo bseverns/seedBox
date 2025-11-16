@@ -6,9 +6,9 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 
 ## Current footprint
 
-- **Render target:** `tests/native_golden/test_main.cpp` now prints ten audio
-  fixtures (including the quadraphonic `quad-bus.wav` and the new 6-lane
-  `surround-bus.wav`) and a matching set of
+- **Render target:** `tests/native_golden/test_main.cpp` now prints a dozen
+  audio fixtures (including the quadraphonic `quad-bus.wav`, the 6-lane
+  `surround-bus.wav`, and the expanded reseed suite) and a matching set of
   control logs when `ENABLE_GOLDEN=1`. Every WAV now drops a
   `build/fixtures/<fixture>-control.txt` sibling (think `sampler-grains-control`
   and `quad-bus-control`) that captures the deterministic seed schedule or MIDI
@@ -17,13 +17,24 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   (`granular-haze.wav`, rendered by `render_granular_fixture()`), a stereo
   master-bus composite (`mixer-console.wav`, blended by `render_mixer_fixture()`),
   a quad bus (`quad-bus.wav`), a six-channel mid/side surround layout
-  (`surround-bus.wav`), and two reseed passes. Euclid,
+  (`surround-bus.wav`), and four reseed passes. The original A/B cues still
+  prove the event log math, while `reseed-C.wav` (132 BPM / four passes) leans
+  into higher-density swing to sniff out tempo-locked bugs, and
+  `reseed-poly.wav` bolsters the stem list with the "tape rattle" sampler lane
+  plus a resonator "clank shimmer" bus so we can study overlapping plucks
+  without sacrificing determinism. Euclid,
   Burst, and reseed event transcripts still tag along so reviewers can diff
   timing logic beside the WAVs. PlatformIO bakes the absolute project root into
   `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a `SEEDBOX_PROJECT_ROOT`
   override, and it still climbs the filesystem looking for `platformio.ini` if
   all else fails. No matter how you launch the tests, the renders end up in
   `<repo>/build/fixtures` instead of hiding inside `.pio/`.
+  The newest entry, `modulated-sampler.wav`, is deliberately noisy: the helper
+  `render_modulated_sampler_fixture()` mixes the sampler and granular engines,
+  sweeps tone + spread automation every single frame, and prints a matching
+  `modulated-sampler-control.txt` automation log so reviewers can see the exact
+  modulation lanes that carved those wobbles. That stress case makes it obvious
+  when downstream automation plumbing drifts from the C++ reference.
 - **Hash discipline:** `golden::hash_pcm16` still mirrors the Python helper for
   PCM data, and a sibling FNV-1a byte walker fingerprints the log files. Both
   feed the same manifest so hashes stay in lockstep between test harness and
