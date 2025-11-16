@@ -114,10 +114,16 @@ def _read_pcm(path):
     # type: (Path) -> Tuple[bytes, int, int, int]
     try:
         return _read_pcm_with_wave(path)
-    except wave.Error as exc:
+    except (wave.Error, EOFError, RuntimeError) as exc:
+        # ``wave`` likes to throw ``RuntimeError`` (with an empty message!) when it
+        # walks a malformed chunk header, which made ``--write`` runs look like the
+        # script just died with ``error:`` and zero context. Treat all of those the
+        # same way we already handle ``wave.Error``: print a salvage warning and
+        # fall back to the manual chunk scan so we can still fingerprint fixtures
+        # that were trimmed or transported by lossy tools.
         print(
             "warning: {} has corrupt RIFF metadata ({}); attempting salvage".format(
-                path, exc
+                path, exc or "wave decoder raised {}".format(type(exc).__name__)
             ),
             file=sys.stderr,
         )
