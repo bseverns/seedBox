@@ -23,6 +23,10 @@ hashes to actually mean something.
 - Run `./scripts/offline_native_golden.sh` whenever you change an engine or the
   native golden harness. It compiles `tools/native_golden_offline.cpp`, renders
   everything into `build/fixtures/`, and refreshes the manifest.
+- The helper now prints `[delta] fixture-name -> path expected OLD got NEW`
+  instead of bailing out when a DSP tweak changes the hash. That's your cue to
+  inspect the diff, then re-run `python3 scripts/compute_golden_hashes.py --write`
+  so the manifest and header learn about the new audio/log payload.
 - Alternatively run `pio test -e native_golden` with `ENABLE_GOLDEN=1`, then
   rehash with `python3 scripts/compute_golden_hashes.py --write` (the script
   insists on Python 3.7+, so calling it through `python3` saves you from dusty
