@@ -260,7 +260,7 @@ flowchart LR
 This is intentionally simple. Each box has its own README if you want the
 geekier signal-flow diagrams later.
 
-### How CI babysits the jams
+### How the CI babysits the jams
 
 ```mermaid
 sequenceDiagram
@@ -321,7 +321,8 @@ strong.
 
 ## Audio postcard
 
-A one minute-render of a of the sounds this thing makes: ['long-random-take.wav'](build/fixtures/long-random-take.wav)
+This is the seed: ['tone'](build/fixtures/drone-intro.wav)
+This is a one minute-render of a of the sounds this thing makes: ['long-random-take.wav'](build/fixtures/long-random-take.wav)
 
 ## Contributing without fear
 
