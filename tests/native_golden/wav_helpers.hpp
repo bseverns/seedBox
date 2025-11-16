@@ -22,4 +22,9 @@ bool write_wav_16(const WavWriteRequest &request);
 //! FNV-1a.
 std::string hash_pcm16(const std::vector<int16_t> &samples);
 
+//! Renders the layered Euclid/Burst engine capture that glues the sampler,
+//! resonator, and granular lanes together. Returns interleaved stereo PCM16
+//! samples (L/R) so callers can dump the buffer straight to disk.
+std::vector<int16_t> render_layered_euclid_burst_fixture();
+
 }  // namespace golden
