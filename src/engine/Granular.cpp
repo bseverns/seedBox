@@ -7,6 +7,7 @@
 // plan would patch into the Teensy audio graph.
 #include "engine/Granular.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <type_traits>
 #include <utility>
@@ -22,6 +23,21 @@ namespace {
 // 2048-sample window during init and recycles it forever.
 DMAMEM int16_t gGranularGrainPool[GranularEngine::kVoicePoolSize][GranularEngine::kGrainMemorySamples];
 #endif
+
+constexpr std::array<float, GranularEngine::Stats::kHistogramBins> kSizeBinEdgesMs{{10.f, 25.f, 50.f, 100.f, 200.f, 400.f}};
+constexpr std::array<float, GranularEngine::Stats::kHistogramBins> kSprayBinEdgesMs{{0.5f, 5.f, 15.f, 30.f, 60.f, 120.f}};
+
+template <typename Array>
+uint8_t bucketForValue(float value, const Array& edges) {
+  const float clamped = std::max(0.0f, value);
+  for (uint8_t i = 0; i < edges.size(); ++i) {
+    if (clamped <= edges[i]) {
+      return i;
+    }
+  }
+  return static_cast<uint8_t>(edges.size() - 1);
+}
+
 static uint8_t clampVoices(uint8_t voices) {
   if (voices < 1) return 1;
   if (voices > GranularEngine::kVoicePoolSize) return GranularEngine::kVoicePoolSize;
@@ -72,6 +88,56 @@ void configureGranularWindow(Effect& effect, float windowSkew, float grainLength
 }  // namespace
 #endif  // SEEDBOX_HW
 
+void GranularEngine::Stats::reset() {
+  activeVoiceCount = 0;
+  sdOnlyVoiceCount = 0;
+  grainsPlanned = 0;
+  grainSizeHistogram.fill(0);
+  sprayHistogram.fill(0);
+  voiceSamples_.fill(VoiceSample{});
+}
+
+void GranularEngine::Stats::onVoicePlanned(uint8_t voiceIndex, const GrainVoice& voice) {
+  if (voiceIndex >= voiceSamples_.size()) {
+    return;
+  }
+
+  auto& slot = voiceSamples_[voiceIndex];
+  if (slot.active) {
+    if (activeVoiceCount > 0) {
+      --activeVoiceCount;
+    }
+    if (slot.sizeBin < grainSizeHistogram.size() && grainSizeHistogram[slot.sizeBin] > 0) {
+      --grainSizeHistogram[slot.sizeBin];
+    }
+    if (slot.sprayBin < sprayHistogram.size() && sprayHistogram[slot.sprayBin] > 0) {
+      --sprayHistogram[slot.sprayBin];
+    }
+    if (slot.sdOnly && sdOnlyVoiceCount > 0) {
+      --sdOnlyVoiceCount;
+    }
+  }
+
+  slot = VoiceSample{};
+  ++grainsPlanned;
+
+  if (!voice.active) {
+    return;
+  }
+
+  slot.active = true;
+  slot.sizeBin = bucketForValue(voice.sizeMs, kSizeBinEdgesMs);
+  slot.sprayBin = bucketForValue(voice.sprayMs, kSprayBinEdgesMs);
+  slot.sdOnly = (voice.source == Source::kSdClip);
+
+  ++activeVoiceCount;
+  ++grainSizeHistogram[slot.sizeBin];
+  ++sprayHistogram[slot.sprayBin];
+  if (slot.sdOnly) {
+    ++sdOnlyVoiceCount;
+  }
+}
+
 Engine::Type GranularEngine::type() const noexcept { return Engine::Type::kGranular; }
 
 void GranularEngine::init(Mode mode) {
@@ -80,6 +146,7 @@ void GranularEngine::init(Mode mode) {
   liveInputArmed_ = true;
   voices_.fill(GrainVoice{});
   sdClips_.fill(SourceSlot{});
+  stats_.reset();
   // Slot zero is a reserved label for "live input" so deterministic seeds can
   // reference it even though it never appears in the SD clip registry.
   sdClips_[0].inUse = true;
@@ -342,6 +409,7 @@ void GranularEngine::trigger(const Seed& seed, uint32_t whenSamples) {
   }
   uint8_t voiceIndex = allocateVoice();
   planGrain(voices_[voiceIndex], seed, whenSamples);
+  stats_.onVoicePlanned(voiceIndex, voices_[voiceIndex]);
   voices_[voiceIndex].dspHandle = voiceIndex;
   // Whether we're on hardware or in the simulator, this final step ties the
   // planned grain into something that will eventually make sound.

@@ -14,6 +14,15 @@
 // making it possible to teach the whole DSP chain straight from the code.
 class GranularEngine : public Engine {
 public:
+  static constexpr uint8_t kVoicePoolSize = 40;
+  // Grain windows live in DMAMEM so the TCM heap can breathe.  Keep this in sync
+  // with the teensy granular effect's happy place.
+  static constexpr int kGrainMemorySamples = 2048;
+  static constexpr uint8_t kSdClipSlots = 8;
+  static constexpr uint8_t kMixerFanIn = 4;
+  static constexpr uint8_t kMixerGroups = (kVoicePoolSize + kMixerFanIn - 1) / kMixerFanIn;
+  static constexpr uint8_t kSubmixCount = (kMixerGroups + kMixerFanIn - 1) / kMixerFanIn;
+
   enum class Mode : uint8_t { kSim, kHardware };
   enum class Source : uint8_t { kLiveInput = 0, kSdClip = 1 };
 
@@ -34,6 +43,28 @@ public:
     uint16_t dspHandle{0};
     uint8_t sdSlot{0};
     uint8_t seedId{0};
+  };
+
+  struct Stats {
+    static constexpr std::size_t kHistogramBins = 6;
+    struct VoiceSample {
+      bool active{false};
+      uint8_t sizeBin{0};
+      uint8_t sprayBin{0};
+      bool sdOnly{false};
+    };
+
+    void reset();
+    void onVoicePlanned(uint8_t voiceIndex, const GrainVoice& voice);
+
+    uint8_t activeVoiceCount{0};
+    uint8_t sdOnlyVoiceCount{0};
+    uint32_t grainsPlanned{0};
+    std::array<uint16_t, kHistogramBins> grainSizeHistogram{};
+    std::array<uint16_t, kHistogramBins> sprayHistogram{};
+
+   private:
+    std::array<VoiceSample, kVoicePoolSize> voiceSamples_{};
   };
 
   GranularEngine() = default;
@@ -60,6 +91,7 @@ public:
   uint8_t activeVoiceCount() const;
   SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;
   Mode mode() const { return mode_; }
+  const Stats& stats() const { return stats_; }
 
 #if !SEEDBOX_HW
   struct SimHardwareVoice {
@@ -71,15 +103,6 @@ public:
 
   SimHardwareVoice simHardwareVoice(uint8_t index) const;
 #endif
-
-  static constexpr uint8_t kVoicePoolSize = 40;
-  // Grain windows live in DMAMEM so the TCM heap can breathe.  Keep this in sync
-  // with the teensy granular effect's happy place.
-  static constexpr int kGrainMemorySamples = 2048;
-  static constexpr uint8_t kSdClipSlots = 8;
-  static constexpr uint8_t kMixerFanIn = 4;
-  static constexpr uint8_t kMixerGroups = (kVoicePoolSize + kMixerFanIn - 1) / kMixerFanIn;
-  static constexpr uint8_t kSubmixCount = (kMixerGroups + kMixerFanIn - 1) / kMixerFanIn;
 
 private:
   struct SourceSlot {
@@ -106,6 +129,7 @@ private:
   std::array<GrainVoice, kVoicePoolSize> voices_{};
   std::array<SourceSlot, kSdClipSlots> sdClips_{};
   std::vector<Seed> seedCache_{};
+  Stats stats_{};
 
 #if SEEDBOX_HW
   struct HardwareVoice {

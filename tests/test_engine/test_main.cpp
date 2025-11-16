@@ -3,6 +3,7 @@
 void test_granular_voice_cap_and_steal();
 void test_granular_clamps_zero_cap();
 void test_granular_stops_sd_player_when_slot_missing();
+void test_granular_perf_stats_refresh();
 void test_granular_graph_layout_tracks_dsp_handles();
 void test_resonator_maps_seed_into_voice_plan();
 void test_resonator_voice_stealing_by_start_then_handle();
@@ -20,6 +21,7 @@ int main(int, char**) {
   RUN_TEST(test_granular_voice_cap_and_steal);
   RUN_TEST(test_granular_clamps_zero_cap);
   RUN_TEST(test_granular_stops_sd_player_when_slot_missing);
+  RUN_TEST(test_granular_perf_stats_refresh);
   RUN_TEST(test_granular_graph_layout_tracks_dsp_handles);
   RUN_TEST(test_resonator_maps_seed_into_voice_plan);
   RUN_TEST(test_resonator_voice_stealing_by_start_then_handle);
