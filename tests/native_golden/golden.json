@@ -299,6 +299,27 @@
       "bytes": 660,
       "lines": 15,
       "notes": ""
+    },
+    {
+      "name": "stage71-bus",
+      "path": "build/fixtures/stage71-bus.wav",
+      "kind": "audio",
+      "hash": "629833da6365625b",
+      "wav_path": "build/fixtures/stage71-bus.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 8,
+      "channel_layout": "7.1 theatrical",
+      "notes": "7.1 layout that names every lane (L,R,C,LFE,Ls,Rs,Lrs,Rrs) and stress-tests the stage crossfeed math."
+    },
+    {
+      "name": "stage71-bus-control",
+      "path": "build/fixtures/stage71-bus-control.txt",
+      "kind": "log",
+      "hash": "73d0dbc906c45eed",
+      "bytes": 1134,
+      "lines": 16,
+      "notes": "Channel legend + stem routing comments for the 7.1 render."
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",

@@ -24,6 +24,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"reseed-poly", "build/fixtures/reseed-poly.wav", "c161cef3f5417d05"},
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
+    {"stage71-bus", "build/fixtures/stage71-bus.wav", "629833da6365625b"},
     {"surround-bus", "build/fixtures/surround-bus.wav", "ec0a317b727ea022"},
 };
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
@@ -44,6 +45,7 @@ constexpr FixtureInfo kLogFixtures[] = {
     {"reseed-poly-control", "build/fixtures/reseed-poly-control.txt", "1c9b1f09bf998d2a"},
     {"resonator-tail-control", "build/fixtures/resonator-tail-control.txt", "2712188b6c69ba9a"},
     {"sampler-grains-control", "build/fixtures/sampler-grains-control.txt", "eef0854b3ed98143"},
+    {"stage71-bus-control", "build/fixtures/stage71-bus-control.txt", "73d0dbc906c45eed"},
     {"surround-bus-control", "build/fixtures/surround-bus-control.txt", "440ade6a5be15506"},
 };
 constexpr std::size_t kLogFixtureCount = sizeof(kLogFixtures) / sizeof(kLogFixtures[0]);
