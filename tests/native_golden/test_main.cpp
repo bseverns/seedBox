@@ -146,7 +146,7 @@ std::vector<int16_t> make_drone() {
     control << "# drone-intro control log" << '\n';
     control << "frames=" << kDroneFrames << " sample_rate_hz=" << static_cast<int>(kSampleRate)
             << " freq_hz=" << kDroneFreqHz << " amplitude=" << kDroneAmplitude << '\n';
-    (void)emit_control_log("drone-intro", control.str());
+    (void)emit_control_log_impl("drone-intro", control.str());
     return samples;
 }
 
@@ -272,8 +272,8 @@ std::vector<int16_t> render_reseed_variant(
     const std::vector<reseed::StemDefinition>* stems_override = nullptr);
 std::vector<int16_t> render_granular_fixture();
 std::vector<int16_t> render_long_random_take_fixture();
-bool write_text_file(const std::string& manifest_path, const std::string& body);
-bool emit_control_log(const char* fixture_name, const std::string& body);
+bool write_text_file_impl(const std::string& manifest_path, const std::string& body);
+bool emit_control_log_impl(const char* fixture_name, const std::string& body);
 
 Seed make_sampler_seed(std::uint32_t id,
                        std::uint8_t sample_idx,
@@ -358,7 +358,7 @@ std::vector<int16_t> render_sampler_fixture() {
                 << spec.seed.envA << ',' << spec.seed.envD << ',' << spec.seed.envS << ','
                 << spec.seed.envR << ',' << spec.seed.tone << ',' << spec.seed.spread << '\n';
     }
-    (void)emit_control_log("sampler-grains", control.str());
+    (void)emit_control_log_impl("sampler-grains", control.str());
 
     std::vector<double> mix(kDroneFrames, 0.0);
     const double sustain_hold = 0.25;
@@ -502,7 +502,7 @@ std::vector<int16_t> render_modulated_sampler_fixture() {
                 << '\n';
     }
     control << "normalize=0.92" << '\n';
-    (void)emit_control_log("modulated-sampler", control.str());
+    (void)emit_control_log_impl("modulated-sampler", control.str());
 
     return samples;
 }
@@ -566,7 +566,7 @@ std::vector<int16_t> render_resonator_fixture() {
                 << static_cast<int>(spec.seed.resonator.mode) << ','
                 << static_cast<int>(spec.seed.resonator.bank) << '\n';
     }
-    (void)emit_control_log("resonator-tail", control.str());
+    (void)emit_control_log_impl("resonator-tail", control.str());
 
     std::vector<double> mix(kDroneFrames, 0.0);
     for (std::uint8_t i = 0; i < ResonatorBank::kMaxVoices; ++i) {
@@ -711,7 +711,7 @@ std::vector<int16_t> render_granular_fixture() {
                 << ',' << static_cast<int>(spec.seed.granular.sdSlot) << ',' << specs[idx].carrier_hz
                 << ',' << specs[idx].drift_amount << '\n';
     }
-    (void)emit_control_log("granular-haze", control.str());
+    (void)emit_control_log_impl("granular-haze", control.str());
 
     std::vector<double> left(kDroneFrames, 0.0);
     std::vector<double> right(kDroneFrames, 0.0);
@@ -841,7 +841,7 @@ std::vector<int16_t> render_mixer_fixture() {
             std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768, 32767));
     }
     control << "normalize=0.92" << '\n';
-    (void)emit_control_log("mixer-console", control.str());
+    (void)emit_control_log_impl("mixer-console", control.str());
     return samples;
 }
 
@@ -947,7 +947,7 @@ std::vector<int16_t> render_quadraphonic_fixture() {
     control << "  tilt=0.12" << '\n';
     control << "  saturate=1.08" << '\n';
     control << "normalize=0.92" << '\n';
-    (void)emit_control_log("quad-bus", control.str());
+    (void)emit_control_log_impl("quad-bus", control.str());
     return samples;
 }
 
@@ -1058,7 +1058,7 @@ std::vector<int16_t> render_surround_fixture() {
         }
     }
     control << "normalize=0.92" << '\n';
-    (void)emit_control_log("surround-bus", control.str());
+    (void)emit_control_log_impl("surround-bus", control.str());
     return samples;
 }
 
@@ -1092,7 +1092,7 @@ std::vector<int16_t> render_reseed_variant(
                     << static_cast<int>(entry.engine == reseed::EngineKind::kResonator ? 2 : 0)
                     << '\n';
         }
-        (void)emit_control_log(control_fixture_name, control.str());
+        (void)emit_control_log_impl(control_fixture_name, control.str());
     }
     return std::vector<int16_t>(pcm.begin(), pcm.end());
 }
@@ -1134,7 +1134,7 @@ std::vector<int16_t> render_long_random_take_fixture() {
                 << std::dec << ','
                 << static_cast<int>(entry.engine == reseed::EngineKind::kResonator ? 2 : 0) << '\n';
     }
-    (void)emit_control_log("long-random-take", control.str());
+    (void)emit_control_log_impl("long-random-take", control.str());
 
     std::vector<int16_t> trimmed(frames * 2u, 0);
     const std::size_t available_frames = std::min(frames, pcm.size());
@@ -1236,7 +1236,7 @@ std::string render_burst_log() {
     return log.str();
 }
 
-bool write_text_file(const std::string& manifest_path, const std::string& body) {
+bool write_text_file_impl(const std::string& manifest_path, const std::string& body) {
 #if ENABLE_GOLDEN
     const auto disk_path = fixture_disk_path(manifest_path);
     std::error_code ec;
@@ -1257,12 +1257,12 @@ bool write_text_file(const std::string& manifest_path, const std::string& body) 
 #endif
 }
 
-bool emit_control_log(const char* fixture_name, const std::string& body) {
+bool emit_control_log_impl(const char* fixture_name, const std::string& body) {
     if (fixture_name == nullptr || *fixture_name == '\0') {
         return false;
     }
     const std::string path = std::string("build/fixtures/") + fixture_name + "-control.txt";
-    return write_text_file(path, body);
+    return write_text_file_impl(path, body);
 }
 
 std::string load_manifest() {
@@ -1281,6 +1281,14 @@ void assert_manifest_contains(const std::string& manifest_body, const FixtureInf
 }
 
 }  // namespace
+
+bool write_text_file(const std::string& manifest_path, const std::string& body) {
+    return write_text_file_impl(manifest_path, body);
+}
+
+bool emit_control_log(const char* fixture_name, const std::string& body) {
+    return emit_control_log_impl(fixture_name, body);
+}
 
 void test_emit_flag_matrix() {
 #if ENABLE_GOLDEN
@@ -1353,6 +1361,26 @@ void test_render_modulated_sampler_golden() {
 
     const bool write_ok = golden::write_wav_16(request);
     TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write modulated sampler golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
+void test_render_layered_euclid_burst_golden() {
+    const auto* fixture = find_audio_fixture("layered-euclid-burst");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "layered-euclid-burst fixture metadata missing");
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.channels = 2;
+    request.samples = golden::render_layered_euclid_burst_fixture();
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write layered-euclid-burst golden WAV");
 
     const std::string hash = golden::hash_pcm16(request.samples);
     TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
@@ -1663,6 +1691,7 @@ int main(int, char**) {
     RUN_TEST(test_render_and_compare_golden);
     RUN_TEST(test_render_sampler_golden);
     RUN_TEST(test_render_modulated_sampler_golden);
+    RUN_TEST(test_render_layered_euclid_burst_golden);
     RUN_TEST(test_render_resonator_golden);
     RUN_TEST(test_render_granular_golden);
     RUN_TEST(test_render_mixer_golden);

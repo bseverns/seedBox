@@ -61,6 +61,27 @@
       "notes": ""
     },
     {
+      "name": "layered-euclid-burst",
+      "path": "build/fixtures/layered-euclid-burst.wav",
+      "kind": "audio",
+      "hash": "f58e14d36c461c3a",
+      "wav_path": "build/fixtures/layered-euclid-burst.wav",
+      "sample_rate_hz": 48000,
+      "frames": 772364,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": ""
+    },
+    {
+      "name": "layered-euclid-burst-control",
+      "path": "build/fixtures/layered-euclid-burst-control.txt",
+      "kind": "log",
+      "hash": "5c44c5a0107e630b",
+      "bytes": 145817,
+      "lines": 4187,
+      "notes": ""
+    },
+    {
       "name": "long-random-take",
       "path": "build/fixtures/long-random-take.wav",
       "kind": "audio",
@@ -328,5 +349,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-16T04:37:29Z"
+  "generated_at_utc": "2025-11-16T15:33:28Z"
 }

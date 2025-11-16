@@ -39,5 +39,9 @@ struct SpatialRender {
 //! content. The helper keeps the layout self-documenting so reviewers can point
 //! meters at each channel without guessing.
 SpatialRender render_stage71_scene();
+//! Renders the layered Euclid/Burst engine capture that glues the sampler,
+//! resonator, and granular lanes together. Returns interleaved stereo PCM16
+//! samples (L/R) so callers can dump the buffer straight to disk.
+std::vector<int16_t> render_layered_euclid_burst_fixture();
 
 }  // namespace golden
