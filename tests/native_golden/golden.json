@@ -103,6 +103,27 @@
       "notes": ""
     },
     {
+      "name": "modulated-sampler",
+      "path": "build/fixtures/modulated-sampler.wav",
+      "kind": "audio",
+      "hash": "e37cbd0f72ac4332",
+      "wav_path": "build/fixtures/modulated-sampler.wav",
+      "sample_rate_hz": 48000,
+      "frames": 25051,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": ""
+    },
+    {
+      "name": "modulated-sampler-control",
+      "path": "build/fixtures/modulated-sampler-control.txt",
+      "kind": "log",
+      "hash": "1b950922fea5dd08",
+      "bytes": 12457,
+      "lines": 381,
+      "notes": ""
+    },
+    {
       "name": "quad-bus",
       "path": "build/fixtures/quad-bus.wav",
       "kind": "audio",
@@ -286,5 +307,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-16T02:15:32Z"
+  "generated_at_utc": "2025-11-16T03:09:21Z"
 }

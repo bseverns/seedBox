@@ -29,6 +29,12 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   override, and it still climbs the filesystem looking for `platformio.ini` if
   all else fails. No matter how you launch the tests, the renders end up in
   `<repo>/build/fixtures` instead of hiding inside `.pio/`.
+  The newest entry, `modulated-sampler.wav`, is deliberately noisy: the helper
+  `render_modulated_sampler_fixture()` mixes the sampler and granular engines,
+  sweeps tone + spread automation every single frame, and prints a matching
+  `modulated-sampler-control.txt` automation log so reviewers can see the exact
+  modulation lanes that carved those wobbles. That stress case makes it obvious
+  when downstream automation plumbing drifts from the C++ reference.
 - **Hash discipline:** `golden::hash_pcm16` still mirrors the Python helper for
   PCM data, and a sibling FNV-1a byte walker fingerprints the log files. Both
   feed the same manifest so hashes stay in lockstep between test harness and
