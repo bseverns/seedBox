@@ -6,9 +6,9 @@ manifest of hashes that tests can diff without golden-ear guesswork.
 
 ## Current footprint
 
-- **Render target:** `tests/native_golden/test_main.cpp` now prints ten audio
-  fixtures (including the quadraphonic `quad-bus.wav` and the new 6-lane
-  `surround-bus.wav`) and a matching set of
+- **Render target:** `tests/native_golden/test_main.cpp` now prints a dozen
+  audio fixtures (including the quadraphonic `quad-bus.wav`, the 6-lane
+  `surround-bus.wav`, and the expanded reseed suite) and a matching set of
   control logs when `ENABLE_GOLDEN=1`. Every WAV now drops a
   `build/fixtures/<fixture>-control.txt` sibling (think `sampler-grains-control`
   and `quad-bus-control`) that captures the deterministic seed schedule or MIDI
@@ -17,7 +17,12 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   (`granular-haze.wav`, rendered by `render_granular_fixture()`), a stereo
   master-bus composite (`mixer-console.wav`, blended by `render_mixer_fixture()`),
   a quad bus (`quad-bus.wav`), a six-channel mid/side surround layout
-  (`surround-bus.wav`), and two reseed passes. Euclid,
+  (`surround-bus.wav`), and four reseed passes. The original A/B cues still
+  prove the event log math, while `reseed-C.wav` (132 BPM / four passes) leans
+  into higher-density swing to sniff out tempo-locked bugs, and
+  `reseed-poly.wav` bolsters the stem list with the "tape rattle" sampler lane
+  plus a resonator "clank shimmer" bus so we can study overlapping plucks
+  without sacrificing determinism. Euclid,
   Burst, and reseed event transcripts still tag along so reviewers can diff
   timing logic beside the WAVs. PlatformIO bakes the absolute project root into
   `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a `SEEDBOX_PROJECT_ROOT`

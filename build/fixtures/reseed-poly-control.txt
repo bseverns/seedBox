@@ -1,0 +1,33 @@
+# reseed-poly control log
+master_seed=0xc001cafe bpm=118 passes=5
+event,name,lane,when_samples,seed_id,prng,engine
+0,snare clipping,1,0,1,0x6d58665e,0
+1,hat patina,3,24407,2,0x997f03fc,0
+2,clank shimmer,5,48814,3,0x98aea72a,2
+3,tape rattle,4,73220,4,0x51c6ab98,0
+4,kick compost,0,97627,5,0x1c26d833,0
+5,ride oxidation,2,122034,6,0x64717c9e,2
+6,clank shimmer,5,146441,7,0x1099dbbf,2
+7,kick compost,0,170847,8,0x32529b16,0
+8,hat patina,3,195254,9,0x257bdcc1,0
+9,snare clipping,1,219661,10,0x5eeb8dba,0
+10,ride oxidation,2,244068,11,0x5361a375,2
+11,tape rattle,4,268475,12,0x7fb9348f,0
+12,clank shimmer,5,292881,13,0x80f8f784,2
+13,kick compost,0,317288,14,0xbafb003b,0
+14,snare clipping,1,341695,15,0x7c1901aa,0
+15,tape rattle,4,366102,16,0xa7912d16,0
+16,ride oxidation,2,390508,17,0xd0848ebb,2
+17,hat patina,3,414915,18,0x9a149338,0
+18,tape rattle,4,439322,19,0x98080f19,0
+19,snare clipping,1,463729,20,0x5478a802,0
+20,ride oxidation,2,488136,21,0xeec40d2f,2
+21,hat patina,3,512542,22,0x8bdff398,0
+22,kick compost,0,536949,23,0x27d29ea1,0
+23,clank shimmer,5,561356,24,0xfc780a95,2
+24,snare clipping,1,585763,25,0xf059b163,0
+25,kick compost,0,610169,26,0x3f2a30a5,0
+26,clank shimmer,5,634576,27,0xac415ed1,2
+27,tape rattle,4,658983,28,0xd4c3d88b,0
+28,hat patina,3,683390,29,0x1a55c46e,0
+29,ride oxidation,2,707797,30,0x6e6c39af,2
