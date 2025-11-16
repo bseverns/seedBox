@@ -24,6 +24,8 @@ void test_ui_gallery_snapshots();
 void test_live_input_prime_tags_seeds_as_live();
 void test_live_input_prime_respects_all_engine_assignments();
 void test_live_input_prime_triggers_live_voice_in_sim();
+void test_tap_tempo_prime_updates_lineage();
+void test_preset_prime_applies_granular_params();
 void test_initial_mode_home();
 void test_seed_button_transitions_to_seeds();
 void test_shift_long_press_returns_home();
@@ -60,6 +62,8 @@ int main(int, char**) {
   RUN_TEST(test_live_input_prime_tags_seeds_as_live);
   RUN_TEST(test_live_input_prime_respects_all_engine_assignments);
   RUN_TEST(test_live_input_prime_triggers_live_voice_in_sim);
+  RUN_TEST(test_tap_tempo_prime_updates_lineage);
+  RUN_TEST(test_preset_prime_applies_granular_params);
   RUN_TEST(test_initial_mode_home);
   RUN_TEST(test_seed_button_transitions_to_seeds);
   RUN_TEST(test_shift_long_press_returns_home);

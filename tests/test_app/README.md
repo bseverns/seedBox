@@ -30,6 +30,12 @@ lesson plan.
 * The same suite now spins the simulator long enough to trigger a granular voice
   on the live path, proving the "live-in" slot flips over even without the I²S
   codec present.【F:tests/test_app/test_seed_prime_modes.cpp†L55-L90】
+* Tap-tempo primes now get their own regression that double-checks BPM-derived
+  lineage tags and re-running the prime with the same tap history leaves every
+  granular parameter untouched, while preset primes prove `setSeedPreset()`
+  copied per-seed granular sources, SD slots, and lock layouts faithfully. If
+  the preset buffer is empty we still fall back to the LFSR builder, so tests
+  always seed the buffer before reseeding with `SeedPrimeMode::kPreset`.【F:tests/test_app/test_seed_prime_modes.cpp†L92-L171】
 * `test_presets.cpp` stress-tests the preset lane promised in the roadmap by
   round-tripping a captured genome set through the EEPROM store and verifying the
   crossfade helper preserves granular params during the blend.【F:tests/test_app/test_presets.cpp†L13-L48】
@@ -39,10 +45,9 @@ lesson plan.
 
 ## Open questions + follow-ups
 
-* The roadmap calls out tap-tempo (`recordTapTempoInterval`) and preset primes,
-  but we only have an automated check for the live-input flow. We should either
-  add tap-tempo + preset prime tests or explicitly document why they ride on the
-  legacy LFSR path without bespoke coverage.【F:docs/roadmaps/seed_system.md†L10-L24】【F:tests/test_app/test_seed_prime_modes.cpp†L9-L41】
+* Tap-tempo + preset primes are now covered, but keep in mind preset primes
+  still piggy-back on the LFSR order when the preset buffer is empty, so any new
+  regression should keep calling `setSeedPreset()` up front.【F:docs/roadmaps/seed_system.md†L10-L24】【F:tests/test_app/test_seed_prime_modes.cpp†L92-L171】
 * `util::ScaleQuantizer` has `SnapUp` and `SnapDown` hooks mentioned in the doc,
   but the test suite only hits the default snap-to-scale path. Worth scoping a
   regression that nudges a seed upward/downward to prove we honor those future UI
