@@ -13,11 +13,12 @@ struct FixtureInfo {
 
 constexpr FixtureInfo kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
+    {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
-    {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "f58e14d36c461c3a"},
+    {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "a8c91f05b87811f1"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
-    {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "72afd3bf5e65e416"},
+    {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "cd6bd4abbf38a1a7"},
     {"quad-bus", "build/fixtures/quad-bus.wav", "8de941a4ffe7446d"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
@@ -33,6 +34,7 @@ constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudi
 constexpr FixtureInfo kLogFixtures[] = {
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
     {"drone-intro-control", "build/fixtures/drone-intro-control.txt", "d902a9aecc33d807"},
+    {"engine-hybrid-stack-control", "build/fixtures/engine-hybrid-stack-control.txt", "3281c6c1711601fb"},
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"granular-haze-control", "build/fixtures/granular-haze-control.txt", "412d5186c87b5cc0"},
     {"layered-euclid-burst-control", "build/fixtures/layered-euclid-burst-control.txt", "5c44c5a0107e630b"},
