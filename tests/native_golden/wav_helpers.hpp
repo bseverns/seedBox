@@ -44,4 +44,10 @@ SpatialRender render_stage71_scene();
 //! samples (L/R) so callers can dump the buffer straight to disk.
 std::vector<int16_t> render_layered_euclid_burst_fixture();
 
+//! Mixes the sampler, resonator, and granular engines under a shared
+//! Euclid/Burst schedule while exposing every automation lane. Returns the
+//! stereo PCM buffer plus the deterministic control log so the caller can emit
+//! both artifacts (WAV + `*-control.txt`).
+SpatialRender render_engine_hybrid_fixture();
+
 }  // namespace golden

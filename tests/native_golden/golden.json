@@ -31,6 +31,27 @@
       "notes": ""
     },
     {
+      "name": "engine-hybrid-stack",
+      "path": "build/fixtures/engine-hybrid-stack.wav",
+      "kind": "audio",
+      "hash": "e78a69cb203c4627",
+      "wav_path": "build/fixtures/engine-hybrid-stack.wav",
+      "sample_rate_hz": 48000,
+      "frames": 726000,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": "Sampler/resonator/granular hybrid stack driven by the Euclid/Burst schedule with macro pan + modulation lanes."
+    },
+    {
+      "name": "engine-hybrid-stack-control",
+      "path": "build/fixtures/engine-hybrid-stack-control.txt",
+      "kind": "log",
+      "hash": "3281c6c1711601fb",
+      "bytes": 482113,
+      "lines": 7818,
+      "notes": "Event ledger + per-lane automation dump for the hybrid stack (Euclid/Burst gates, sampler/resonator/granular mod lanes, and macro pan)."
+    },
+    {
       "name": "euclid-mask",
       "path": "build/fixtures/euclid-mask.txt",
       "kind": "log",
@@ -64,10 +85,10 @@
       "name": "layered-euclid-burst",
       "path": "build/fixtures/layered-euclid-burst.wav",
       "kind": "audio",
-      "hash": "f58e14d36c461c3a",
+      "hash": "a8c91f05b87811f1",
       "wav_path": "build/fixtures/layered-euclid-burst.wav",
       "sample_rate_hz": 48000,
-      "frames": 772364,
+      "frames": 450708,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": ""
@@ -127,10 +148,10 @@
       "name": "modulated-sampler",
       "path": "build/fixtures/modulated-sampler.wav",
       "kind": "audio",
-      "hash": "72afd3bf5e65e416",
+      "hash": "cd6bd4abbf38a1a7",
       "wav_path": "build/fixtures/modulated-sampler.wav",
       "sample_rate_hz": 48000,
-      "frames": 48000,
+      "frames": 87251,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": ""
@@ -154,7 +175,7 @@
       "frames": 48000,
       "channels": 4,
       "channel_layout": "4-channel",
-      "notes": "Quad-bus mix layering sampler, resonator, granular, and reseed stems to regression-test surround staging."
+      "notes": ""
     },
     {
       "name": "quad-bus-control",
@@ -301,27 +322,6 @@
       "notes": ""
     },
     {
-      "name": "surround-bus",
-      "path": "build/fixtures/surround-bus.wav",
-      "kind": "audio",
-      "hash": "ec0a317b727ea022",
-      "wav_path": "build/fixtures/surround-bus.wav",
-      "sample_rate_hz": 48000,
-      "frames": 48000,
-      "channels": 6,
-      "channel_layout": "6-channel",
-      "notes": "6-channel mid/side surround stack that stress-tests the PCM writer with front/rear crossfeeds."
-    },
-    {
-      "name": "surround-bus-control",
-      "path": "build/fixtures/surround-bus-control.txt",
-      "kind": "log",
-      "hash": "440ade6a5be15506",
-      "bytes": 660,
-      "lines": 15,
-      "notes": ""
-    },
-    {
       "name": "stage71-bus",
       "path": "build/fixtures/stage71-bus.wav",
       "kind": "audio",
@@ -330,7 +330,7 @@
       "sample_rate_hz": 48000,
       "frames": 48000,
       "channels": 8,
-      "channel_layout": "7.1 theatrical",
+      "channel_layout": "8-channel",
       "notes": "7.1 layout that names every lane (L,R,C,LFE,Ls,Rs,Lrs,Rrs) and stress-tests the stage crossfeed math."
     },
     {
@@ -341,6 +341,27 @@
       "bytes": 1134,
       "lines": 16,
       "notes": "Channel legend + stem routing comments for the 7.1 render."
+    },
+    {
+      "name": "surround-bus",
+      "path": "build/fixtures/surround-bus.wav",
+      "kind": "audio",
+      "hash": "ec0a317b727ea022",
+      "wav_path": "build/fixtures/surround-bus.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 6,
+      "channel_layout": "6-channel",
+      "notes": ""
+    },
+    {
+      "name": "surround-bus-control",
+      "path": "build/fixtures/surround-bus-control.txt",
+      "kind": "log",
+      "hash": "440ade6a5be15506",
+      "bytes": 660,
+      "lines": 15,
+      "notes": ""
     }
   ],
   "last_updated_by": "scripts/compute_golden_hashes.py",
@@ -349,5 +370,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-16T15:33:28Z"
+  "generated_at_utc": "2025-11-16T17:16:20Z"
 }

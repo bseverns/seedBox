@@ -1488,6 +1488,35 @@ void test_render_surround_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_engine_hybrid_stack_golden() {
+    const auto* fixture = find_audio_fixture("engine-hybrid-stack");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "engine-hybrid-stack fixture metadata missing");
+    const auto* log_fixture = find_log_fixture("engine-hybrid-stack-control");
+    TEST_ASSERT_NOT_NULL_MESSAGE(log_fixture, "engine-hybrid-stack control metadata missing");
+
+    const auto capture = golden::render_engine_hybrid_fixture();
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = capture.sample_rate_hz;
+    request.channels = capture.channels;
+    request.samples = capture.samples;
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write engine-hybrid-stack golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const bool log_ok = emit_control_log("engine-hybrid-stack", capture.control_log);
+    TEST_ASSERT_TRUE_MESSAGE(log_ok, "Failed to write engine-hybrid-stack control log");
+    const std::string log_hash = golden::hash_bytes(capture.control_log);
+    TEST_ASSERT_EQUAL_STRING(log_fixture->expected_hash, log_hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+    assert_manifest_contains(manifest_body, *log_fixture);
+}
+
 void test_render_stage71_golden() {
     const auto* fixture = find_audio_fixture("stage71-bus");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "stage71-bus fixture metadata missing");
@@ -1697,6 +1726,7 @@ int main(int, char**) {
     RUN_TEST(test_render_mixer_golden);
     RUN_TEST(test_render_quadraphonic_golden);
     RUN_TEST(test_render_surround_golden);
+    RUN_TEST(test_render_engine_hybrid_stack_golden);
     RUN_TEST(test_render_stage71_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);

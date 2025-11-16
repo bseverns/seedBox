@@ -40,6 +40,16 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   `modulated-sampler-control.txt` automation log so reviewers can see the exact
   modulation lanes that carved those wobbles. That stress case makes it obvious
   when downstream automation plumbing drifts from the C++ reference.
+  Hot on its heels is `engine-hybrid-stack.wav`, minted by
+  [`render_engine_hybrid_fixture()`](../../tests/native_golden/wav_helpers.cpp) and
+  registered via `test_render_engine_hybrid_stack_golden()` in
+  [`tests/native_golden/test_main.cpp`](../../tests/native_golden/test_main.cpp).
+  It hammers the sampler, resonator, and granular engines with the same Euclid +
+  Burst schedule, then logs **every** automation lane (brightness, drive,
+  bloom/feedback, grain density, macro pan) to
+  `engine-hybrid-stack-control.txt`. Think of it as a deterministic track sheet:
+  if a PR nudges the Euclid mask, Burst spacing, or any of the modulation waves,
+  the log diff spells out exactly what changed without ever leaving the CLI.
 - **Layered Euclid/Burst capture:** `layered-euclid-burst.wav` now rides shotgun
   with every golden run. The helper
   [`render_layered_euclid_burst_fixture()`](../../tests/native_golden/wav_helpers.cpp)

@@ -28,9 +28,10 @@ namespace golden {
 
 namespace {
 
-#if ENABLE_GOLDEN
 constexpr double kTwoPi = 6.283185307179586476925286766559;
 constexpr double kHalfPi = 1.5707963267948966192313216916398;
+
+#if ENABLE_GOLDEN
 
 struct LayeredEvent {
     std::uint32_t whenSamples = 0;
@@ -174,8 +175,6 @@ std::string hash_bytes(const std::string &payload) {
 }
 
 namespace {
-
-constexpr double kTwoPi = 6.283185307179586476925286766559;
 
 template <std::size_t ChannelCount>
 struct StageStem {
@@ -342,6 +341,247 @@ SpatialRender render_stage71_scene() {
     scene.channels = static_cast<std::uint16_t>(kChannels);
     scene.frames = kFrames;
     return scene;
+}
+
+SpatialRender render_engine_hybrid_fixture() {
+#if !ENABLE_GOLDEN
+    return {};
+#else
+    constexpr double kSampleRate = 48000.0;
+    constexpr double kBpm = 128.0;
+    constexpr int kBeats = 28;
+    constexpr double kStepsPerBeat = 4.0;
+    constexpr std::uint8_t kEuclidSteps = 11;
+    constexpr std::uint8_t kEuclidFills = 6;
+    constexpr std::uint8_t kEuclidRotate = 2;
+    constexpr std::uint8_t kBurstCluster = 4;
+    constexpr std::uint32_t kBurstSpacing = 360;
+    constexpr std::size_t kAutomationStride = 96;
+    constexpr double kNormalizeTarget = 0.91;
+
+    const std::size_t totalSteps = static_cast<std::size_t>(kBeats * kStepsPerBeat);
+    const double framesPerBeat = kSampleRate * (60.0 / static_cast<double>(kBpm));
+    const double framesPerStep = framesPerBeat / kStepsPerBeat;
+    const std::size_t frames = static_cast<std::size_t>(
+        std::lround(totalSteps * framesPerStep + kSampleRate * 2.0));
+    if (frames == 0) {
+        return {};
+    }
+
+    SpatialRender render;
+    render.sample_rate_hz = static_cast<std::uint32_t>(kSampleRate);
+    render.channels = 2u;
+    render.frames = frames;
+
+    std::vector<double> samplerBrightness(frames);
+    std::vector<double> samplerDrive(frames);
+    std::vector<double> resonatorBloom(frames);
+    std::vector<double> resonatorFeedback(frames);
+    std::vector<double> granularDensity(frames);
+    std::vector<double> macroPan(frames);
+
+    const double normalization = (frames > 1) ? static_cast<double>(frames - 1u) : 1.0;
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        const double progress = static_cast<double>(frame) / normalization;
+        samplerBrightness[frame] = 0.30 + 0.70 * 0.5 *
+                                   (1.0 + std::sin(kTwoPi * (progress * 1.8 + 0.07)));
+        samplerDrive[frame] = 0.20 + 0.80 * 0.5 *
+                              (1.0 + std::cos(kTwoPi * (progress * 0.6 + 0.25)));
+        resonatorBloom[frame] = 0.18 + 0.82 * 0.5 *
+                                (1.0 + std::sin(kTwoPi * (progress * 0.9 + 0.41)));
+        resonatorFeedback[frame] = 0.35 + 0.65 * 0.5 *
+                                   (1.0 + std::cos(kTwoPi * (progress * 1.15 + samplerDrive[frame] * 0.2)));
+        granularDensity[frame] = 0.12 + 0.88 * 0.5 *
+                                 (1.0 + std::sin(kTwoPi * (progress * 0.55 + resonatorBloom[frame] * 0.3)));
+        macroPan[frame] = clamp01(0.5 + 0.45 * std::sin(kTwoPi * (progress * 0.33 + 0.15)));
+    }
+
+    EuclidEngine euclid;
+    Engine::PrepareContext euclidPrep{};
+    euclidPrep.masterSeed = 0xC0FFEEu;
+    euclid.prepare(euclidPrep);
+    euclid.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kSteps), kEuclidSteps});
+    euclid.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kFills), kEuclidFills});
+    euclid.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kRotate), kEuclidRotate});
+
+    BurstEngine burst;
+    Engine::PrepareContext burstPrep{};
+    burstPrep.masterSeed = 0xB17EB5Eu;
+    burst.prepare(burstPrep);
+    burst.onParam({0, static_cast<std::uint16_t>(BurstEngine::Param::kClusterCount), kBurstCluster});
+    burst.onParam({0, static_cast<std::uint16_t>(BurstEngine::Param::kSpacingSamples),
+                   static_cast<std::int32_t>(kBurstSpacing)});
+
+    std::vector<LayeredEvent> events;
+    events.reserve(totalSteps * kBurstCluster);
+    Engine::TickContext tick{};
+    Seed burstSeed{};
+    std::size_t eventCounter = 0;
+    for (std::uint32_t step = 0; step < totalSteps; ++step) {
+        tick.tick = step;
+        euclid.onTick(tick);
+        if (!euclid.lastGate()) {
+            continue;
+        }
+        const std::uint32_t when = static_cast<std::uint32_t>(
+            std::lround(static_cast<double>(step) * framesPerStep));
+        burstSeed.id = static_cast<std::uint32_t>(0x400 + step);
+        burst.onSeed({burstSeed, when});
+        const auto& cluster = burst.pendingTriggers();
+        for (std::size_t clusterIdx = 0; clusterIdx < cluster.size(); ++clusterIdx) {
+            LayeredEvent event{};
+            event.whenSamples = std::min(cluster[clusterIdx], static_cast<std::uint32_t>(frames - 1));
+            event.euclidStep = step;
+            event.burstIndex = static_cast<std::uint32_t>(clusterIdx);
+            event.engine = static_cast<int>((eventCounter + clusterIdx) % 3u);
+            const double panSeed = 0.18 + 0.7 *
+                                   (static_cast<double>((step * 17 + clusterIdx * 13) % 101) / 100.0);
+            event.panSeed = panSeed;
+            events.push_back(event);
+        }
+        eventCounter += cluster.size();
+    }
+
+    std::vector<double> left(frames, 0.0);
+    std::vector<double> right(frames, 0.0);
+
+    const std::array<double, 6> samplerBase = {110.0, 147.0, 196.0, 220.0, 246.94, 329.63};
+    const std::array<double, 5> resonatorModes = {196.0, 233.08, 261.63, 311.13, 392.0};
+
+    for (const auto& event : events) {
+        const std::size_t start = std::min<std::size_t>(event.whenSamples, frames - 1);
+        const double macro = sample_lane(macroPan, start);
+        const double blendedPan = clamp01(0.2 + 0.5 * event.panSeed + 0.3 * (macro - 0.5));
+        const auto pan = make_pan(blendedPan);
+        switch (event.engine) {
+            case 0: {
+                const double brightness = sample_lane(samplerBrightness, start);
+                const double drive = sample_lane(samplerDrive, start);
+                const double freq = samplerBase[(event.euclidStep + event.burstIndex) % samplerBase.size()] *
+                                   (1.0 + 0.35 * (brightness - 0.5));
+                const std::size_t duration = std::min<std::size_t>(
+                    frames - start, static_cast<std::size_t>(kSampleRate * (0.12 + 0.5 * drive)));
+                for (std::size_t i = 0; i < duration; ++i) {
+                    const double t = static_cast<double>(i) / kSampleRate;
+                    double env = std::exp(-t * (2.4 - 1.2 * drive));
+                    env *= (1.0 - std::exp(-t * (18.0 + 40.0 * drive)));
+                    double sample = std::sin(kTwoPi * freq * t + drive * 1.2);
+                    sample += 0.35 * brightness * std::sin(kTwoPi * freq * 2.01 * t + brightness);
+                    sample += 0.18 * std::sin(kTwoPi * freq * 0.5 * t + event.burstIndex);
+                    sample *= env * (0.42 + 0.48 * drive);
+                    left[start + i] += sample * pan[0];
+                    right[start + i] += sample * pan[1];
+                }
+                break;
+            }
+            case 1: {
+                const double bloom = sample_lane(resonatorBloom, start);
+                const double feedback = sample_lane(resonatorFeedback, start);
+                const double mode = resonatorModes[(event.euclidStep + event.burstIndex) % resonatorModes.size()];
+                const double freq = mode * (1.0 + 0.25 * (bloom - 0.5));
+                const std::size_t duration = std::min<std::size_t>(
+                    frames - start, static_cast<std::size_t>(kSampleRate * (0.35 + 0.9 * feedback)));
+                for (std::size_t i = 0; i < duration; ++i) {
+                    const double t = static_cast<double>(i) / kSampleRate;
+                    double env = std::exp(-t * (0.7 - 0.3 * bloom));
+                    env += 0.1 * std::sin(kTwoPi * (0.15 + bloom * 0.1) * t);
+                    const double shimmer = std::sin(kTwoPi * freq * t + 0.3 * event.euclidStep);
+                    const double golden = std::sin(kTwoPi * freq * 1.618 * t + bloom);
+                    const double undertone = std::sin(kTwoPi * freq * 0.5 * t + feedback);
+                    const double regen = feedback * std::sin(kTwoPi * freq * 0.25 * t + event.burstIndex);
+                    const double sample = (shimmer * (0.6 + 0.2 * bloom) + golden * 0.3 + undertone * 0.2 + regen) *
+                                          env * (0.4 + 0.4 * bloom);
+                    left[start + i] += sample * pan[0];
+                    right[start + i] += sample * pan[1];
+                }
+                break;
+            }
+            default: {
+                const double density = sample_lane(granularDensity, start);
+                const std::size_t grains = std::min<std::size_t>(
+                    frames - start, static_cast<std::size_t>(kSampleRate * (0.18 + 0.6 * density)));
+                for (std::size_t i = 0; i < grains; ++i) {
+                    const double t = static_cast<double>(i) / kSampleRate;
+                    const double window = std::sin(std::min(1.0, t / (0.02 + density * 0.08)) * kHalfPi);
+                    const double env = window * std::exp(-t * (1.4 - 0.6 * density));
+                    const double swirl = std::sin(kTwoPi * (0.3 + 0.25 * density) * t + macro);
+                    const double wobble = std::cos(kTwoPi * (80.0 + 140.0 * density) * t + density);
+                    const double shimmer = std::sin(kTwoPi * (120.0 + 200.0 * density) * t + event.burstIndex);
+                    double sample = (wobble * (0.65 + 0.25 * swirl) + shimmer * 0.35) * env * 0.5;
+                    left[start + i] += sample * (pan[0] + 0.15 * swirl);
+                    right[start + i] += sample * (pan[1] - 0.15 * swirl);
+                }
+                break;
+            }
+        }
+    }
+
+    double maxAbs = 0.0;
+    for (std::size_t i = 0; i < frames; ++i) {
+        maxAbs = std::max(maxAbs, std::max(std::abs(left[i]), std::abs(right[i])));
+    }
+    const double scale = (maxAbs > 0.0) ? (kNormalizeTarget / maxAbs) : 0.0;
+
+    std::vector<int16_t> samples(frames * 2u);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        const double l = left[frame] * scale;
+        const double r = right[frame] * scale;
+        samples[2u * frame] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768L, 32767L));
+        samples[2u * frame + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768L, 32767L));
+    }
+
+    std::ostringstream log;
+    log << "# engine-hybrid-stack control log" << '\n';
+    log << "sample_rate_hz=" << static_cast<int>(kSampleRate)
+        << " frames=" << frames << " bpm=" << kBpm << " beats=" << kBeats << '\n';
+    log << "euclid_steps=" << static_cast<int>(kEuclidSteps)
+        << " fills=" << static_cast<int>(kEuclidFills)
+        << " rotate=" << static_cast<int>(kEuclidRotate)
+        << " steps_per_beat=" << kStepsPerBeat << '\n';
+    log << "burst_cluster=" << static_cast<int>(kBurstCluster)
+        << " spacing_samples=" << kBurstSpacing
+        << " frames_per_step=" << framesPerStep << '\n';
+    log << "euclid_seed=0x" << std::hex << std::nouppercase << euclid.generationSeed()
+        << " burst_seed=0x" << burst.generationSeed() << std::dec << '\n';
+    log << "events=" << events.size() << '\n';
+    log << "index,engine,when_samples,euclid_step,burst_idx,pan,sampler_brightness,sampler_drive,"
+           "resonator_bloom,resonator_feedback,granular_density,macro_pan"
+        << '\n';
+    log << std::fixed << std::setprecision(6);
+    for (std::size_t idx = 0; idx < events.size(); ++idx) {
+        const auto& event = events[idx];
+        const std::size_t frame = std::min<std::size_t>(event.whenSamples, frames - 1);
+        const char* engineLabel = (event.engine == 0) ? "sampler"
+                                   : (event.engine == 1) ? "resonator"
+                                                         : "granular";
+        log << idx << ',' << engineLabel << ',' << event.whenSamples << ',' << event.euclidStep << ','
+            << event.burstIndex << ',' << clamp01(event.panSeed) << ','
+            << sample_lane(samplerBrightness, frame) << ',' << sample_lane(samplerDrive, frame) << ','
+            << sample_lane(resonatorBloom, frame) << ',' << sample_lane(resonatorFeedback, frame) << ','
+            << sample_lane(granularDensity, frame) << ',' << sample_lane(macroPan, frame) << '\n';
+    }
+    log << "automation_stride_frames=" << kAutomationStride << '\n';
+    log << "frame,sampler_brightness,sampler_drive,resonator_bloom,resonator_feedback,granular_density,macro_pan"
+        << '\n';
+    for (std::size_t frame = 0; frame < frames; frame += kAutomationStride) {
+        log << frame << ',' << samplerBrightness[frame] << ',' << samplerDrive[frame] << ','
+            << resonatorBloom[frame] << ',' << resonatorFeedback[frame] << ','
+            << granularDensity[frame] << ',' << macroPan[frame] << '\n';
+    }
+    if ((frames - 1u) % kAutomationStride != 0u) {
+        const std::size_t tail = frames - 1u;
+        log << tail << ',' << samplerBrightness[tail] << ',' << samplerDrive[tail] << ','
+            << resonatorBloom[tail] << ',' << resonatorFeedback[tail] << ','
+            << granularDensity[tail] << ',' << macroPan[tail] << '\n';
+    }
+    log << "normalize=" << kNormalizeTarget << '\n';
+
+    render.samples = std::move(samples);
+    render.control_log = log.str();
+    return render;
+#endif
 }
 
 std::vector<int16_t> render_layered_euclid_burst_fixture() {
