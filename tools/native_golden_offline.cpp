@@ -4,12 +4,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -30,6 +32,7 @@
 #include "engine/Resonator.h"
 #include "engine/Sampler.h"
 #include "tests/native_golden/wav_helpers.hpp"
+#include "tests/native_golden/fixtures_autogen.hpp"
 
 #include "../examples/shared/offline_renderer.hpp"
 #include "../examples/shared/reseed_playbook.hpp"
@@ -39,32 +42,37 @@ namespace {
 constexpr std::size_t kDroneFrames = 48000;
 constexpr double kSampleRate = 48000.0;
 
-struct GoldenFixture {
-    const char* name;
-    const char* path;
-    const char* expected_hash;
-};
-
-constexpr GoldenFixture kAudioFixtures[] = {
-    {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
-    {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
-    {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
-    {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
-    {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
-    {"quad-bus", "build/fixtures/quad-bus.wav", "2e1656a463a978d5"},
-    {"surround-bus", "build/fixtures/surround-bus.wav", "dbafae2da8a1ac60"},
-    {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
-    {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
-    {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
-};
-
-constexpr GoldenFixture kLogFixtures[] = {
-    {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
-    {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
-    {"reseed-log", "build/fixtures/reseed-log.json", "873935e11a5704f3"},
-};
+using native_golden::FixtureInfo;
+using native_golden::kAudioFixtures;
+using native_golden::kAudioFixtureCount;
+using native_golden::kLogFixtures;
+using native_golden::kLogFixtureCount;
 
 enum class FixtureKind { kAudio, kLog };
+
+const FixtureInfo* find_fixture(const FixtureInfo* fixtures,
+                                std::size_t count,
+                                const char* name) {
+    if (name == nullptr) {
+        return nullptr;
+    }
+    for (std::size_t i = 0; i < count; ++i) {
+        if (std::strcmp(fixtures[i].name, name) == 0) {
+            return &fixtures[i];
+        }
+    }
+    return nullptr;
+}
+
+const FixtureInfo* find_audio_fixture(const char* name) {
+    return find_fixture(kAudioFixtures, kAudioFixtureCount, name);
+}
+
+const FixtureInfo* find_log_fixture(const char* name) {
+    return find_fixture(kLogFixtures, kLogFixtureCount, name);
+}
+
+void ensure_log_fixture(const FixtureInfo& spec, const std::string& body);
 
 std::string to_lower_copy(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
@@ -116,7 +124,7 @@ bool token_matches_kind(const std::string& token, FixtureKind kind) {
     return token == "log" || token == "logs" || token == "txt" || token == "text";
 }
 
-bool should_emit(const GoldenFixture& spec,
+bool should_emit(const FixtureInfo& spec,
                  FixtureKind kind,
                  const std::vector<std::string>& tokens) {
     if (tokens.empty()) {
@@ -1064,11 +1072,16 @@ bool emit_control_log(const char* fixture_name, const std::string& body) {
     if (fixture_name == nullptr || *fixture_name == '\0') {
         return false;
     }
-    const std::string manifest = std::string("build/fixtures/") + fixture_name + "-control.txt";
-    return write_text_file(fixture_path(manifest.c_str()), body);
+    const std::string log_name = std::string(fixture_name) + "-control";
+    const auto* spec = find_log_fixture(log_name.c_str());
+    if (spec == nullptr) {
+        throw std::runtime_error("Missing log fixture spec for " + log_name);
+    }
+    ensure_log_fixture(*spec, body);
+    return true;
 }
 
-void ensure_fixture(const GoldenFixture& spec,
+void ensure_fixture(const FixtureInfo& spec,
                     const std::vector<int16_t>& samples,
                     std::uint16_t channels) {
     golden::WavWriteRequest request{};
@@ -1088,7 +1101,7 @@ void ensure_fixture(const GoldenFixture& spec,
     std::cout << "[ok] " << spec.name << " -> " << spec.path << " (" << hash << ")" << std::endl;
 }
 
-void ensure_log_fixture(const GoldenFixture& spec, const std::string& body) {
+void ensure_log_fixture(const FixtureInfo& spec, const std::string& body) {
     const auto path = fixture_path(spec.path);
     if (!write_text_file(path, body)) {
         throw std::runtime_error(std::string("Failed to write log fixture ") + spec.name);
@@ -1102,26 +1115,34 @@ void ensure_log_fixture(const GoldenFixture& spec, const std::string& body) {
 }
 
 template <typename Generator>
-void maybe_emit_audio(const GoldenFixture& spec,
+void maybe_emit_audio(const char* fixture_name,
                       std::uint16_t channels,
                       Generator&& generator,
                       const std::vector<std::string>& filters) {
-    if (!should_emit(spec, FixtureKind::kAudio, filters)) {
-        std::cout << "[skip] " << spec.name << " (filtered)" << std::endl;
+    const auto* spec = find_audio_fixture(fixture_name);
+    if (spec == nullptr) {
+        throw std::runtime_error(std::string("Unknown audio fixture: ") + fixture_name);
+    }
+    if (!should_emit(*spec, FixtureKind::kAudio, filters)) {
+        std::cout << "[skip] " << spec->name << " (filtered)" << std::endl;
         return;
     }
-    ensure_fixture(spec, generator(), channels);
+    ensure_fixture(*spec, generator(), channels);
 }
 
 template <typename Generator>
-void maybe_emit_log(const GoldenFixture& spec,
+void maybe_emit_log(const char* fixture_name,
                     Generator&& generator,
                     const std::vector<std::string>& filters) {
-    if (!should_emit(spec, FixtureKind::kLog, filters)) {
-        std::cout << "[skip] " << spec.name << " (filtered)" << std::endl;
+    const auto* spec = find_log_fixture(fixture_name);
+    if (spec == nullptr) {
+        throw std::runtime_error(std::string("Unknown log fixture: ") + fixture_name);
+    }
+    if (!should_emit(*spec, FixtureKind::kLog, filters)) {
+        std::cout << "[skip] " << spec->name << " (filtered)" << std::endl;
         return;
     }
-    ensure_log_fixture(spec, generator());
+    ensure_log_fixture(*spec, generator());
 }
 
 }  // namespace
@@ -1140,22 +1161,22 @@ int main() {
             std::cout << std::endl;
         }
 
-        maybe_emit_audio(kAudioFixtures[0], 1, [] { return make_drone(); }, filters);
-        maybe_emit_audio(kAudioFixtures[1], 1, [] { return render_sampler_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[2], 1, [] { return render_resonator_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[3], 2, [] { return render_granular_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[4], 2, [] { return render_mixer_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[5], 4, [] { return render_quadraphonic_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[6], 6, [] { return render_surround_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[7], 1, [] { return render_long_random_take_fixture(); }, filters);
-        maybe_emit_audio(kAudioFixtures[8], 1,
+        maybe_emit_audio("drone-intro", 1, [] { return make_drone(); }, filters);
+        maybe_emit_audio("sampler-grains", 1, [] { return render_sampler_fixture(); }, filters);
+        maybe_emit_audio("resonator-tail", 1, [] { return render_resonator_fixture(); }, filters);
+        maybe_emit_audio("granular-haze", 2, [] { return render_granular_fixture(); }, filters);
+        maybe_emit_audio("mixer-console", 2, [] { return render_mixer_fixture(); }, filters);
+        maybe_emit_audio("quad-bus", 4, [] { return render_quadraphonic_fixture(); }, filters);
+        maybe_emit_audio("surround-bus", 6, [] { return render_surround_fixture(); }, filters);
+        maybe_emit_audio("long-random-take", 1, [] { return render_long_random_take_fixture(); }, filters);
+        maybe_emit_audio("reseed-A", 1,
                         [] { return render_reseed_variant(0xCAFEu, "reseed-A"); }, filters);
-        maybe_emit_audio(kAudioFixtures[9], 1,
+        maybe_emit_audio("reseed-B", 1,
                         [] { return render_reseed_variant(0xBEEFu, "reseed-B"); }, filters);
 
-        maybe_emit_log(kLogFixtures[0], [] { return render_euclid_log(); }, filters);
-        maybe_emit_log(kLogFixtures[1], [] { return render_burst_log(); }, filters);
-        maybe_emit_log(kLogFixtures[2], [] { return render_reseed_log_fixture(); }, filters);
+        maybe_emit_log("euclid-mask", [] { return render_euclid_log(); }, filters);
+        maybe_emit_log("burst-cluster", [] { return render_burst_log(); }, filters);
+        maybe_emit_log("reseed-log", [] { return render_reseed_log_fixture(); }, filters);
 
         std::cout << "Native golden fixtures refreshed." << std::endl;
         return 0;
