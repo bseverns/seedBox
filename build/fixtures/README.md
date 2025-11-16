@@ -31,6 +31,11 @@ hashes to actually mean something.
   rehash with `python3 scripts/compute_golden_hashes.py --write` (the script
   insists on Python 3.7+, so calling it through `python3` saves you from dusty
   aliases).
+- The hash helper now fails loud when `wave.open()` can't parse a WAV or when a
+  `data` chunk lies about its length. That's intentional—CI needs to blow up so
+  we stop and re-render the fixture instead of blindly hashing a half file. Pass
+  `--allow-salvage` only when you're poking at a corpse locally and want the
+  script to do its best to clamp/pad the payload for forensic work.
 - Never hand-edit the fixtures; the hashes in
   [`tests/native_golden/golden.json`](../../tests/native_golden/golden.json) must
   stay in lock-step with these files. Update the manifest immediately after

@@ -110,18 +110,24 @@ def _scan_fixtures(fixtures_root):
     return sorted(p for p in fixtures_root.rglob("*") if p.is_file() and p.suffix.lower() in allowed)
 
 
-def _read_pcm(path):
-    # type: (Path) -> Tuple[bytes, int, int, int]
+def _read_pcm(path, allow_salvage=False):
+    # type: (Path, bool) -> Tuple[bytes, int, int, int]
     try:
         return _read_pcm_with_wave(path)
-    except wave.Error as exc:
+    except (wave.Error, EOFError) as exc:
+        details = str(exc) or exc.__class__.__name__
+        if not allow_salvage:
+            raise ValueError(
+                "{} has corrupt RIFF metadata ({}); rerender the fixture or run "
+                "with --allow-salvage to inspect it.".format(path, details)
+            )
         print(
             "warning: {} has corrupt RIFF metadata ({}); attempting salvage".format(
-                path, exc
+                path, details
             ),
             file=sys.stderr,
         )
-        return _read_pcm_salvage(path)
+        return _read_pcm_salvage(path, allow_salvage=True)
 
 
 def _read_pcm_with_wave(path):
@@ -141,8 +147,8 @@ def _read_pcm_with_wave(path):
     return payload, frame_rate, frames, channels
 
 
-def _read_pcm_salvage(path):
-    # type: (Path) -> Tuple[bytes, int, int, int]
+def _read_pcm_salvage(path, allow_salvage=False):
+    # type: (Path, bool) -> Tuple[bytes, int, int, int]
     blob = path.read_bytes()
     if len(blob) < 16 or not blob.startswith(b"RIFF"):
         raise ValueError("{} is not a WAVE/RIFF payload".format(path))
@@ -161,6 +167,13 @@ def _read_pcm_salvage(path):
         offset += 8
         available = len(blob) - offset
         if chunk_size > available:
+            if not allow_salvage:
+                raise ValueError(
+                    "{} chunk {} claims {} byte(s) but only {} remain; refusing to "
+                    "clamp.".format(
+                        path, chunk_id.decode("ascii", "replace"), chunk_size, max(available, 0)
+                    )
+                )
             print(
                 "warning: {} chunk {} claims {} byte(s) but only {} remain; clamping".format(
                     path, chunk_id.decode("ascii", "replace"), chunk_size, max(available, 0)
@@ -194,7 +207,7 @@ def _read_pcm_salvage(path):
     if fmt is None or not _fmt_is_sane(fmt):
         fmt = _scan_fmt_chunk(blob, path)
     if data_chunk is None:
-        data_chunk = _scan_data_chunk(blob, path)
+        data_chunk = _scan_data_chunk(blob, path, allow_salvage=allow_salvage)
     if fmt is None or data_chunk is None:
         raise ValueError("{} is missing fmt or data chunks".format(path))
 
@@ -277,8 +290,8 @@ def _fmt_is_sane(fmt):
     return True
 
 
-def _scan_data_chunk(blob, path):
-    # type: (bytes, Path) -> Optional[bytes]
+def _scan_data_chunk(blob, path, allow_salvage=False):
+    # type: (bytes, Path, bool) -> Optional[bytes]
     offset = blob.find(b"data")
     if offset == -1:
         return None
@@ -288,6 +301,13 @@ def _scan_data_chunk(blob, path):
     declared = int.from_bytes(blob[offset + 4 : offset + 8], "little")
     available = len(blob) - start
     if declared <= 0 or declared > available or available - declared > 32:
+        if not allow_salvage:
+            raise ValueError(
+                "{} data chunk length looked bogus ({} vs {}); refusing to "
+                "clamp. Re-render the fixture or rerun with --allow-salvage.".format(
+                    path, declared, available
+                )
+            )
         print(
             "warning: {} data chunk length looked bogus ({} vs {}); using tail payload".format(
                 path, declared, available
@@ -344,8 +364,9 @@ def _merge_fixture(existing,
 
 def compute_manifest(fixtures_root,
                      manifest_path,
-                     note_overrides):
-    # type: (Path, Path, Dict[str, str]) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]
+                     note_overrides,
+                     allow_salvage=False):
+    # type: (Path, Path, Dict[str, str], bool) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]
     manifest = _load_manifest(manifest_path)
     fixtures_root_list = manifest.get("fixtures", [])
     if not isinstance(fixtures_root_list, list):
@@ -361,7 +382,7 @@ def compute_manifest(fixtures_root,
             "path": str(path).replace("\\", "/"),
         }  # type: Dict[str, Any]
         if suffix == ".wav":
-            payload, sample_rate, frames, channels = _read_pcm(path)
+            payload, sample_rate, frames, channels = _read_pcm(path, allow_salvage=allow_salvage)
             hash_hex = _fnv64_pcm16(payload)
             layout = "mono" if channels == 1 else (
                 "stereo" if channels == 2 else "{}-channel".format(channels)
@@ -468,11 +489,21 @@ def main(argv):
         action="append",
         help="Override notes for a fixture: --note drone-intro='fresh note'",
     )
+    parser.add_argument(
+        "--allow-salvage",
+        action="store_true",
+        help="Permit best-effort salvage of corrupt WAVs instead of failing",
+    )
     args = parser.parse_args(argv)
 
     try:
         note_overrides = _parse_note_overrides(args.note)
-        manifest, fixtures = compute_manifest(args.fixtures_root, args.manifest, note_overrides)
+        manifest, fixtures = compute_manifest(
+            args.fixtures_root,
+            args.manifest,
+            note_overrides,
+            allow_salvage=args.allow_salvage,
+        )
     except Exception as exc:  # pragma: no cover - CLI surfacing
         print("error: {}".format(exc), file=sys.stderr)
         return 1

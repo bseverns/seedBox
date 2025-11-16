@@ -60,6 +60,13 @@ in, which keeps CI from caching a non-golden binary between runs.
 explicit `python3` binary even if your shell still points `python` at the
 ancient 2.x ghosts.)
 
+Heads-up: the hash helper now bails with a non-zero exit any time `wave.open()`
+refuses to parse a WAV or a `data` chunk's length needs clamping. That's on
+purpose—if the source artifact is garbage we want CI to scream until someone
+re-renders it. If you're debugging a mangled file locally and still want the
+old best-effort salvage path, add `--allow-salvage` so the script knows you're
+accepting the risk.
+
 Registry acting up or hacking offline? Run `./scripts/offline_native_golden.sh`
 to compile the standalone helper, regenerate every fixture, and refresh the
 manifest without touching PlatformIO. It relies on the same render routines and
