@@ -122,6 +122,7 @@ public:
 #if !SEEDBOX_HW
   GranularEngine::SimHardwareVoice debugGranularSimVoice(uint8_t index) const;
 #endif
+  const GranularEngine::Stats& granularStats() const { return granularStats_; }
 
   void seedPageToggleLock(uint8_t index);
   void seedPageToggleGlobalLock();
@@ -273,6 +274,7 @@ private:
   bool swingPageRequested_{false};
   bool swingEditing_{false};
   DisplaySnapshot displayCache_{};
+  GranularEngine::Stats granularStats_{};
   UiState uiStateCache_{};
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};

@@ -36,6 +36,28 @@ public:
     uint8_t seedId{0};
   };
 
+  struct Stats {
+    static constexpr std::size_t kHistogramBins = 6;
+    struct VoiceSample {
+      bool active{false};
+      uint8_t sizeBin{0};
+      uint8_t sprayBin{0};
+      bool sdOnly{false};
+    };
+
+    void reset();
+    void onVoicePlanned(uint8_t voiceIndex, const GrainVoice& voice);
+
+    uint8_t activeVoiceCount{0};
+    uint8_t sdOnlyVoiceCount{0};
+    uint32_t grainsPlanned{0};
+    std::array<uint16_t, kHistogramBins> grainSizeHistogram{};
+    std::array<uint16_t, kHistogramBins> sprayHistogram{};
+
+   private:
+    std::array<VoiceSample, kVoicePoolSize> voiceSamples_{};
+  };
+
   GranularEngine() = default;
 
   void init(Mode mode);
@@ -60,6 +82,7 @@ public:
   uint8_t activeVoiceCount() const;
   SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;
   Mode mode() const { return mode_; }
+  const Stats& stats() const { return stats_; }
 
 #if !SEEDBOX_HW
   struct SimHardwareVoice {
@@ -103,6 +126,7 @@ private:
   std::array<GrainVoice, kVoicePoolSize> voices_{};
   std::array<SourceSlot, kSdClipSlots> sdClips_{};
   std::vector<Seed> seedCache_{};
+  Stats stats_{};
 
 #if SEEDBOX_HW
   struct HardwareVoice {

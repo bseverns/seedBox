@@ -380,6 +380,7 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   engines_.granular().setMaxActiveVoices(hardwareMode ? 36 : 12);
   engines_.granular().armLiveInput(hardwareMode);
   populateSdClips(engines_.granular());
+  granularStats_ = engines_.granular().stats();
   engines_.resonator().setMaxVoices(hardwareMode ? 10 : 4);
   engines_.resonator().setDampingRange(0.18f, 0.92f);
   ClockProvider* provider = followExternalClockEnabled_ ? static_cast<ClockProvider*>(&midiClockIn_)
@@ -511,6 +512,7 @@ void AppState::tick() {
   }
   stepPresetCrossfade();
   ++frame_;
+  granularStats_ = engines_.granular().stats();
   captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
 }
@@ -1795,6 +1797,21 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const float probability = std::clamp(s.probability, 0.0f, 1.0f);
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
   const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
+
+  if (mode_ == Mode::PERF) {
+    const auto stats = granularStats_;
+    const unsigned grains = static_cast<unsigned>(stats.grainsPlanned % 1000u);
+    const std::size_t lastBin = GranularEngine::Stats::kHistogramBins - 1;
+    const unsigned sizeLow = static_cast<unsigned>(stats.grainSizeHistogram[0] + stats.grainSizeHistogram[1]);
+    const unsigned sizeHigh = static_cast<unsigned>(stats.grainSizeHistogram[lastBin]);
+    const unsigned sprayLow = static_cast<unsigned>(stats.sprayHistogram[0] + stats.sprayHistogram[1]);
+    const unsigned sprayHigh = static_cast<unsigned>(stats.sprayHistogram[lastBin]);
+    writeDisplayField(out.metrics,
+                      formatScratch(scratch, "GV%02u SD%02u GP%03u", stats.activeVoiceCount, stats.sdOnlyVoiceCount, grains));
+    writeDisplayField(out.nuance,
+                      formatScratch(scratch, "S%02u|%02u P%02u|%02u", sizeLow, sizeHigh, sprayLow, sprayHigh));
+    return;
+  }
 
 #if SEEDBOX_HW && !QUIET_MODE
   if (debugMetersEnabled_ && s.engine == 2) {

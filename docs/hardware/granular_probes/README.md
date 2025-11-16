@@ -71,3 +71,16 @@ Screenshot the Unity output (or copy the serial log) and stash it in the
 lab notebook—scrappy notes encouraged, but make the reproduction steps explicit
 so the next hacker can follow the breadcrumbs.
 
+## Serial HUD logger
+
+Need to watch the granular density without hunching over the OLED? Drop the
+snippet from `granular_perf_hud.py` into your bench sketch so the Teensy prints
+the same `GV/SD/S|P` HUD the PERF page now shows. Then run:
+
+```sh
+python docs/hardware/granular_probes/granular_perf_hud.py /dev/ttyACM0
+```
+
+and you get timestamped telemetry while you sweep clips or stress the submix
+fan-out. Zero oscilloscopes, maximum visibility.
+
