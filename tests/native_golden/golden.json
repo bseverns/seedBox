@@ -106,10 +106,10 @@
       "name": "modulated-sampler",
       "path": "build/fixtures/modulated-sampler.wav",
       "kind": "audio",
-      "hash": "e37cbd0f72ac4332",
+      "hash": "72afd3bf5e65e416",
       "wav_path": "build/fixtures/modulated-sampler.wav",
       "sample_rate_hz": 48000,
-      "frames": 25051,
+      "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": ""
