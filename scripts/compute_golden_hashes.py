@@ -112,6 +112,20 @@ def _scan_fixtures(fixtures_root):
 
 def _read_pcm(path):
     # type: (Path) -> Tuple[bytes, int, int, int]
+    try:
+        return _read_pcm_with_wave(path)
+    except wave.Error as exc:
+        print(
+            "warning: {} has corrupt RIFF metadata ({}); attempting salvage".format(
+                path, exc
+            ),
+            file=sys.stderr,
+        )
+        return _read_pcm_salvage(path)
+
+
+def _read_pcm_with_wave(path):
+    # type: (Path) -> Tuple[bytes, int, int, int]
     with wave.open(str(path), "rb") as wav:
         sample_width = wav.getsampwidth()
         if sample_width != 2:
@@ -123,15 +137,174 @@ def _read_pcm(path):
         channels = wav.getnchannels()
         payload = wav.readframes(frames)
 
+    payload, frames = _normalize_payload(path, payload, frames, channels, sample_width)
+    return payload, frame_rate, frames, channels
+
+
+def _read_pcm_salvage(path):
+    # type: (Path) -> Tuple[bytes, int, int, int]
+    blob = path.read_bytes()
+    if len(blob) < 16 or not blob.startswith(b"RIFF"):
+        raise ValueError("{} is not a WAVE/RIFF payload".format(path))
+
+    wave_offset = blob.find(b"WAVE")
+    if wave_offset == -1:
+        raise ValueError("{} is missing the WAVE signature".format(path))
+
+    offset = wave_offset + 4
+    fmt = None  # type: Optional[Dict[str, int]]
+    data_chunk = None  # type: Optional[bytes]
+
+    while offset + 8 <= len(blob):
+        chunk_id = blob[offset : offset + 4]
+        chunk_size = int.from_bytes(blob[offset + 4 : offset + 8], "little")
+        offset += 8
+        available = len(blob) - offset
+        if chunk_size > available:
+            print(
+                "warning: {} chunk {} claims {} byte(s) but only {} remain; clamping".format(
+                    path, chunk_id.decode("ascii", "replace"), chunk_size, max(available, 0)
+                ),
+                file=sys.stderr,
+            )
+            chunk_size = max(available, 0)
+        chunk = blob[offset : offset + chunk_size]
+        offset += chunk_size
+        if offset % 2:
+            offset += 1  # word-aligned padding
+
+        if chunk_id == b"fmt ":
+            if len(chunk) < 16:
+                raise ValueError("{} has incomplete fmt chunk".format(path))
+            audio_format = int.from_bytes(chunk[0:2], "little")
+            if audio_format != 1:
+                raise ValueError("{} is not PCM (format {})".format(path, audio_format))
+            channels = int.from_bytes(chunk[2:4], "little")
+            sample_rate = int.from_bytes(chunk[4:8], "little")
+            bits_per_sample = int.from_bytes(chunk[14:16], "little")
+            sample_width = bits_per_sample // 8
+            fmt = {
+                "channels": channels,
+                "sample_rate": sample_rate,
+                "sample_width": sample_width,
+            }
+        elif chunk_id == b"data":
+            data_chunk = chunk
+
+    if fmt is None or not _fmt_is_sane(fmt):
+        fmt = _scan_fmt_chunk(blob, path)
+    if data_chunk is None:
+        data_chunk = _scan_data_chunk(blob, path)
+    if fmt is None or data_chunk is None:
+        raise ValueError("{} is missing fmt or data chunks".format(path))
+
+    channels = fmt["channels"]
+    sample_rate = fmt["sample_rate"]
+    sample_width = fmt["sample_width"]
+    block_align = channels * sample_width if channels and sample_width else 0
+    if block_align <= 0:
+        raise ValueError("{} has invalid block alignment".format(path))
+
+    frames = len(data_chunk) // block_align
+    payload = data_chunk[: frames * block_align]
+    payload, frames = _normalize_payload(path, payload, frames, channels, sample_width)
+    return payload, sample_rate, frames, channels
+
+
+def _scan_fmt_chunk(blob, path):
+    # type: (bytes, Path) -> Optional[Dict[str, int]]
+    offset = blob.find(b"fmt ")
+    if offset == -1 or offset + 12 > len(blob):
+        return None
+    chunk = blob[offset + 8 : offset + 24]
+    if len(chunk) < 4:
+        return None
+
+    def _field(field, expected):
+        # type: (bytes, int) -> Optional[int]
+        return int.from_bytes(field, "little") if len(field) == expected else None
+
+    audio_format = _field(chunk[0:2], 2) or 1
+    channels = _field(chunk[2:4], 2) or 1
+    sample_rate = _field(chunk[4:8], 4) or 48000
+    bits_per_sample = _field(chunk[14:16], 2) or 16
+
+    warnings = []
+    if audio_format != 1:
+        warnings.append("format {}".format(audio_format))
+    if channels <= 0:
+        channels = 1
+        warnings.append("channels reset to 1")
+    if not (8000 <= sample_rate <= 384000):
+        sample_rate = 48000
+        warnings.append("sample_rate reset to 48000")
+    sample_width = bits_per_sample // 8
+    if sample_width <= 0 or sample_width > 4:
+        sample_width = 2
+        warnings.append("bits/sample reset to 16")
+
+    if warnings:
+        print(
+            "warning: {} fmt chunk was desynced; {}".format(
+                path, ", ".join(warnings)
+            ),
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "warning: {} fmt chunk was desynced; recovered via signature scan".format(path),
+            file=sys.stderr,
+        )
+
+    return {
+        "channels": channels,
+        "sample_rate": sample_rate,
+        "sample_width": sample_width,
+    }
+
+
+def _fmt_is_sane(fmt):
+    # type: (Dict[str, int]) -> bool
+    channels = fmt.get("channels")
+    sample_rate = fmt.get("sample_rate")
+    sample_width = fmt.get("sample_width")
+    if not isinstance(channels, int) or channels <= 0 or channels > 32:
+        return False
+    if not isinstance(sample_width, int) or sample_width <= 0 or sample_width > 8:
+        return False
+    if not isinstance(sample_rate, int) or not (8000 <= sample_rate <= 384000):
+        return False
+    return True
+
+
+def _scan_data_chunk(blob, path):
+    # type: (bytes, Path) -> Optional[bytes]
+    offset = blob.find(b"data")
+    if offset == -1:
+        return None
+    start = offset + 8
+    if start >= len(blob):
+        return None
+    declared = int.from_bytes(blob[offset + 4 : offset + 8], "little")
+    available = len(blob) - start
+    if declared <= 0 or declared > available or available - declared > 32:
+        print(
+            "warning: {} data chunk length looked bogus ({} vs {}); using tail payload".format(
+                path, declared, available
+            ),
+            file=sys.stderr,
+        )
+        return blob[start:]
+    return blob[start : start + declared]
+
+
+def _normalize_payload(path, payload, frames, channels, sample_width):
+    # type: (Path, bytes, int, int, int) -> Tuple[bytes, int]
     block_align = channels * sample_width
     expected_bytes = frames * block_align
     actual_bytes = len(payload)
 
     if actual_bytes != expected_bytes:
-        # Some of our legacy fixtures are missing a couple of trailing bytes, which
-        # causes ``wave`` to hand us a payload that is smaller than the frame
-        # metadata advertises. Rather than hard fail in CI, patch the payload so
-        # the manifest stays reproducible.
         if actual_bytes < expected_bytes:
             deficit = expected_bytes - actual_bytes
             print(
@@ -152,7 +325,7 @@ def _read_pcm(path):
         payload = payload[:actual_bytes]
         frames = actual_bytes // block_align
 
-    return payload, frame_rate, frames, channels
+    return payload, frames
 
 
 def _merge_fixture(existing,
