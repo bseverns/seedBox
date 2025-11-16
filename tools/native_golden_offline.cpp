@@ -159,6 +159,8 @@ std::vector<int16_t> render_reseed_variant(
     int passes = 3,
     const std::vector<reseed::StemDefinition>* stems_override = nullptr);
 
+std::vector<int16_t> render_granular_fixture();
+
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
     constexpr double kTwoPi = 6.283185307179586476925286766559;
@@ -319,6 +321,100 @@ std::vector<int16_t> render_sampler_fixture() {
         samples[i] = static_cast<int16_t>(std::clamp<std::int32_t>(
             static_cast<std::int32_t>(std::lround(scaled * 32767.0)), -32768, 32767));
     }
+    return samples;
+}
+
+std::vector<int16_t> render_modulated_sampler_fixture() {
+    const auto sampler = render_sampler_fixture();
+    const auto granular = render_granular_fixture();
+
+    const std::size_t sampler_frames = sampler.size();
+    const std::size_t granular_frames = granular.size() / 2u;
+    const std::size_t frames = std::min({sampler_frames, granular_frames, kDroneFrames});
+
+    if (frames == 0) {
+        return {};
+    }
+
+    constexpr double sampler_scale = 1.0 / 32768.0;
+    constexpr double granular_scale = 1.0 / 32768.0;
+    constexpr std::size_t kAutomationStride = 128;
+
+    std::vector<double> tone(frames);
+    std::vector<double> spread(frames);
+    std::vector<double> grain_lfo(frames);
+    std::vector<double> left(frames);
+    std::vector<double> right(frames);
+
+    double last_sampler = 0.0;
+    double max_abs = 0.0;
+
+    const double normalization = (frames > 1) ? static_cast<double>(frames - 1u) : 1.0;
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        const double normalized = static_cast<double>(frame) / normalization;
+        const double tone_phase = normalized * 3.0;
+        const double spread_phase = normalized * 2.0 + 0.25;
+        const double lfo_phase = normalized * 0.5;
+
+        tone[frame] = 0.15 + 0.85 * 0.5 * (1.0 + std::sin(2.0 * M_PI * tone_phase));
+        spread[frame] = 0.05 + 0.95 * 0.5 * (1.0 + std::cos(2.0 * M_PI * spread_phase));
+        grain_lfo[frame] = 0.25 + 0.75 * 0.5 *
+                           (1.0 + std::sin(2.0 * M_PI * (lfo_phase + spread[frame] * 0.35)));
+
+        const double sampler_sample = static_cast<double>(sampler[frame]) * sampler_scale;
+        const double bright = sampler_sample - last_sampler;
+        last_sampler = sampler_sample;
+        const double shaped = (1.0 - tone[frame]) * sampler_sample + tone[frame] * bright;
+
+        const double pan_angle = spread[frame] * (M_PI * 0.5);
+        const double pan_l = std::cos(pan_angle);
+        const double pan_r = std::sin(pan_angle);
+
+        const double grain_l = (frame < granular_frames)
+                                   ? static_cast<double>(granular[2u * frame]) * granular_scale
+                                   : 0.0;
+        const double grain_r = (frame < granular_frames)
+                                   ? static_cast<double>(granular[2u * frame + 1u]) * granular_scale
+                                   : 0.0;
+        const double swirl = grain_lfo[frame];
+        const double swirl_l = grain_l * swirl;
+        const double swirl_r = grain_r * (1.0 - 0.5 * swirl);
+
+        left[frame] = shaped * pan_l + swirl_l;
+        right[frame] = shaped * pan_r + swirl_r;
+
+        max_abs = std::max({max_abs, std::abs(left[frame]), std::abs(right[frame])});
+    }
+
+    const double scale = (max_abs > 0.0) ? (0.92 / max_abs) : 0.0;
+    std::vector<int16_t> samples(frames * 2u);
+    for (std::size_t frame = 0; frame < frames; ++frame) {
+        const double l = left[frame] * scale;
+        const double r = right[frame] * scale;
+        samples[2u * frame] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768L, 32767L));
+        samples[2u * frame + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768L, 32767L));
+    }
+
+    std::ostringstream control;
+    control << "# modulated-sampler control log" << '\n';
+    control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate) << '\n';
+    control << "automation_stride_frames=" << kAutomationStride << '\n';
+    control << "frame,tone,spread,grain_lfo" << '\n';
+    control << std::fixed << std::setprecision(6);
+    for (std::size_t frame = 0; frame < frames; frame += kAutomationStride) {
+        control << frame << ',' << tone[frame] << ',' << spread[frame] << ',' << grain_lfo[frame]
+                << '\n';
+    }
+    if ((frames - 1u) % kAutomationStride != 0u) {
+        const std::size_t tail = frames - 1u;
+        control << tail << ',' << tone[tail] << ',' << spread[tail] << ',' << grain_lfo[tail]
+                << '\n';
+    }
+    control << "normalize=0.92" << '\n';
+    (void)emit_control_log("modulated-sampler", control.str());
+
     return samples;
 }
 
@@ -1183,6 +1279,10 @@ int main() {
         maybe_emit_audio("resonator-tail", 1, [] { return render_resonator_fixture(); }, filters);
         maybe_emit_audio("granular-haze", 2, [] { return render_granular_fixture(); }, filters);
         maybe_emit_audio("mixer-console", 2, [] { return render_mixer_fixture(); }, filters);
+        maybe_emit_audio("modulated-sampler",
+                        2,
+                        [] { return render_modulated_sampler_fixture(); },
+                        filters);
         maybe_emit_audio("quad-bus", 4, [] { return render_quadraphonic_fixture(); }, filters);
         maybe_emit_audio("surround-bus", 6, [] { return render_surround_fixture(); }, filters);
         maybe_emit_audio("long-random-take", 1, [] { return render_long_random_take_fixture(); }, filters);

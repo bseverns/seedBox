@@ -16,7 +16,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"granular-haze", "build/fixtures/granular-haze.wav", "769c3d774ce0dadf"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "59f2afb7b540d28f"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "219433fb7ced6be1"},
-    {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "e37cbd0f72ac4332"},
+    {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "72afd3bf5e65e416"},
     {"quad-bus", "build/fixtures/quad-bus.wav", "2e1656a463a978d5"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "0baa982837e35d40"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "727e4db5fc5f7379"},
