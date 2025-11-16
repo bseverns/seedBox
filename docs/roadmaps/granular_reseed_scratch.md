@@ -43,7 +43,11 @@ edges welcome.
 
 ## Next deep-dive targets
 
-* Extend the granular suite so it inspects `GrainVoice::dspHandle` mappings and
-  mixer fan-out, mirroring the roadmap's graph sketch.【F:docs/roadmaps/granular.md†L61-L70】
+* ~~Extend the granular suite so it inspects `GrainVoice::dspHandle` mappings and
+  mixer fan-out, mirroring the roadmap's graph sketch.~~ The new
+  `tests/test_engine/test_granular_graph_layout.cpp` bootstraps the simulator
+  into `Mode::kSim`, fans out beyond a single mixer group, and locks down the
+  `dspHandle`/hardware-sim routing promises for both SD clips and live input.
+  【F:tests/test_engine/test_granular_graph_layout.cpp†L1-L85】
 * Add tap-tempo + preset prime mode tests alongside the live-input checks to make
   the reseeding roadmap symmetrical.【F:tests/test_app/README.md†L23-L41】

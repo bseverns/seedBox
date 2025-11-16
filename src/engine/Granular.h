@@ -77,6 +77,9 @@ public:
   // with the teensy granular effect's happy place.
   static constexpr int kGrainMemorySamples = 2048;
   static constexpr uint8_t kSdClipSlots = 8;
+  static constexpr uint8_t kMixerFanIn = 4;
+  static constexpr uint8_t kMixerGroups = (kVoicePoolSize + kMixerFanIn - 1) / kMixerFanIn;
+  static constexpr uint8_t kSubmixCount = (kMixerGroups + kMixerFanIn - 1) / kMixerFanIn;
 
 private:
   struct SourceSlot {
@@ -110,10 +113,6 @@ private:
     AudioMixer4 sourceMixer;
     AudioEffectGranular granular;
   };
-
-  static constexpr uint8_t kMixerFanIn = 4;
-  static constexpr uint8_t kMixerGroups = (kVoicePoolSize + kMixerFanIn - 1) / kMixerFanIn;
-  static constexpr uint8_t kSubmixCount = (kMixerGroups + kMixerFanIn - 1) / kMixerFanIn;
 
   AudioInputI2S liveInput_{};
   std::array<HardwareVoice, kVoicePoolSize> hwVoices_{};
