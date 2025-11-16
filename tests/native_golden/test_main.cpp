@@ -264,8 +264,12 @@ struct SamplerVoiceSpec {
     std::uint32_t when;
 };
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
-                                           const char* control_fixture_name = nullptr);
+std::vector<int16_t> render_reseed_variant(
+    std::uint32_t master_seed,
+    const char* control_fixture_name = nullptr,
+    int bpm = 124,
+    int passes = 3,
+    const std::vector<reseed::StemDefinition>* stems_override = nullptr);
 std::vector<int16_t> render_long_random_take_fixture();
 bool write_text_file(const std::string& manifest_path, const std::string& body);
 bool emit_control_log(const char* fixture_name, const std::string& body);
@@ -963,10 +967,17 @@ std::vector<int16_t> render_surround_fixture() {
     return samples;
 }
 
-std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
-                                           const char* control_fixture_name) {
-    const auto& stems = reseed::defaultStems();
-    const auto plan = reseed::makeBouncePlan(stems, master_seed, kSampleRate, 124, 3);
+std::vector<int16_t> render_reseed_variant(
+    std::uint32_t master_seed,
+    const char* control_fixture_name,
+    int bpm,
+    int passes,
+    const std::vector<reseed::StemDefinition>* stems_override) {
+    const std::vector<reseed::StemDefinition>* stems = stems_override;
+    if (stems == nullptr) {
+        stems = &reseed::defaultStems();
+    }
+    const auto plan = reseed::makeBouncePlan(*stems, master_seed, kSampleRate, bpm, passes);
     offline::OfflineRenderer renderer({kSampleRate, plan.framesHint});
     renderer.mixSamplerEvents(plan.samplerEvents);
     renderer.mixResonatorEvents(plan.resonatorEvents);
@@ -976,7 +987,7 @@ std::vector<int16_t> render_reseed_variant(std::uint32_t master_seed,
         std::ostringstream control;
         control << "# " << control_fixture_name << " control log" << '\n';
         control << "master_seed=0x" << std::hex << std::nouppercase << master_seed << std::dec
-                << " bpm=124 passes=3" << '\n';
+                << " bpm=" << bpm << " passes=" << passes << '\n';
         control << "event,name,lane,when_samples,seed_id,prng,engine" << '\n';
         for (std::size_t idx = 0; idx < plan.logEntries.size(); ++idx) {
             const auto& entry = plan.logEntries[idx];
@@ -1372,6 +1383,54 @@ void test_render_reseed_b_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_reseed_C_golden() {
+    const auto* fixture = find_audio_fixture("reseed-C");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-C fixture metadata missing");
+
+    constexpr int kBpm = 132;
+    constexpr int kPasses = 4;
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_reseed_variant(0xC0FFEEu, "reseed-C", kBpm, kPasses);
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-C golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
+void test_render_reseed_poly_golden() {
+    const auto* fixture = find_audio_fixture("reseed-poly");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "reseed-poly fixture metadata missing");
+
+    auto stems = reseed::defaultStems();
+    stems.push_back({"tape rattle", 4, reseed::EngineKind::kSampler});
+    stems.push_back({"clank shimmer", 5, reseed::EngineKind::kResonator});
+
+    constexpr int kBpm = 118;
+    constexpr int kPasses = 5;
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_reseed_variant(0xC001CAFEu, "reseed-poly", kBpm, kPasses, &stems);
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write reseed-poly golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
 void test_render_long_take_golden() {
     const auto* fixture = find_audio_fixture("long-random-take");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "long-random-take fixture metadata missing");
@@ -1466,6 +1525,8 @@ int main(int, char**) {
     RUN_TEST(test_render_surround_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);
+    RUN_TEST(test_render_reseed_C_golden);
+    RUN_TEST(test_render_reseed_poly_golden);
     RUN_TEST(test_render_long_take_golden);
     RUN_TEST(test_log_euclid_burst_golden);
     RUN_TEST(test_log_reseed_golden);

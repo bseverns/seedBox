@@ -1,4 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-build/fixtures/*.wav text working-tree-encoding=UTF-8 eol=lf diff
+build/fixtures/*.wav -text diff
