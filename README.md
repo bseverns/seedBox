@@ -321,8 +321,34 @@ strong.
 
 ## Audio postcard
 
-This is the seed: ['tone'](build/fixtures/drone-intro.wav)
-This is a one minute-render of a of the sounds this thing makes: ['long-random-take.wav'](build/fixtures/long-random-take.wav)
+Treat this like a mixtape insert tucked inside the lab notebook: a couple of
+canonical renders that prove the engines are alive and deterministic.
+
+- **110 Hz drone ("tone").**
+  [`build/fixtures/drone-intro.wav`](build/fixtures/drone-intro.wav) is the
+  dead-simple sine that anchors every reseed experiment. It comes straight out
+  of `make_drone()` inside
+  [`tests/native_golden/test_main.cpp`](tests/native_golden/test_main.cpp), so
+  whenever you run `pio test -e native_golden` the harness reprints the same
+  control log + WAV pair into `build/fixtures/`. That section of the test also
+  tags the manifest so reviewers can tell at a glance which mix buses the drone
+  hit during the regression run.
+- **30-second long take.**
+  [`build/fixtures/long-random-take.wav`](build/fixtures/long-random-take.wav)
+  is the flagship collage rendered by
+  `test_render_long_take_golden()` — six reseed passes bouncing between sampler,
+  granular, resonator, and rhythm engines with master seed `0x30F00D` so the
+  chaos still round-trips. You can capture a fresh take with either `pio test
+  -e native_golden --filter test_native_golden/test_render_long_take_golden` or
+  the shortcut `./tests/native_golden/render_long_take.sh`, then refresh the
+  manifest via `python3 scripts/compute_golden_hashes.py --write` so
+  `tests/native_golden/golden.json` records the new hash.
+
+Need to audition the postcard without guessing how to host the files? The
+playback notes in [`tests/native_golden/README.md`](tests/native_golden/README.md)
+walk through the tiny HTTP-server trick, and the manifest itself
+([`tests/native_golden/golden.json`](tests/native_golden/golden.json)) doubles as
+liner notes so you know which doc/test owns each source before pressing play.
 
 ## Contributing without fear
 
