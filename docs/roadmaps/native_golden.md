@@ -29,6 +29,11 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   override, and it still climbs the filesystem looking for `platformio.ini` if
   all else fails. No matter how you launch the tests, the renders end up in
   `<repo>/build/fixtures` instead of hiding inside `.pio/`.
+  The freshest entry, `stage71-bus.wav`, lives in `tests/native_golden/wav_helpers.cpp`:
+  the helper `render_stage71_scene()` synthesizes an eight-lane (L,R,C,LFE,Ls,Rs,Lrs,Rrs)
+  pass with a companion control log that literally annotates each bus. That
+  capture proves the mixer can chew on a labeled 7.1 layout even though the
+  helper lives outside `test_main.cpp`, which keeps the stage routing reusable.
   The newest entry, `modulated-sampler.wav`, is deliberately noisy: the helper
   `render_modulated_sampler_fixture()` mixes the sampler and granular engines,
   sweeps tone + spread automation every single frame, and prints a matching
