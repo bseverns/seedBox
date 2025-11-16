@@ -319,11 +319,9 @@ strong.
   experiments, or headless workflows, so you can feel the repo’s pulse before
   the tests and docs lock it down.
 
-## Audio postcard (TODO)
+## Audio postcard
 
-> TODO: Capture a 30-second SeedBox groove and drop the `.wav` into `out/`. When
-> it graduates to a repeatable expectation, promote the render into
-> `artifacts/` alongside golden logs so the CI badge can brag about it.
+A one minute-render of a of the sounds this thing makes: ['long-random-take.wav'](build/fixtures/long-random-take.wav)
 
 ## Contributing without fear
 
