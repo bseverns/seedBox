@@ -14,6 +14,7 @@ struct FixtureInfo {
 constexpr FixtureInfo kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
+    {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "f58e14d36c461c3a"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
     {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "72afd3bf5e65e416"},
@@ -33,6 +34,7 @@ constexpr FixtureInfo kLogFixtures[] = {
     {"drone-intro-control", "build/fixtures/drone-intro-control.txt", "d902a9aecc33d807"},
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"granular-haze-control", "build/fixtures/granular-haze-control.txt", "412d5186c87b5cc0"},
+    {"layered-euclid-burst-control", "build/fixtures/layered-euclid-burst-control.txt", "5c44c5a0107e630b"},
     {"long-random-take-control", "build/fixtures/long-random-take-control.txt", "8c149dfbb252a955"},
     {"mixer-console-control", "build/fixtures/mixer-console-control.txt", "06483a56b2862b42"},
     {"modulated-sampler-control", "build/fixtures/modulated-sampler-control.txt", "1b950922fea5dd08"},

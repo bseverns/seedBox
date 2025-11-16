@@ -35,6 +35,16 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   `modulated-sampler-control.txt` automation log so reviewers can see the exact
   modulation lanes that carved those wobbles. That stress case makes it obvious
   when downstream automation plumbing drifts from the C++ reference.
+- **Layered Euclid/Burst capture:** `layered-euclid-burst.wav` now rides shotgun
+  with every golden run. The helper
+  [`render_layered_euclid_burst_fixture()`](../../tests/native_golden/wav_helpers.cpp)
+  walks a Euclid mask and hands each gate to the Burst engine so sampler,
+  resonator, and granular voices all share the same schedule. The matching test
+  (`test_render_layered_euclid_burst_golden()` in
+  [`tests/native_golden/test_main.cpp`](../../tests/native_golden/test_main.cpp))
+  keeps the WAV + control log wired into the manifest so reviewers can diff the
+  Euclid/Burst event list and the per-frame modulation sweeps (`tone`,
+  `color`, and `spray`) alongside the audio.
 - **Hash discipline:** `golden::hash_pcm16` still mirrors the Python helper for
   PCM data, and a sibling FNV-1a byte walker fingerprints the log files. Both
   feed the same manifest so hashes stay in lockstep between test harness and

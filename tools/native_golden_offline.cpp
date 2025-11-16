@@ -1283,6 +1283,10 @@ int main() {
                         2,
                         [] { return render_modulated_sampler_fixture(); },
                         filters);
+        maybe_emit_audio("layered-euclid-burst",
+                        2,
+                        [] { return golden::render_layered_euclid_burst_fixture(); },
+                        filters);
         maybe_emit_audio("quad-bus", 4, [] { return render_quadraphonic_fixture(); }, filters);
         maybe_emit_audio("surround-bus", 6, [] { return render_surround_fixture(); }, filters);
         maybe_emit_audio("long-random-take", 1, [] { return render_long_random_take_fixture(); }, filters);
