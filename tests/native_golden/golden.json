@@ -55,10 +55,10 @@
       "name": "engine-macro-orbits",
       "path": "build/fixtures/engine-macro-orbits.wav",
       "kind": "audio",
-      "hash": "5e91ba9c8cfc7e4d",
+      "hash": "600d12e4f06c256a",
       "wav_path": "build/fixtures/engine-macro-orbits.wav",
       "sample_rate_hz": 48000,
-      "frames": 90875,
+      "frames": 869268,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": "Macro-orbit mix: sampler/resonator/granular voices share the Euclid/Burst schedule while automation lanes sweep tone, tilt, and density across the stereo field."
@@ -106,10 +106,10 @@
       "name": "layered-euclid-burst",
       "path": "build/fixtures/layered-euclid-burst.wav",
       "kind": "audio",
-      "hash": "c6d4545a06841bbe",
+      "hash": "f58e14d36c461c3a",
       "wav_path": "build/fixtures/layered-euclid-burst.wav",
       "sample_rate_hz": 48000,
-      "frames": 104073,
+      "frames": 772364,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": ""
@@ -169,10 +169,10 @@
       "name": "modulated-sampler",
       "path": "build/fixtures/modulated-sampler.wav",
       "kind": "audio",
-      "hash": "ad7db49f335ddb70",
+      "hash": "d5e2176c84560f40",
       "wav_path": "build/fixtures/modulated-sampler.wav",
       "sample_rate_hz": 48000,
-      "frames": 87245,
+      "frames": 48000,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": ""
@@ -190,7 +190,7 @@
       "name": "quad-bus",
       "path": "build/fixtures/quad-bus.wav",
       "kind": "audio",
-      "hash": "2e1656a463a978d5",
+      "hash": "8de941a4ffe7446d",
       "wav_path": "build/fixtures/quad-bus.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -367,7 +367,7 @@
       "name": "surround-bus",
       "path": "build/fixtures/surround-bus.wav",
       "kind": "audio",
-      "hash": "dbafae2da8a1ac60",
+      "hash": "ec0a317b727ea022",
       "wav_path": "build/fixtures/surround-bus.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -391,5 +391,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-17T21:23:01Z"
+  "generated_at_utc": "2025-11-17T23:12:04Z"
 }

@@ -14,13 +14,13 @@ struct FixtureInfo {
 constexpr FixtureInfo kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
-    {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "5e91ba9c8cfc7e4d"},
+    {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "600d12e4f06c256a"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
-    {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "c6d4545a06841bbe"},
+    {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "f58e14d36c461c3a"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
-    {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "ad7db49f335ddb70"},
-    {"quad-bus", "build/fixtures/quad-bus.wav", "2e1656a463a978d5"},
+    {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "d5e2176c84560f40"},
+    {"quad-bus", "build/fixtures/quad-bus.wav", "8de941a4ffe7446d"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
     {"reseed-C", "build/fixtures/reseed-C.wav", "1c89c168dc810f77"},
@@ -28,7 +28,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
     {"stage71-bus", "build/fixtures/stage71-bus.wav", "629833da6365625b"},
-    {"surround-bus", "build/fixtures/surround-bus.wav", "dbafae2da8a1ac60"},
+    {"surround-bus", "build/fixtures/surround-bus.wav", "ec0a317b727ea022"},
 };
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
 
