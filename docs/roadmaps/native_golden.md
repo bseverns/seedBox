@@ -96,7 +96,9 @@ ancient 2.x ghosts.)
 Registry acting up or hacking offline? Run `./scripts/offline_native_golden.sh`
 to compile the standalone helper, regenerate every fixture, and refresh the
 manifest without touching PlatformIO. It relies on the same render routines and
-hash math, so the golden receipts line up exactly.
+hash math, so the golden receipts line up exactly. The helper now pulls in the
+heavy spatial renders (engine hybrid stack, macro orbit stack, the 7.1 bus) so
+fallback runs never silently drop fixtures from the manifest.
 
 Add `--note name="liner note"` if you want to annotate why a render changed.
 The script prints a tidy summary before committing anything to disk, so you can
