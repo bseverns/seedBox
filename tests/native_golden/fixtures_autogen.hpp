@@ -43,7 +43,7 @@ constexpr FixtureInfo kLogFixtures[] = {
     {"long-random-take-control", "build/fixtures/long-random-take-control.txt", "8c149dfbb252a955"},
     {"mixer-console-control", "build/fixtures/mixer-console-control.txt", "06483a56b2862b42"},
     {"modulated-sampler-control", "build/fixtures/modulated-sampler-control.txt", "1b950922fea5dd08"},
-    {"quad-bus-control", "build/fixtures/quad-bus-control.txt", "c2ca286b9338b4ce"},
+    {"quad-bus-control", "build/fixtures/quad-bus-control.txt", "71105680a9a6a07d"},
     {"reseed-A-control", "build/fixtures/reseed-A-control.txt", "869acd8f643ec981"},
     {"reseed-B-control", "build/fixtures/reseed-B-control.txt", "ceb37aadebabee57"},
     {"reseed-C-control", "build/fixtures/reseed-C-control.txt", "fda53171aa1e1593"},

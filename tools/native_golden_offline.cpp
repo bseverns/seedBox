@@ -829,6 +829,7 @@ std::vector<int16_t> render_quadraphonic_fixture() {
     std::ostringstream control;
     control << "# quad-bus control log" << '\n';
     control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate) << '\n';
+    control << "channel_order=[frontL,frontR,rearL,rearR]" << '\n';
     control << "mono routing:" << '\n';
     control << "  drone-intro -> [0.25,0.25,0.10,0.10]" << '\n';
     control << "  sampler-grains -> [0.20,0.35,0.30,0.18]" << '\n';
@@ -1208,8 +1209,12 @@ bool emit_control_log_impl(const char* fixture_name, const std::string& body) {
     }
     const std::string log_name = std::string(fixture_name) + "-control";
     const auto* spec = find_log_fixture(log_name.c_str());
+    FixtureBinding placeholder;
     if (spec == nullptr) {
-        throw std::runtime_error("Missing log fixture spec for " + log_name);
+        placeholder = make_placeholder_fixture(log_name.c_str(), FixtureKind::kLog);
+        spec = &placeholder.info;
+        std::cout << "[note] missing manifest entry for log fixture '" << log_name
+                  << "'; writing to " << spec->path << std::endl;
     }
     ensure_log_fixture(*spec, body);
     return true;

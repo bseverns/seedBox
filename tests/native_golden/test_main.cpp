@@ -891,6 +891,7 @@ std::vector<int16_t> render_quadraphonic_fixture() {
     std::ostringstream control;
     control << "# quad-bus control log" << '\n';
     control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate) << '\n';
+    control << "channel_order=[frontL,frontR,rearL,rearR]" << '\n';
     control << "mono routing:" << '\n';
     control << "  drone-intro -> [0.25,0.25,0.10,0.10]" << '\n';
     control << "  sampler-grains -> [0.20,0.35,0.30,0.18]" << '\n';

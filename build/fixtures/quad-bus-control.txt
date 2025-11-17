@@ -1,5 +1,6 @@
 # quad-bus control log
 frames=48000 sample_rate_hz=48000
+channel_order=[frontL,frontR,rearL,rearR]
 mono routing:
   drone-intro -> [0.25,0.25,0.10,0.10]
   sampler-grains -> [0.20,0.35,0.30,0.18]
