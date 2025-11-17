@@ -1517,6 +1517,35 @@ void test_render_engine_hybrid_stack_golden() {
     assert_manifest_contains(manifest_body, *log_fixture);
 }
 
+void test_render_engine_macro_orbits_golden() {
+    const auto* fixture = find_audio_fixture("engine-macro-orbits");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "engine-macro-orbits fixture metadata missing");
+    const auto* log_fixture = find_log_fixture("engine-macro-orbits-control");
+    TEST_ASSERT_NOT_NULL_MESSAGE(log_fixture, "engine-macro-orbits control metadata missing");
+
+    const auto capture = golden::render_engine_macro_orbits_fixture();
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = capture.sample_rate_hz;
+    request.channels = capture.channels;
+    request.samples = capture.samples;
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write engine-macro-orbits golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const bool log_ok = emit_control_log("engine-macro-orbits", capture.control_log);
+    TEST_ASSERT_TRUE_MESSAGE(log_ok, "Failed to write engine-macro-orbits control log");
+    const std::string log_hash = golden::hash_bytes(capture.control_log);
+    TEST_ASSERT_EQUAL_STRING(log_fixture->expected_hash, log_hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+    assert_manifest_contains(manifest_body, *log_fixture);
+}
+
 void test_render_stage71_golden() {
     const auto* fixture = find_audio_fixture("stage71-bus");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "stage71-bus fixture metadata missing");
@@ -1727,6 +1756,7 @@ int main(int, char**) {
     RUN_TEST(test_render_quadraphonic_golden);
     RUN_TEST(test_render_surround_golden);
     RUN_TEST(test_render_engine_hybrid_stack_golden);
+    RUN_TEST(test_render_engine_macro_orbits_golden);
     RUN_TEST(test_render_stage71_golden);
     RUN_TEST(test_render_reseed_a_golden);
     RUN_TEST(test_render_reseed_b_golden);

@@ -14,6 +14,7 @@ struct FixtureInfo {
 constexpr FixtureInfo kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
+    {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "600d12e4f06c256a"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
     {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "a8c91f05b87811f1"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
@@ -35,6 +36,7 @@ constexpr FixtureInfo kLogFixtures[] = {
     {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
     {"drone-intro-control", "build/fixtures/drone-intro-control.txt", "d902a9aecc33d807"},
     {"engine-hybrid-stack-control", "build/fixtures/engine-hybrid-stack-control.txt", "3281c6c1711601fb"},
+    {"engine-macro-orbits-control", "build/fixtures/engine-macro-orbits-control.txt", "d3621e775d039698"},
     {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
     {"granular-haze-control", "build/fixtures/granular-haze-control.txt", "412d5186c87b5cc0"},
     {"layered-euclid-burst-control", "build/fixtures/layered-euclid-burst-control.txt", "5c44c5a0107e630b"},

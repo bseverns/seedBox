@@ -50,4 +50,9 @@ std::vector<int16_t> render_layered_euclid_burst_fixture();
 //! both artifacts (WAV + `*-control.txt`).
 SpatialRender render_engine_hybrid_fixture();
 
+//! Companion to the hybrid stack that keeps the sampler/resonator/granular trio
+//! glued to the same Euclid/Burst gates but focuses on "macro orbit" automation
+//! so reviewers can diff every modulation lane alongside the WAV capture.
+SpatialRender render_engine_macro_orbits_fixture();
+
 }  // namespace golden
