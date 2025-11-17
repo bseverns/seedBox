@@ -48,7 +48,19 @@ using native_golden::kAudioFixtureCount;
 using native_golden::kLogFixtures;
 using native_golden::kLogFixtureCount;
 
+constexpr const char* kPendingHashSentinel = "<pending-manifest>";
+
 enum class FixtureKind { kAudio, kLog };
+
+struct FixtureBinding {
+    FixtureInfo info{};
+    std::string path_storage;
+};
+
+bool has_expected_hash(const FixtureInfo& spec) {
+    return spec.expected_hash != nullptr && spec.expected_hash[0] != '\0' &&
+           std::strcmp(spec.expected_hash, kPendingHashSentinel) != 0;
+}
 
 const FixtureInfo* find_fixture(const FixtureInfo* fixtures,
                                 std::size_t count,
@@ -70,6 +82,21 @@ const FixtureInfo* find_audio_fixture(const char* name) {
 
 const FixtureInfo* find_log_fixture(const char* name) {
     return find_fixture(kLogFixtures, kLogFixtureCount, name);
+}
+
+FixtureBinding make_placeholder_fixture(const char* fixture_name,
+                                        FixtureKind kind,
+                                        const char* extension_override = nullptr) {
+    FixtureBinding binding;
+    binding.info.name = fixture_name;
+    const char* extension = extension_override;
+    if (extension == nullptr || *extension == '\0') {
+        extension = (kind == FixtureKind::kAudio) ? ".wav" : ".txt";
+    }
+    binding.path_storage = std::string("build/fixtures/") + fixture_name + extension;
+    binding.info.path = binding.path_storage.c_str();
+    binding.info.expected_hash = kPendingHashSentinel;
+    return binding;
 }
 
 void ensure_log_fixture(const FixtureInfo& spec, const std::string& body);
@@ -1202,6 +1229,11 @@ void ensure_fixture_with_rate(const FixtureInfo& spec,
         throw std::runtime_error(std::string("Failed to write fixture ") + spec.name);
     }
     const auto hash = golden::hash_pcm16(request.samples);
+    if (!has_expected_hash(spec)) {
+        std::cout << "[note] " << spec.name << " -> " << spec.path << " hash " << hash
+                  << " (new fixture; refresh manifest/header once happy)" << std::endl;
+        return;
+    }
     if (hash != spec.expected_hash) {
         std::cout << "[delta] " << spec.name << " -> " << spec.path << " expected "
                   << spec.expected_hash << " got " << hash
@@ -1228,6 +1260,11 @@ void ensure_log_fixture(const FixtureInfo& spec, const std::string& body) {
         throw std::runtime_error(std::string("Failed to write log fixture ") + spec.name);
     }
     const auto hash = fnv1a_bytes(body);
+    if (!has_expected_hash(spec)) {
+        std::cout << "[note] " << spec.name << " -> " << spec.path << " hash " << hash
+                  << " (new fixture; refresh manifest/header once happy)" << std::endl;
+        return;
+    }
     if (hash != spec.expected_hash) {
         std::cout << "[delta] " << spec.name << " -> " << spec.path << " expected "
                   << spec.expected_hash << " got " << hash
@@ -1244,8 +1281,12 @@ void maybe_emit_audio(const char* fixture_name,
                       Generator&& generator,
                       const std::vector<std::string>& filters) {
     const auto* spec = find_audio_fixture(fixture_name);
+    FixtureBinding placeholder;
     if (spec == nullptr) {
-        throw std::runtime_error(std::string("Unknown audio fixture: ") + fixture_name);
+        placeholder = make_placeholder_fixture(fixture_name, FixtureKind::kAudio);
+        spec = &placeholder.info;
+        std::cout << "[note] missing manifest entry for audio fixture '" << fixture_name
+                  << "'; writing to " << spec->path << std::endl;
     }
     if (!should_emit(*spec, FixtureKind::kAudio, filters)) {
         std::cout << "[skip] " << spec->name << " (filtered)" << std::endl;
@@ -1260,12 +1301,20 @@ void maybe_emit_spatial_fixture(const char* audio_fixture_name,
                                 Generator&& generator,
                                 const std::vector<std::string>& filters) {
     const auto* audio_spec = find_audio_fixture(audio_fixture_name);
+    FixtureBinding audio_placeholder;
     if (audio_spec == nullptr) {
-        throw std::runtime_error(std::string("Unknown audio fixture: ") + audio_fixture_name);
+        audio_placeholder = make_placeholder_fixture(audio_fixture_name, FixtureKind::kAudio);
+        audio_spec = &audio_placeholder.info;
+        std::cout << "[note] missing manifest entry for audio fixture '" << audio_fixture_name
+                  << "'; writing to " << audio_spec->path << std::endl;
     }
     const auto* log_spec = (log_fixture_name != nullptr) ? find_log_fixture(log_fixture_name) : nullptr;
+    FixtureBinding log_placeholder;
     if (log_fixture_name != nullptr && log_spec == nullptr) {
-        throw std::runtime_error(std::string("Unknown log fixture: ") + log_fixture_name);
+        log_placeholder = make_placeholder_fixture(log_fixture_name, FixtureKind::kLog);
+        log_spec = &log_placeholder.info;
+        std::cout << "[note] missing manifest entry for log fixture '" << log_fixture_name
+                  << "'; writing to " << log_spec->path << std::endl;
     }
 
     const bool wants_audio = should_emit(*audio_spec, FixtureKind::kAudio, filters);
@@ -1301,10 +1350,15 @@ void maybe_emit_spatial_fixture(const char* audio_fixture_name,
 template <typename Generator>
 void maybe_emit_log(const char* fixture_name,
                     Generator&& generator,
-                    const std::vector<std::string>& filters) {
+                    const std::vector<std::string>& filters,
+                    const char* placeholder_extension = nullptr) {
     const auto* spec = find_log_fixture(fixture_name);
+    FixtureBinding placeholder;
     if (spec == nullptr) {
-        throw std::runtime_error(std::string("Unknown log fixture: ") + fixture_name);
+        placeholder = make_placeholder_fixture(fixture_name, FixtureKind::kLog, placeholder_extension);
+        spec = &placeholder.info;
+        std::cout << "[note] missing manifest entry for log fixture '" << fixture_name
+                  << "'; writing to " << spec->path << std::endl;
     }
     if (!should_emit(*spec, FixtureKind::kLog, filters)) {
         std::cout << "[skip] " << spec->name << " (filtered)" << std::endl;
@@ -1380,7 +1434,8 @@ int main() {
 
         maybe_emit_log("euclid-mask", [] { return render_euclid_log(); }, filters);
         maybe_emit_log("burst-cluster", [] { return render_burst_log(); }, filters);
-        maybe_emit_log("reseed-log", [] { return render_reseed_log_fixture(); }, filters);
+        maybe_emit_log(
+            "reseed-log", [] { return render_reseed_log_fixture(); }, filters, ".json");
 
         std::cout << "Native golden fixtures refreshed." << std::endl;
         return 0;
