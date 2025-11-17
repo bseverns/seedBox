@@ -100,6 +100,16 @@ hash math, so the golden receipts line up exactly. The helper now pulls in the
 heavy spatial renders (engine hybrid stack, macro orbit stack, the 7.1 bus) so
 fallback runs never silently drop fixtures from the manifest.
 
+Need the 30-second long-take collage specifically? Kick
+`tests/native_golden/render_long_take.sh`. When PlatformIO is present it still
+routes through `pio test -e native_golden --filter test_render_long_take_golden`,
+but if the CLI is missing the wrapper now launches the same offline helper
+described above **without** a filter. That means the empty `build/fixtures/`
+folder on your desktop gets re-seeded every run instead of only refreshing
+`long-random-take.wav`. If you really want to render a subset while offline,
+call `scripts/offline_native_golden.sh --filter ...` directly so you stay in
+control of the scope.
+
 Add `--note name="liner note"` if you want to annotate why a render changed.
 The script prints a tidy summary before committing anything to disk, so you can
 spot-check hashes before rewriting the manifest.
