@@ -32,8 +32,10 @@ if [[ -x "${OFFLINE_SCRIPT}" ]]; then
     if [[ $# -gt 0 ]]; then
       echo "[render_long_take] ignoring PlatformIO flags for offline mode: $*";
     fi
+    echo "[render_long_take] offline helper renders the full manifest each run.";
+    echo "[render_long_take] Call scripts/offline_native_golden.sh directly if you want to filter.";
   } >&2
-  exec "${OFFLINE_SCRIPT}" --filter long-random-take
+  exec "${OFFLINE_SCRIPT}"
 fi
 
 cat <<'EOF' >&2
