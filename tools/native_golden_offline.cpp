@@ -1188,12 +1188,13 @@ bool emit_control_log_impl(const char* fixture_name, const std::string& body) {
     return true;
 }
 
-void ensure_fixture(const FixtureInfo& spec,
-                    const std::vector<int16_t>& samples,
-                    std::uint16_t channels) {
+void ensure_fixture_with_rate(const FixtureInfo& spec,
+                              const std::vector<int16_t>& samples,
+                              std::uint32_t sample_rate_hz,
+                              std::uint16_t channels) {
     golden::WavWriteRequest request{};
     request.path = fixture_path(spec.path).string();
-    request.sample_rate_hz = static_cast<std::uint32_t>(kSampleRate);
+    request.sample_rate_hz = sample_rate_hz;
     request.channels = channels;
     request.samples = samples;
 
@@ -1209,6 +1210,16 @@ void ensure_fixture(const FixtureInfo& spec,
     }
     std::cout << "[ok] " << spec.name << " -> " << spec.path << " (" << hash << ")"
               << std::endl;
+}
+
+void ensure_fixture(const FixtureInfo& spec,
+                    const std::vector<int16_t>& samples,
+                    std::uint16_t channels) {
+    ensure_fixture_with_rate(
+        spec,
+        samples,
+        static_cast<std::uint32_t>(kSampleRate),
+        channels);
 }
 
 void ensure_log_fixture(const FixtureInfo& spec, const std::string& body) {
@@ -1241,6 +1252,50 @@ void maybe_emit_audio(const char* fixture_name,
         return;
     }
     ensure_fixture(*spec, generator(), channels);
+}
+
+template <typename Generator>
+void maybe_emit_spatial_fixture(const char* audio_fixture_name,
+                                const char* log_fixture_name,
+                                Generator&& generator,
+                                const std::vector<std::string>& filters) {
+    const auto* audio_spec = find_audio_fixture(audio_fixture_name);
+    if (audio_spec == nullptr) {
+        throw std::runtime_error(std::string("Unknown audio fixture: ") + audio_fixture_name);
+    }
+    const auto* log_spec = (log_fixture_name != nullptr) ? find_log_fixture(log_fixture_name) : nullptr;
+    if (log_fixture_name != nullptr && log_spec == nullptr) {
+        throw std::runtime_error(std::string("Unknown log fixture: ") + log_fixture_name);
+    }
+
+    const bool wants_audio = should_emit(*audio_spec, FixtureKind::kAudio, filters);
+    const bool wants_log = (log_spec != nullptr) && should_emit(*log_spec, FixtureKind::kLog, filters);
+    if (!wants_audio && !wants_log) {
+        std::cout << "[skip] " << audio_spec->name << " (filtered)" << std::endl;
+        if (log_spec != nullptr) {
+            std::cout << "[skip] " << log_spec->name << " (filtered)" << std::endl;
+        }
+        return;
+    }
+
+    const auto capture = generator();
+    const std::uint16_t channels = capture.channels > 0 ? capture.channels : 1u;
+    const std::uint32_t sample_rate =
+        capture.sample_rate_hz > 0u ? capture.sample_rate_hz : static_cast<std::uint32_t>(kSampleRate);
+
+    if (wants_audio) {
+        ensure_fixture_with_rate(*audio_spec, capture.samples, sample_rate, channels);
+    } else {
+        std::cout << "[skip] " << audio_spec->name << " (filtered)" << std::endl;
+    }
+
+    if (log_spec != nullptr) {
+        if (wants_log) {
+            ensure_log_fixture(*log_spec, capture.control_log);
+        } else {
+            std::cout << "[skip] " << log_spec->name << " (filtered)" << std::endl;
+        }
+    }
 }
 
 template <typename Generator>
@@ -1293,6 +1348,18 @@ int main() {
                         filters);
         maybe_emit_audio("quad-bus", 4, [] { return render_quadraphonic_fixture(); }, filters);
         maybe_emit_audio("surround-bus", 6, [] { return render_surround_fixture(); }, filters);
+        maybe_emit_spatial_fixture("engine-hybrid-stack",
+                                   "engine-hybrid-stack-control",
+                                   [] { return golden::render_engine_hybrid_fixture(); },
+                                   filters);
+        maybe_emit_spatial_fixture("engine-macro-orbits",
+                                   "engine-macro-orbits-control",
+                                   [] { return golden::render_engine_macro_orbits_fixture(); },
+                                   filters);
+        maybe_emit_spatial_fixture("stage71-bus",
+                                   "stage71-bus-control",
+                                   [] { return golden::render_stage71_scene(); },
+                                   filters);
         maybe_emit_audio("long-random-take", 1, [] { return render_long_random_take_fixture(); }, filters);
         maybe_emit_audio("reseed-A", 1,
                         [] { return render_reseed_variant(0xCAFEu, "reseed-A"); }, filters);

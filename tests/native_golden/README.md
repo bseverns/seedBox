@@ -76,7 +76,10 @@ manifest locally. We wrapped the whole dance in a single script:
 That command compiles the helper with `g++`, renders every WAV/log pair into
 `build/fixtures/`, and re-runs `scripts/compute_golden_hashes.py --write` so the
 manifest stays honest. No registry downloads, no cached toolchains — just a
-compiler and Python 3.
+compiler and Python 3. The helper now calls the same spatial renders the Unity
+tests lean on (engine hybrid stack, macro orbit stack, the 7.1 stage bus), so
+even an offline `--filter stage71` cut keeps the manifest populated instead of
+dropping fixtures on the floor.
 
 Need a quick audit without touching disk? Drop the `--write` flag for a dry
 run; the script prints a table of fixture names, hashes, and frame counts. If
