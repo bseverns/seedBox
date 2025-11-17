@@ -12,7 +12,10 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   control logs when `ENABLE_GOLDEN=1`. Every WAV now drops a
   `build/fixtures/<fixture>-control.txt` sibling (think `sampler-grains-control`
   and `quad-bus-control`) that captures the deterministic seed schedule or MIDI
-  automation the render consumed. In addition to the 110 Hz mono drone, sampler
+  automation the render consumed. The quad bus log now explicitly lists the
+  channel order (`frontL`, `frontR`, `rearL`, `rearR`) plus the mono/stereo
+  routing weights so reviewers can sanity-check spatial decisions by eye.
+  In addition to the 110 Hz mono drone, sampler
   chord stack, and resonator tail collage we now ship a stereo granular wash
   (`granular-haze.wav`, rendered by `render_granular_fixture()`), a stereo
   master-bus composite (`mixer-console.wav`, blended by `render_mixer_fixture()`),
@@ -99,6 +102,11 @@ manifest without touching PlatformIO. It relies on the same render routines and
 hash math, so the golden receipts line up exactly. The helper now pulls in the
 heavy spatial renders (engine hybrid stack, macro orbit stack, the 7.1 bus) so
 fallback runs never silently drop fixtures from the manifest.
+If you mint a brand-new log fixture before updating `golden.json`, the helper
+now scaffolds a placeholder spec instead of rage-quitting with
+`Missing log fixture spec...`. That way a refresh can land the audio + log on
+disk first, and you can rerun the hash tooling once you're ready to edit the
+manifest/header.
 
 Need the 30-second long-take collage specifically? Kick
 `tests/native_golden/render_long_take.sh`. When PlatformIO is present it still
