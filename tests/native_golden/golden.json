@@ -52,6 +52,27 @@
       "notes": "Event ledger + per-lane automation dump for the hybrid stack (Euclid/Burst gates, sampler/resonator/granular mod lanes, and macro pan)."
     },
     {
+      "name": "engine-macro-orbits",
+      "path": "build/fixtures/engine-macro-orbits.wav",
+      "kind": "audio",
+      "hash": "600d12e4f06c256a",
+      "wav_path": "build/fixtures/engine-macro-orbits.wav",
+      "sample_rate_hz": 48000,
+      "frames": 869268,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": "Macro-orbit mix: sampler/resonator/granular voices share the Euclid/Burst schedule while automation lanes sweep tone, tilt, and density across the stereo field."
+    },
+    {
+      "name": "engine-macro-orbits-control",
+      "path": "build/fixtures/engine-macro-orbits-control.txt",
+      "kind": "log",
+      "hash": "d3621e775d039698",
+      "bytes": 1024125,
+      "lines": 14359,
+      "notes": "Ledger that documents every Euclid/Burst trigger plus the per-frame macro lanes (sampler contour/crunch, resonator damping/spark, granular spray, macro orbit/tilt)."
+    },
+    {
       "name": "euclid-mask",
       "path": "build/fixtures/euclid-mask.txt",
       "kind": "log",

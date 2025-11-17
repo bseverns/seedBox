@@ -50,6 +50,14 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   `engine-hybrid-stack-control.txt`. Think of it as a deterministic track sheet:
   if a PR nudges the Euclid mask, Burst spacing, or any of the modulation waves,
   the log diff spells out exactly what changed without ever leaving the CLI.
+  The new sibling, `engine-macro-orbits.wav`, uses the same engines but leans
+  harder into modulation pedagogy: [`render_engine_macro_orbits_fixture()`](../../tests/native_golden/wav_helpers.cpp)
+  bakes in macro pan "orbit" math, sampler contour/crunch sweeps, resonator
+  damping/spark curves, and granular spray lanes, then dumps a 14k-line
+  `engine-macro-orbits-control.txt` ledger so reviewers can diff every Euclid /
+  Burst hit plus the automation snapshot that sculpted it. The Unity harness
+  wires it up via `test_render_engine_macro_orbits_golden()` so `pio test -e`
+  `native_golden` always emits both the WAV and the control transcript.
 - **Layered Euclid/Burst capture:** `layered-euclid-burst.wav` now rides shotgun
   with every golden run. The helper
   [`render_layered_euclid_burst_fixture()`](../../tests/native_golden/wav_helpers.cpp)
