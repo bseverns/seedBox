@@ -28,9 +28,11 @@ edges welcome.
 
 ## Gaps + gut-checks
 
-* Roadmap still sketches CPU sanity chores (perf HUD, histogram, SD stress,
-  mixer profiling) with no automation yet. Flagging them here so they don't fall
-  off the radar when we chase DSP polish.【F:docs/roadmaps/granular.md†L72-L79】
+* CPU sanity chores graduated from "scribbled in the roadmap" to real telemetry
+  and tests: the PERF HUD mirrors `GranularEngine::Stats`, SD-only stress cases
+  and histogram refreshes live in `tests/test_engine/test_granular_perf_stats.cpp`,
+  and the OLED now prints a `F` fan-out tag so mixer load is visible without
+  touching the debugger.【F:src/app/AppState.cpp†L1801-L1814】【F:tests/test_engine/test_granular_perf_stats.cpp†L1-L89】
 * `tests/test_hardware/test_granular_teensy.cpp` now exercises the Teensy
   `AudioEffectGranular` directly, asserting that the
   `beginPitchShift()` fallback stays wired and that the mixer fan-out exposes

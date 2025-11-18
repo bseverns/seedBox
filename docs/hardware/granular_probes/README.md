@@ -75,7 +75,8 @@ so the next hacker can follow the breadcrumbs.
 
 Need to watch the granular density without hunching over the OLED? Drop the
 snippet from `granular_perf_hud.py` into your bench sketch so the Teensy prints
-the same `GV/SD/S|P` HUD the PERF page now shows. Then run:
+the same `GV/SD/GP` meter plus the `S|P|F` histogram/fan-out HUD the PERF page
+now shows. Then run:
 
 ```sh
 python docs/hardware/granular_probes/granular_perf_hud.py /dev/ttyACM0

@@ -35,6 +35,7 @@ void test_chord_shift_alt_seed_enters_perf();
 void test_shift_hold_rotate_moves_focus();
 void test_scripted_front_panel_walkthrough();
 void test_tap_long_press_opens_swing_editor();
+void test_perf_page_renders_granular_hud();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -73,5 +74,6 @@ int main(int, char**) {
   RUN_TEST(test_shift_hold_rotate_moves_focus);
   RUN_TEST(test_scripted_front_panel_walkthrough);
   RUN_TEST(test_tap_long_press_opens_swing_editor);
+  RUN_TEST(test_perf_page_renders_granular_hud);
   return UNITY_END();
 }

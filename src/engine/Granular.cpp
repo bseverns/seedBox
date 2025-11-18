@@ -94,6 +94,10 @@ void GranularEngine::Stats::reset() {
   grainsPlanned = 0;
   grainSizeHistogram.fill(0);
   sprayHistogram.fill(0);
+  mixerGroupLoad.fill(0);
+  mixerGroupsEngaged = 0;
+  busiestMixerGroup = 0;
+  busiestMixerLoad = 0;
   voiceSamples_.fill(VoiceSample{});
 }
 
@@ -116,12 +120,16 @@ void GranularEngine::Stats::onVoicePlanned(uint8_t voiceIndex, const GrainVoice&
     if (slot.sdOnly && sdOnlyVoiceCount > 0) {
       --sdOnlyVoiceCount;
     }
+    if (slot.mixerGroup < mixerGroupLoad.size() && mixerGroupLoad[slot.mixerGroup] > 0) {
+      --mixerGroupLoad[slot.mixerGroup];
+    }
   }
 
   slot = VoiceSample{};
   ++grainsPlanned;
 
   if (!voice.active) {
+    refreshMixerAggregates();
     return;
   }
 
@@ -129,12 +137,33 @@ void GranularEngine::Stats::onVoicePlanned(uint8_t voiceIndex, const GrainVoice&
   slot.sizeBin = bucketForValue(voice.sizeMs, kSizeBinEdgesMs);
   slot.sprayBin = bucketForValue(voice.sprayMs, kSprayBinEdgesMs);
   slot.sdOnly = (voice.source == Source::kSdClip);
+  slot.mixerGroup = static_cast<uint8_t>(voiceIndex / kMixerFanIn);
 
   ++activeVoiceCount;
   ++grainSizeHistogram[slot.sizeBin];
   ++sprayHistogram[slot.sprayBin];
   if (slot.sdOnly) {
     ++sdOnlyVoiceCount;
+  }
+  if (slot.mixerGroup < mixerGroupLoad.size()) {
+    ++mixerGroupLoad[slot.mixerGroup];
+  }
+  refreshMixerAggregates();
+}
+
+void GranularEngine::Stats::refreshMixerAggregates() {
+  mixerGroupsEngaged = 0;
+  busiestMixerGroup = 0;
+  busiestMixerLoad = 0;
+  for (uint8_t i = 0; i < mixerGroupLoad.size(); ++i) {
+    const uint8_t load = mixerGroupLoad[i];
+    if (load > 0) {
+      ++mixerGroupsEngaged;
+    }
+    if (load > busiestMixerLoad) {
+      busiestMixerLoad = load;
+      busiestMixerGroup = i;
+    }
   }
 }
 
