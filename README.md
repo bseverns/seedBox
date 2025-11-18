@@ -83,7 +83,7 @@ CI-sized receipt that preset primes are actually deterministic.
 
 All three paths flow through `AppState::primeSeeds`, so the scheduler, UI, and
 tests see the same genomes, and any locked seed keeps its previous sound no
-matter which source you pivot to.【F:docs/roadmaps/seed_system.md†L7-L74】
+matter which source you pivot to.
 
 Once a seed exists, each engine grabs the pieces it cares about:
 
@@ -91,7 +91,7 @@ Once a seed exists, each engine grabs the pieces it cares about:
   deterministic voices, drops its sample index, pitch offset, envelope, tone,
   and stereo width into that slot, and the engine mirrors those settings across
   the hardware graph and the native simulator so rehearsals and stage runs stay
-  phase-aligned.【F:src/engine/Sampler.h†L10-L140】
+  phase-aligned.
 - **Granular** — planned chaos. The seed's granular block sets grain size,
   spray, window skew, playback rate, and whether to grab a live buffer or an SD
   clip; the engine turns that into a `GrainVoice` plan with matching stereo
@@ -106,11 +106,11 @@ Once a seed exists, each engine grabs the pieces it cares about:
   simulator.【F:include/Seed.h†L39-L46】【F:src/engine/Resonator.h†L10-L136】
 - **Euclid** — rhythm brain, not an audio generator. It ignores timbre entirely
   and instead turns a seed into deterministic gate masks (steps, fills, rotate)
-  that downstream audio engines can latch onto without losing lock-state.【F:src/engine/EuclidEngine.h†L9-L49】
+  that downstream audio engines can latch onto without losing lock-state.
 - **Burst** — converts a single trigger into a swarm of deterministic offsets,
   so seeds can store cluster count and spacing right next to their tonal data.
   It rides the same engine lifecycle as the audio toys, which keeps reseeds and
-  serialization brain-dead simple.【F:src/engine/BurstEngine.h†L9-L40】
+  serialization brain-dead simple.
 
 | Folder | What's going on | First doc to read |
 | --- | --- | --- |
@@ -139,7 +139,7 @@ as tutorials.
   Markdown. We treat documentation as part of the jam session.
 - **Live input microscope?** `docs/tutorials/live_input_prime_mode.md` walks the
   simulator through the new `SeedPrimeMode::kLiveInput` path so you can verify the
-  mock "live-in" buffer without ever plugging in hardware.【F:docs/tutorials/live_input_prime_mode.md†L1-L69】
+  mock "live-in" buffer without ever plugging in hardware.
 - **Example safari?** The tests inside [`tests/test_app`](tests/test_app) and
   [`tests/test_patterns`](tests/test_patterns) are intentionally verbose. Read
   them like workshop demos, then riff with your own cases.
