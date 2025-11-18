@@ -43,6 +43,14 @@ will follow.【F:include/Seed.h†L12-L46】 You mint those seeds three ways:
 | **Tap tempo** | flip the prime mode, then tap a BPM in from the front panel or MIDI | Density/jitter lock to your tapped tempo while the rest of the genome rerolls. | Lets workshops teach groove control without touching code. |
 | **Preset** | load a curated bank, then reseed in preset mode | Copies stored genomes (tone, pitch, engine, everything) verbatim. | Classroom-ready starting points that still honor locks and serialization. |
 
+**Receipts for each mode.** `tests/test_app/test_seed_prime_modes.cpp` now carries
+one regression per prime path so the prose above can point directly at proof:
+`test_live_input_prime_triggers_live_voice_in_sim` shows the granular engine
+chewing on the mock "live-in" buffer, `test_tap_tempo_prime_updates_lineage`
+averages recorded taps to keep the lineage field glued to the performer’s BPM,
+and `test_preset_prime_applies_granular_params` rehydrates curated banks with
+source/slot data intact even after you mutate unlocked seeds mid-lesson.【F:tests/test_app/test_seed_prime_modes.cpp†L55-L198】
+
 Preset primes themselves live in plain JSON snapshots under
 [`docs/preset_primes/`](docs/preset_primes). We mint each file by grabbing a
 `seedbox::Preset` snapshot, commit it, then let the storage layer compress it
