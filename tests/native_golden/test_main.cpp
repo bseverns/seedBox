@@ -1262,8 +1262,20 @@ bool emit_control_log_impl(const char* fixture_name, const std::string& body) {
     if (fixture_name == nullptr || *fixture_name == '\0') {
         return false;
     }
-    const std::string path = std::string("build/fixtures/") + fixture_name + "-control.txt";
-    return write_text_file_impl(path, body);
+    const std::string log_name = std::string(fixture_name) + "-control";
+    const FixtureInfo* spec = find_log_fixture(log_name.c_str());
+    std::string manifest_path;
+    if (spec != nullptr && spec->path != nullptr && spec->path[0] != '\0') {
+        manifest_path.assign(spec->path);
+    } else {
+        manifest_path = std::string("build/fixtures/") + log_name + ".txt";
+#if ENABLE_GOLDEN
+        std::cout << "[note] missing manifest entry for log fixture '" << log_name
+                  << "'; writing to " << manifest_path << std::endl;
+#endif
+    }
+
+    return write_text_file_impl(manifest_path, body);
 }
 
 std::string load_manifest() {
