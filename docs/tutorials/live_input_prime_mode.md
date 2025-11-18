@@ -26,6 +26,12 @@ When the scheduler fires that seed, `GranularEngine::planGrain` resolves the
 source slot and leaves the path string set to `"live-in"` so both the Teensy graph
 and the simulator know they should sip the live input mixer.【F:src/engine/Granular.cpp†L247-L276】
 
+**Coverage receipts.** When you zoom out from the live lane, every prime mode
+now has an explicit regression trail in the seed-system roadmap. After this lab,
+flip to the roadmap's regression section to see the tap-tempo lineage check and
+preset-restore test that landed in the same suite — that way future students can
+jump from prose to Unity proof without spelunking the repo history.【F:docs/roadmaps/seed_system.md†L74-L94】
+
 ## 2. Run the regression
 
 The new regression in `tests/test_app/test_seed_prime_modes.cpp` walks the whole
