@@ -20,6 +20,21 @@ sim builds without lossy conversions.
 | --- | --- | --- |
 | [`workshop_bank.json`](workshop_bank.json) | `workshop-a` | Four-seed groove that mixes sampler hits with granular live-input and a resonator drone. |
 
+## Regression coverage
+
+Seed primes now land with explicit test receipts so every JSON snapshot has a
+matching code witness:
+
+- `test_preset_prime_applies_granular_params` loads a curated bank, intentionally
+  mutates unlocked seeds, and then reseeds in preset mode to prove we restore the
+  granular source/slot combo and lock state byte-for-byte — exactly what a class
+  needs when referencing this folder.【F:tests/test_app/test_seed_prime_modes.cpp†L135-L198】
+- `test_tap_tempo_prime_updates_lineage` lives in the same suite and keeps the
+  tap-tempo lineage math honest, which matters because tap-sourced presets often
+  share lesson plans with the JSON banks here. It averages recorded taps, asserts
+  the BPM lineage on every seed, and double-checks that granular params stay
+  frozen between consecutive taps.【F:tests/test_app/test_seed_prime_modes.cpp†L92-L133】
+
 ## How to mint a new bank
 
 1. Boot the native sim (`pio test -e native` or `pio run -e native`) and sculpt
