@@ -136,7 +136,7 @@ void GranularEngine::Stats::onVoicePlanned(uint8_t voiceIndex, const GrainVoice&
   slot.active = true;
   slot.sizeBin = bucketForValue(voice.sizeMs, kSizeBinEdgesMs);
   slot.sprayBin = bucketForValue(voice.sprayMs, kSprayBinEdgesMs);
-  slot.sdOnly = (voice.source == Source::kSdClip);
+  slot.sdOnly = (voice.seedSource == Source::kSdClip);
   slot.mixerGroup = static_cast<uint8_t>(voiceIndex / kMixerFanIn);
 
   ++activeVoiceCount;
@@ -357,6 +357,10 @@ void GranularEngine::planGrain(GrainVoice& voice, const Seed& seed, uint32_t whe
   voice.sprayMs = seed.granular.sprayMs;
   voice.windowSkew = seed.granular.windowSkew;
   voice.stereoSpread = seed.granular.stereoSpread;
+  voice.seedSource = static_cast<Source>(seed.granular.source);
+  if (voice.seedSource != Source::kSdClip) {
+    voice.seedSource = Source::kLiveInput;
+  }
   voice.source = resolveSource(seed.granular.source);
   voice.sdSlot = seed.granular.sdSlot;
 

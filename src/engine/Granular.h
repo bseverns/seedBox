@@ -38,6 +38,7 @@ public:
     float leftGain{0.f};
     float rightGain{0.f};
     Source source{Source::kLiveInput};
+    Source seedSource{Source::kLiveInput};
     const char* sourcePath{nullptr};
     uint16_t sourceHandle{0};
     uint16_t dspHandle{0};
