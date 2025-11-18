@@ -38,6 +38,7 @@ public:
     float leftGain{0.f};
     float rightGain{0.f};
     Source source{Source::kLiveInput};
+    Source seedSource{Source::kLiveInput};
     const char* sourcePath{nullptr};
     uint16_t sourceHandle{0};
     uint16_t dspHandle{0};
@@ -52,6 +53,7 @@ public:
       uint8_t sizeBin{0};
       uint8_t sprayBin{0};
       bool sdOnly{false};
+      uint8_t mixerGroup{0};
     };
 
     void reset();
@@ -62,9 +64,14 @@ public:
     uint32_t grainsPlanned{0};
     std::array<uint16_t, kHistogramBins> grainSizeHistogram{};
     std::array<uint16_t, kHistogramBins> sprayHistogram{};
+    std::array<uint8_t, kMixerGroups> mixerGroupLoad{};
+    uint8_t mixerGroupsEngaged{0};
+    uint8_t busiestMixerGroup{0};
+    uint8_t busiestMixerLoad{0};
 
    private:
     std::array<VoiceSample, kVoicePoolSize> voiceSamples_{};
+    void refreshMixerAggregates();
   };
 
   GranularEngine() = default;

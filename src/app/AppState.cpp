@@ -1809,7 +1809,9 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     writeDisplayField(out.metrics,
                       formatScratch(scratch, "GV%02u SD%02u GP%03u", stats.activeVoiceCount, stats.sdOnlyVoiceCount, grains));
     writeDisplayField(out.nuance,
-                      formatScratch(scratch, "S%02u|%02u P%02u|%02u", sizeLow, sizeHigh, sprayLow, sprayHigh));
+                      formatScratch(scratch, "S%02u|%02uP%02u|%02uF%u%u", sizeLow, sizeHigh, sprayLow, sprayHigh,
+                                     static_cast<unsigned>(stats.busiestMixerLoad),
+                                     static_cast<unsigned>(stats.mixerGroupsEngaged)));
     return;
   }
 

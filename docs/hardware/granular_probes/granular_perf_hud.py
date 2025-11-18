@@ -16,20 +16,24 @@ void loop() {
   }
   lastPrint = millis();
   const auto stats = appState.granularStats();
-  Serial.printf("GV%02u SD%02u GP%03lu S%02u|%02u P%02u|%02u\n",
+  Serial.printf("GV%02u SD%02u GP%03lu S%02u|%02u P%02u|%02u F%u%u\n",
                 stats.activeVoiceCount,
                 stats.sdOnlyVoiceCount,
                 static_cast<unsigned long>(stats.grainsPlanned % 1000u),
                 stats.grainSizeHistogram[0] + stats.grainSizeHistogram[1],
                 stats.grainSizeHistogram[GranularEngine::Stats::kHistogramBins - 1],
                 stats.sprayHistogram[0] + stats.sprayHistogram[1],
-                stats.sprayHistogram[GranularEngine::Stats::kHistogramBins - 1]);
+                stats.sprayHistogram[GranularEngine::Stats::kHistogramBins - 1],
+                stats.busiestMixerLoad,
+                stats.mixerGroupsEngaged);
 }
 ```
 
 Fire up this script and it will time-stamp every HUD line so you can correlate
 voice pressure with mixer fan-out or CPU hiccups.  No GUI, no oscilloscope —
-just raw, punk-rock telemetry.
+just raw, punk-rock telemetry. `F%u%u` encodes "voices on the busiest mixer"
+and "mixer groups currently engaged" so you can spot fan-out collapse at a
+glance.
 """
 from __future__ import annotations
 

@@ -401,3 +401,48 @@ void test_tap_long_press_opens_swing_editor() {
   TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.03f, app.swingPercent());
 }
 
+void test_perf_page_renders_granular_hud() {
+  hal::nativeBoardReset();
+  auto& board = hal::nativeBoard();
+  AppState app(board);
+  app.initSim();
+
+  tapButton(app, "tone");
+  TEST_ASSERT_EQUAL(AppState::Mode::PERF, app.mode());
+
+  auto seeds = app.seeds();
+  TEST_ASSERT_FALSE(seeds.empty());
+  auto sdSeed = seeds.front();
+  sdSeed.engine = 1;
+  sdSeed.id = 1;
+  sdSeed.granular.source = static_cast<uint8_t>(GranularEngine::Source::kSdClip);
+  sdSeed.granular.sdSlot = 1;
+  sdSeed.granular.grainSizeMs = 160.0f;
+  sdSeed.granular.sprayMs = 40.0f;
+
+  auto& granular = app.engineRouterForDebug().granular();
+  granular.trigger(sdSeed, 0);
+
+  auto liveSeed = sdSeed;
+  liveSeed.id = 2;
+  liveSeed.granular.source = static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
+  liveSeed.granular.sdSlot = 0;
+  liveSeed.granular.grainSizeMs = 8.0f;
+  liveSeed.granular.sprayMs = 0.75f;
+  granular.trigger(liveSeed, 48);
+
+  app.tick();
+
+  AppState::DisplaySnapshot snap{};
+  app.captureDisplaySnapshot(snap);
+
+  std::string metrics = snap.metrics;
+  TEST_ASSERT_NOT_EQUAL(std::string::npos, metrics.find("GV02"));
+  TEST_ASSERT_NOT_EQUAL(std::string::npos, metrics.find("SD01"));
+
+  std::string nuance = snap.nuance;
+  TEST_ASSERT_NOT_EQUAL(std::string::npos, nuance.find('S'));
+  TEST_ASSERT_NOT_EQUAL(std::string::npos, nuance.find('P'));
+  TEST_ASSERT_NOT_EQUAL(std::string::npos, nuance.find('F'));
+}
+

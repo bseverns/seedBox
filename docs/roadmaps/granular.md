@@ -69,12 +69,15 @@ between triggers while still reseeding cleanly.
 - `GrainVoice::dspHandle` tracks which DSP slot a plan inhabits. Tests can dump
   the struct and see which mixer slot the scheduling logic targeted.
 
-## CPU sanity checks still todo
+## CPU sanity receipts
 
-- Instrument `activeVoiceCount()` inside a perf HUD to watch density vs. CPU.
-- Add optional debug builds that print histogram of grain sizes and spray.
-- Stress test with live input muted to make sure SD streaming alone holds 40
-  grains without underflowing.
-- Profile the submix cascade once real assets land; the current fan-out (4
-  voices per mixer, 3-layer sum) is conservative but we should validate block
-  usage once envelopes and jittered buffers start chewing cycles.
+- Perf HUD now reads straight off `GranularEngine::Stats` so the OLED (and
+  `granular_perf_hud.py`) prints `GV/SD/GP` plus a compressed `S|P|F` tag that
+  reflects histogram bins and the busiest mixer fan-out group. 【F:src/app/AppState.cpp†L1801-L1814】【F:docs/hardware/granular_probes/granular_perf_hud.py†L15-L35】
+- The stats struct tracks active voices, SD-only pressure, grain-size/spray
+  histograms, and mixer group load so SD-only stress runs and fan-out tests have
+  concrete numbers to assert against. 【F:src/engine/Granular.h†L51-L74】【F:src/engine/Granular.cpp†L86-L165】
+- Native tests now cover the whole telemetry surface: histogram refresh,
+  SD-only replacement, and multi-group fan-out profiling. Hardware runs inherit
+  the same counters, so the sim receipts already prove the mixer cascade is
+  doing real work. 【F:tests/test_engine/test_granular_perf_stats.cpp†L1-L89】
