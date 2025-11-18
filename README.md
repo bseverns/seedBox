@@ -29,6 +29,23 @@ flowchart LR
   Repo --> Scripts["scripts/ \n pit crew"]
   Tests -->|golden logs| Artifacts["artifacts/ (ignored)"]
   Source -->|renders| Out["out/ (ignored)"]
+
+  subgraph Audio["audio engines (src/engine)"]
+    direction TB
+    Sampler["Sampler\n4-slot voice pool\nlocks native + hw"]
+    Granular["Granular\nSD/live grains\nwindow + spray"]
+    Resonator["Resonator\nmodal banks\nfeedback tilt"]
+    Euclid["Euclid\nbeat masks\nno audio"]
+    Burst["Burst\ntrigger swarms\nclock-locked"]
+    Sampler --> Granular --> Resonator --> Euclid --> Burst
+  end
+
+  Source --> Sampler
+  Source --> Granular
+  Source --> Resonator
+  Source --> Euclid
+  Source --> Burst
+  Audio --> Tests
 ```
 
 The `Source → engines` branch in that map hides a whole cabinet of sound toys.
@@ -93,32 +110,9 @@ All three paths flow through `AppState::primeSeeds`, so the scheduler, UI, and
 tests see the same genomes, and any locked seed keeps its previous sound no
 matter which source you pivot to.
 
-Once a seed exists, each engine grabs the pieces it cares about:
-
-- **Sampler** — the bread-and-butter voice pool. A seed claims one of four
-  deterministic voices, drops its sample index, pitch offset, envelope, tone,
-  and stereo width into that slot, and the engine mirrors those settings across
-  the hardware graph and the native simulator so rehearsals and stage runs stay
-  phase-aligned.
-- **Granular** — planned chaos. The seed's granular block sets grain size,
-  spray, window skew, playback rate, and whether to grab a live buffer or an SD
-  clip; the engine turns that into a `GrainVoice` plan with matching stereo
-  gains so students can trace every modulation. Live input is already wired via
-  the I²S front end: leave `granular.source` at `0` (or call
-  `GranularEngine::armLiveInput(true)`) and the grains chew on whatever the
-  codec hears right now — no SD card rituals required.
-- **Resonator** — a modal playground inspired by Karplus-Strong tricks. Seeds
-  specify excitation length, damping window, brightness tilt, feedback, mode,
-  and preset bank; the engine converts that genome into tuned resonator voices
-  with modal partials and gain staging you can interrogate from tests or the
-  simulator.【F:include/Seed.h†L39-L46】【F:src/engine/Resonator.h†L10-L136】
-- **Euclid** — rhythm brain, not an audio generator. It ignores timbre entirely
-  and instead turns a seed into deterministic gate masks (steps, fills, rotate)
-  that downstream audio engines can latch onto without losing lock-state.
-- **Burst** — converts a single trigger into a swarm of deterministic offsets,
-  so seeds can store cluster count and spacing right next to their tonal data.
-  It rides the same engine lifecycle as the audio toys, which keeps reseeds and
-  serialization brain-dead simple.
+Once a seed exists, those engines (now mapped directly in the diagram) grab the
+pieces they care about and honor the shared `Engine` contract spelled out in
+[`src/engine/README.md`](src/engine/README.md).【F:src/engine/README.md†L1-L118】
 
 | Folder | What's going on | First doc to read |
 | --- | --- | --- |
@@ -267,6 +261,44 @@ flowchart LR
 
 This is intentionally simple. Each box has its own README if you want the
 geekier signal-flow diagrams later.
+
+### What's hiding inside the **Audio engines** block?
+
+That tidy rectangle fans out into five very opinionated subsystems that all
+honor the same `Engine` contract so the scheduler, UI, and tests can treat them
+like interchangeable bandmates.
+
+- **Sampler (bread-and-butter voices).** Four deterministic voices live inside
+  [`Sampler`](src/engine/Sampler.h) so students can literally count voice steals
+  by hand. Every trigger bakes pitch, envelopes, tilt, spread, and SD/RAM source
+  flags into `VoiceState`, and the hardware + native builds share the exact same
+  bookkeeping, down to how the left/right gains are derived.【F:src/engine/Sampler.h†L10-L140】
+- **Granular (cloud maths).** [`GranularEngine`](src/engine/Granular.h) holds a
+  40-voice pool, keeps mixer group statistics, and turns each seed’s granular
+  block (`sizeMs`, `sprayMs`, `windowSkew`, source routing, etc.) into a
+  traceable `GrainVoice` plan before wiring it into either the simulator or the
+  Teensy audio graph.【F:src/engine/Granular.h†L10-L160】
+- **Resonator (modal ping lab).** [`ResonatorBank`](src/engine/Resonator.h)
+  translates seed DNA (excitation length, damping, brightness, preset bank) into
+  multi-mode modal presets, caches them as `VoiceState`, then routes them through
+  Karplus-Strong style hardware or sim scaffolding so you can interrogate each
+  partial mid-lesson.【F:src/engine/Resonator.h†L10-L137】
+- **Euclid (gate brain).** [`EuclidEngine`](src/engine/EuclidEngine.h) sits in
+  the same block even though it emits gates instead of audio — it keeps the
+  Euclidean mask (`steps`, `fills`, `rotate`) transparent, stores the master
+  seed for reproducibility, and serializes its cursor state so locks survive
+  reseeds.【F:src/engine/EuclidEngine.h†L8-L49】
+- **Burst (cluster physics).** [`BurstEngine`](src/engine/BurstEngine.h) is the
+  Euclid sidekick that explodes a single trigger into a deterministic list of
+  offsets based on cluster count and spacing, again obeying the engine
+  lifecycle so serialization/tests can treat it like any other sound source even
+  though it’s a control generator.【F:src/engine/BurstEngine.h†L8-L40】
+
+When you crack open [`src/engine/README.md`](src/engine/README.md) you’ll find a
+more narrative tour linking each header to its favorite tests (for example,
+`test_sampler_voice_pool.cpp`, `test_granular_voice_budget.cpp`, and
+`test_euclid_burst.cpp`) so the box in the flow chart becomes a teachable, fully
+documented subsystem instead of a mystery blob.【F:src/engine/README.md†L1-L116】
 
 ### How the CI babysits the jams
 
