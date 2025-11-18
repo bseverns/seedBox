@@ -85,3 +85,14 @@ Unity tests keep us honest:
 - `test_seed_prime_modes.cpp` now includes a simulator walk that fires a
   granular voice on the live-input lane, proving the "live-in" alias is respected
   even with the codec stubbed out.【F:tests/test_app/test_seed_prime_modes.cpp†L55-L90】
+- The same suite carries two fresh guardrails for the tap-tempo + preset prime
+  flows so the prose above can link straight to proof:
+  - `test_tap_tempo_prime_updates_lineage` averages the recorded tap intervals,
+    asserts we tag every seed with the derived BPM lineage, and re-runs the
+    prime to verify all granular params stay frozen so performers can trust
+    consecutive taps won't mutate timbre.【F:tests/test_app/test_seed_prime_modes.cpp†L94-L133】
+  - `test_preset_prime_applies_granular_params` hydrates a fake preset bank,
+    flips locks + engine assignments, intentionally mutates unlocked seeds, and
+    then reseeds to show we restore the preset's granular source/slot combo and
+    lock state verbatim — the seed atlas's curated genomes stay canonical.
+    【F:tests/test_app/test_seed_prime_modes.cpp†L135-L198】
