@@ -12,6 +12,7 @@ struct FixtureInfo {
 };
 
 constexpr FixtureInfo kAudioFixtures[] = {
+    {"burst-cluster", "build/fixtures/burst-cluster.wav", "3a3b6e190f850bdf"},
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
     {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "600d12e4f06c256a"},
@@ -33,7 +34,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
 
 constexpr FixtureInfo kLogFixtures[] = {
-    {"burst-cluster", "build/fixtures/burst-cluster.txt", "082de9ac9a3cb359"},
+    {"burst-cluster-control", "build/fixtures/burst-cluster-control.txt", "082de9ac9a3cb359"},
     {"drone-intro-control", "build/fixtures/drone-intro-control.txt", "d902a9aecc33d807"},
     {"engine-hybrid-stack-control", "build/fixtures/engine-hybrid-stack-control.txt", "3281c6c1711601fb"},
     {"engine-macro-orbits-control", "build/fixtures/engine-macro-orbits-control.txt", "d3621e775d039698"},

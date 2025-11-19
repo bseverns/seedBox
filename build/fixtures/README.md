@@ -16,7 +16,11 @@ hashes to actually mean something.
 | `granular-haze.wav` | Stereo grain cloud with slow swirl to make sync and width slips obvious. | 48 kHz, stereo |
 | `mixer-console.wav` | Stereo console mix of every engine hitting around -3 dBFS for bus sanity. | 48 kHz, stereo |
 | `euclid-mask.txt` | Euclidean trigger mask parameters + bitmask dump. | text |
-| `burst-cluster.txt` | Burst engine trigger spacing log for deterministic scheduling. | text |
+| `burst-cluster.wav` | Burst engine trigger cluster rendered as a mono whoosh so you can hear the spacing, not just stare at numbers. | 48 kHz, mono |
+| `burst-cluster-control.txt` | Burst engine trigger spacing log for deterministic scheduling. | text |
+
+> Burst got an actual WAV because rhythm should be heard, not inferred. The
+> control log sticks around as the forensic ledger when hashes drift.
 
 ## Regenerating the stash
 

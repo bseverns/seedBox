@@ -44,6 +44,10 @@ SpatialRender render_stage71_scene();
 //! samples (L/R) so callers can dump the buffer straight to disk.
 std::vector<int16_t> render_layered_euclid_burst_fixture();
 
+//! Converts the Burst engine cluster schedule into a mono WAV so reviewers can
+//! actually hear the inter-cluster decay instead of staring at a text dump.
+std::vector<int16_t> render_burst_cluster_fixture();
+
 //! Mixes the sampler, resonator, and granular engines under a shared
 //! Euclid/Burst schedule while exposing every automation lane. Returns the
 //! stereo PCM buffer plus the deterministic control log so the caller can emit
