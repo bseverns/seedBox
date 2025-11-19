@@ -1402,6 +1402,27 @@ void test_render_layered_euclid_burst_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_burst_cluster_golden() {
+    const auto* fixture = find_audio_fixture("burst-cluster");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "burst-cluster fixture metadata missing");
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = golden::render_burst_cluster_fixture();
+
+    TEST_ASSERT_FALSE_MESSAGE(request.samples.empty(), "Burst cluster render returned zero samples");
+
+    const bool write_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(write_ok, "Failed to write burst-cluster golden WAV");
+
+    const std::string hash = golden::hash_pcm16(request.samples);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
+}
+
 void test_render_resonator_golden() {
     const auto* fixture = find_audio_fixture("resonator-tail");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "resonator-tail fixture metadata missing");
@@ -1695,9 +1716,9 @@ void test_render_long_take_golden() {
 
 void test_log_euclid_burst_golden() {
     const auto* euclid_fixture = find_log_fixture("euclid-mask");
-    const auto* burst_fixture = find_log_fixture("burst-cluster");
+    const auto* burst_fixture = find_log_fixture("burst-cluster-control");
     TEST_ASSERT_NOT_NULL_MESSAGE(euclid_fixture, "euclid-mask fixture metadata missing");
-    TEST_ASSERT_NOT_NULL_MESSAGE(burst_fixture, "burst-cluster fixture metadata missing");
+    TEST_ASSERT_NOT_NULL_MESSAGE(burst_fixture, "burst-cluster-control fixture metadata missing");
 
     const std::string euclid_log = render_euclid_log();
     const std::string burst_log = render_burst_log();
@@ -1705,7 +1726,7 @@ void test_log_euclid_burst_golden() {
     const bool euclid_ok = write_text_file(euclid_fixture->path, euclid_log);
     const bool burst_ok = write_text_file(burst_fixture->path, burst_log);
     TEST_ASSERT_TRUE_MESSAGE(euclid_ok, "Failed to write Euclid golden log");
-    TEST_ASSERT_TRUE_MESSAGE(burst_ok, "Failed to write Burst golden log");
+    TEST_ASSERT_TRUE_MESSAGE(burst_ok, "Failed to write Burst golden control log");
 
     const std::string euclid_hash = fnv1a_bytes(euclid_log);
     const std::string burst_hash = fnv1a_bytes(burst_log);
@@ -1763,6 +1784,7 @@ int main(int, char**) {
     RUN_TEST(test_render_sampler_golden);
     RUN_TEST(test_render_modulated_sampler_golden);
     RUN_TEST(test_render_layered_euclid_burst_golden);
+    RUN_TEST(test_render_burst_cluster_golden);
     RUN_TEST(test_render_resonator_golden);
     RUN_TEST(test_render_granular_golden);
     RUN_TEST(test_render_mixer_golden);

@@ -2,7 +2,19 @@
   "fixtures": [
     {
       "name": "burst-cluster",
-      "path": "build/fixtures/burst-cluster.txt",
+      "path": "build/fixtures/burst-cluster.wav",
+      "kind": "audio",
+      "hash": "3a3b6e190f850bdf",
+      "wav_path": "build/fixtures/burst-cluster.wav",
+      "sample_rate_hz": 48000,
+      "frames": 38288,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": "Burst engine cluster capture so you can hear the spacing instead of inferring it."
+    },
+    {
+      "name": "burst-cluster-control",
+      "path": "build/fixtures/burst-cluster-control.txt",
       "kind": "log",
       "hash": "082de9ac9a3cb359",
       "bytes": 128,
@@ -391,5 +403,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-18T14:35:19Z"
+  "generated_at_utc": "2025-11-19T05:11:44Z"
 }

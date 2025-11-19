@@ -14,9 +14,9 @@ truth about what we heard.
 1. `tests/native_golden/test_main.cpp` still prints the 1-second 110 Hz drone to
    `build/fixtures/drone-intro.wav`, but it also forges a sampler chord stack,
    a resonator tail collage, a quadraphonic mixdown, and deterministic
-   Euclid/Burst debug logs. The new WAVs (`sampler-grains.wav`,
-   `resonator-tail.wav`, `quad-bus.wav`) and logs (`euclid-mask.txt`,
-   `burst-cluster.txt`, `reseed-log.json`) live beside the original drone so
+  Euclid/Burst debug logs. The new WAVs (`sampler-grains.wav`,
+  `resonator-tail.wav`, `quad-bus.wav`, `burst-cluster.wav`) and logs
+  (`euclid-mask.txt`, `burst-cluster-control.txt`, `reseed-log.json`) live beside the original drone so
    reviewers can audition or diff each engine in isolation. PlatformIO now
    injects the absolute repo path as `SEEDBOX_PROJECT_ROOT_HINT`, the harness
    honors a `SEEDBOX_PROJECT_ROOT` override when you need to aim somewhere

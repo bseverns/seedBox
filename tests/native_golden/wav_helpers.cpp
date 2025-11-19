@@ -1038,4 +1038,84 @@ std::vector<int16_t> render_layered_euclid_burst_fixture() {
 #endif
 }
 
+std::vector<int16_t> render_burst_cluster_fixture() {
+#if !ENABLE_GOLDEN
+    return {};
+#else
+    constexpr double kSampleRate = 48000.0;
+    constexpr std::uint8_t kBurstCluster = 6;
+    constexpr std::uint32_t kBurstSpacing = 720;
+    constexpr std::uint32_t kSeedOffset = 2048u;
+    constexpr std::uint32_t kBurstSeed = 77u;
+    constexpr std::uint32_t kMasterSeed = 0xB0057BADu;
+    constexpr double kNormalizeTarget = 0.92;
+
+    BurstEngine burst;
+    Engine::PrepareContext prep{};
+    prep.masterSeed = kMasterSeed;
+    burst.prepare(prep);
+    burst.onParam({0, static_cast<std::uint16_t>(BurstEngine::Param::kClusterCount), kBurstCluster});
+    burst.onParam({0, static_cast<std::uint16_t>(BurstEngine::Param::kSpacingSamples),
+                   static_cast<std::int32_t>(kBurstSpacing)});
+    Seed seed{};
+    seed.id = kBurstSeed;
+    burst.onSeed({seed, kSeedOffset});
+
+    const auto& pending = burst.pendingTriggers();
+    if (pending.empty()) {
+        return {};
+    }
+
+    const auto max_trigger = *std::max_element(pending.begin(), pending.end());
+    constexpr double kHitLengthSeconds = 0.18;
+    const std::size_t hit_length = static_cast<std::size_t>(kSampleRate * kHitLengthSeconds);
+    const std::size_t frames = std::max<std::size_t>(
+        max_trigger + hit_length + static_cast<std::size_t>(kSampleRate * 0.5), 1u);
+    std::vector<double> mono(frames, 0.0);
+
+    auto pseudo_noise = [](std::size_t sample) {
+        constexpr std::uint32_t kA = 1664525u;
+        constexpr std::uint32_t kC = 1013904223u;
+        const std::uint32_t state = static_cast<std::uint32_t>((sample * kA + kC) & 0x00FFFFFFu);
+        const double normalized = static_cast<double>(state) / static_cast<double>(0x00FFFFFFu);
+        return std::sin(kTwoPi * normalized);
+    };
+
+    for (std::size_t idx = 0; idx < pending.size(); ++idx) {
+        const std::size_t start = std::min<std::size_t>(pending[idx], frames - 1u);
+        const double freq = 170.0 + 28.0 * static_cast<double>(idx);
+        const double accent = 0.4 + 0.12 * static_cast<double>(idx);
+        for (std::size_t i = 0; i < hit_length; ++i) {
+            const std::size_t frame = start + i;
+            if (frame >= frames) {
+                break;
+            }
+            const double t = static_cast<double>(frame) / kSampleRate;
+            const double progress = static_cast<double>(i) / static_cast<double>(hit_length);
+            const double env = std::exp(-progress * (3.0 + 0.35 * idx)) * std::sin(progress * kHalfPi);
+            const double chirp = std::sin(kTwoPi * (freq + 18.0 * progress) * t + 0.25 * idx);
+            const double crackle = pseudo_noise(frame) * 0.35;
+            const double drone = std::sin(kTwoPi * 48.0 * t + progress * kHalfPi) * 0.1;
+            const double sample = accent * env * (0.65 * chirp + 0.25 * crackle + drone);
+            mono[frame] += sample;
+        }
+    }
+
+    double max_abs = 0.0;
+    for (double value : mono) {
+        max_abs = std::max(max_abs, std::abs(value));
+    }
+    const double scale = (max_abs > 0.0) ? (kNormalizeTarget / max_abs) : 0.0;
+
+    std::vector<int16_t> pcm(frames);
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double scaled = mono[i] * scale;
+        const long quantized = static_cast<long>(std::lround(std::clamp(scaled, -1.0, 1.0) * 32767.0));
+        pcm[i] = static_cast<int16_t>(std::clamp<long>(quantized, -32768L, 32767L));
+    }
+
+    return pcm;
+#endif
+}
+
 }  // namespace golden
