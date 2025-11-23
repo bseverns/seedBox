@@ -1118,4 +1118,120 @@ std::vector<int16_t> render_burst_cluster_fixture() {
 #endif
 }
 
+SpatialRender render_euclid_mask_fixture() {
+#if !ENABLE_GOLDEN
+    return {};
+#else
+    constexpr double kSampleRate = 48000.0;
+    constexpr std::uint8_t kSteps = 16;
+    constexpr std::uint8_t kFills = 5;
+    constexpr std::uint8_t kRotate = 3;
+    constexpr std::uint32_t kMasterSeed = 0xE0C10BADu;
+    constexpr std::uint32_t kSeedId = 24u;
+    constexpr std::size_t kRepeats = 3u;
+    constexpr std::size_t kFramesPerStep = 1200u;
+    constexpr double kNormalizeTarget = 0.94;
+
+    const std::size_t totalSteps = static_cast<std::size_t>(kSteps) * kRepeats;
+    const std::size_t frames = totalSteps * kFramesPerStep;
+    if (frames == 0) {
+        return {};
+    }
+
+    EuclidEngine engine;
+    Engine::PrepareContext prep{};
+    prep.masterSeed = kMasterSeed;
+    engine.prepare(prep);
+    engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kSteps), kSteps});
+    engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kFills), kFills});
+    engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kRotate), kRotate});
+
+    Seed seed{};
+    seed.id = kSeedId;
+    engine.onSeed({seed, 0u});
+
+    std::vector<double> left(frames, 0.0);
+    std::vector<double> right(frames, 0.0);
+
+    auto pseudo_noise = [](std::size_t sample) {
+        std::uint32_t state = static_cast<std::uint32_t>(sample * 747796405u + 2891336453u);
+        state = (state >> 16u) ^ state;
+        state *= 0x7FEB352Du;
+        state = (state >> 15u) ^ state;
+        state *= 0x846CA68Bu;
+        state = (state >> 16u) ^ state;
+        const double normalized = static_cast<double>(state & 0xFFFFu) / 65535.0;
+        return normalized * 2.0 - 1.0;
+    };
+
+    std::ostringstream log;
+    log << "# Euclid mask audio + control log" << '\n';
+    log << "steps=" << static_cast<int>(kSteps) << " fills=" << static_cast<int>(kFills)
+        << " rotate=" << static_cast<int>(kRotate) << " seed_id=" << kSeedId
+        << " master_seed=0x" << std::hex << std::nouppercase << engine.generationSeed() << std::dec
+        << " frames=" << frames << " frames_per_step=" << kFramesPerStep << '\n';
+    log << "mask:";
+    for (std::size_t i = 0; i < engine.mask().size(); ++i) {
+        log << (engine.mask()[i] ? 'X' : '.');
+    }
+    log << '\n';
+    log << "index,gate,when_samples,freq_hz,pan_l,pan_r,env_peak" << '\n';
+
+    Engine::TickContext tick{};
+    log << std::fixed << std::setprecision(3);
+    for (std::size_t step = 0; step < totalSteps; ++step) {
+        tick.tick = step;
+        engine.onTick(tick);
+        const bool gate = engine.lastGate();
+        const double panSeed = static_cast<double>(step % kSteps) / static_cast<double>(kSteps - 1u);
+        const auto pan = make_pan(0.1 + 0.8 * panSeed);
+        const double baseFreq = 150.0 + 11.5 * static_cast<double>(step % kSteps);
+        const double shimmer = 1.0 + 0.04 * std::cos(0.5 * static_cast<double>(step));
+        const double freq = baseFreq * shimmer;
+        const double accent = gate ? 0.82 : 0.16;
+
+        log << step << ',' << (gate ? 1 : 0) << ',' << (step * kFramesPerStep) << ',' << freq << ','
+            << pan[0] << ',' << pan[1] << ',' << accent << '\n';
+
+        const std::size_t start = step * kFramesPerStep;
+        for (std::size_t i = 0; i < kFramesPerStep; ++i) {
+            const std::size_t frame = start + i;
+            const double t = static_cast<double>(frame) / kSampleRate;
+            const double progress = static_cast<double>(i) / static_cast<double>(kFramesPerStep);
+            const double env = accent * std::exp(-progress * (gate ? 3.4 : 2.2)) * std::sin(progress * kHalfPi);
+            const double tone = std::sin(kTwoPi * freq * t + 0.12 * static_cast<double>(step));
+            const double fizz = pseudo_noise(frame) * 0.04 * (1.0 - progress);
+            const double sample = env * (0.9 * tone + fizz);
+            left[frame] += sample * pan[0];
+            right[frame] += sample * pan[1];
+        }
+    }
+
+    double max_abs = 0.0;
+    for (std::size_t i = 0; i < frames; ++i) {
+        max_abs = std::max({max_abs, std::abs(left[i]), std::abs(right[i])});
+    }
+    const double scale = (max_abs > 0.0) ? (kNormalizeTarget / max_abs) : 0.0;
+
+    SpatialRender render{};
+    render.sample_rate_hz = static_cast<std::uint32_t>(kSampleRate);
+    render.channels = 2u;
+    render.frames = frames;
+    render.samples.resize(frames * 2u);
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double l = left[i] * scale;
+        const double r = right[i] * scale;
+        render.samples[2u * i] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768L, 32767L));
+        render.samples[2u * i + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768L, 32767L));
+    }
+
+    log << "normalize=" << kNormalizeTarget << '\n';
+    render.control_log = log.str();
+    return render;
+#endif
+}
+
 }  // namespace golden

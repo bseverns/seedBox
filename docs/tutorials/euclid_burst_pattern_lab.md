@@ -112,7 +112,8 @@ status strings (`ECL`, `BST`) that the OLED will show in class.【F:tests/test_e
 
 If you want to go beyond log output, fire the offline golden renderer. It pumps
 both engines through the same code path used for snapshot fixtures and drops the
-results into `build/fixtures/euclid-mask.txt` when `ENABLE_GOLDEN` is set.【F:tools/native_golden_offline.cpp†L641-L655】【F:build/fixtures/euclid-mask.txt†L1-L20】
+results into `build/fixtures/euclid-mask.wav` plus `build/fixtures/euclid-mask-control.txt`
+when `ENABLE_GOLDEN` is set.【F:tools/native_golden_offline.cpp†L1387-L1437】【F:build/fixtures/euclid-mask-control.txt†L1-L53】
 
 ```bash
 ENABLE_GOLDEN=1 scripts/offline_native_golden.sh --engine Euclid

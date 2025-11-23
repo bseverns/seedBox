@@ -1171,43 +1171,6 @@ std::string fnv1a_bytes(const std::string& bytes) {
     return oss.str();
 }
 
-std::string render_euclid_log() {
-    EuclidEngine engine;
-    Engine::PrepareContext prep{};
-    prep.masterSeed = 0xE0C10BADu;
-    engine.prepare(prep);
-
-    engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kSteps), 16});
-    engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kFills), 5});
-    engine.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kRotate), 3});
-
-    Seed seed{};
-    seed.id = 24;
-    engine.onSeed({seed, 0u});
-
-    std::ostringstream log;
-    log << "# Euclid engine mask" << '\n';
-    log << "steps=" << static_cast<int>(engine.mask().size())
-        << " fills=5 rotate=3 master_seed=0x" << std::hex << std::nouppercase << engine.generationSeed()
-        << std::dec << '\n';
-    log << "mask:";
-    for (std::size_t i = 0; i < engine.mask().size(); ++i) {
-        log << (engine.mask()[i] ? 'X' : '.');
-    }
-    log << '\n';
-
-    log << "gates:";
-    Engine::TickContext tick{};
-    const std::size_t sample_span = engine.mask().empty() ? 0 : engine.mask().size() * 2;
-    for (std::size_t step = 0; step < sample_span; ++step) {
-        tick.tick = step;
-        engine.onTick(tick);
-        log << (engine.lastGate() ? '1' : '0');
-    }
-    log << '\n';
-    return log.str();
-}
-
 std::string render_burst_log() {
     BurstEngine engine;
     Engine::PrepareContext prep{};
@@ -1714,28 +1677,52 @@ void test_render_long_take_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
-void test_log_euclid_burst_golden() {
-    const auto* euclid_fixture = find_log_fixture("euclid-mask");
-    const auto* burst_fixture = find_log_fixture("burst-cluster-control");
-    TEST_ASSERT_NOT_NULL_MESSAGE(euclid_fixture, "euclid-mask fixture metadata missing");
-    TEST_ASSERT_NOT_NULL_MESSAGE(burst_fixture, "burst-cluster-control fixture metadata missing");
+void test_euclid_mask_pair_golden() {
+    const auto* audio_fixture = find_audio_fixture("euclid-mask");
+    const auto* log_fixture = find_log_fixture("euclid-mask-control");
+    TEST_ASSERT_NOT_NULL_MESSAGE(audio_fixture, "euclid-mask fixture metadata missing");
+    TEST_ASSERT_NOT_NULL_MESSAGE(log_fixture, "euclid-mask-control fixture metadata missing");
 
-    const std::string euclid_log = render_euclid_log();
-    const std::string burst_log = render_burst_log();
+    const auto render = golden::render_euclid_mask_fixture();
+    TEST_ASSERT_FALSE_MESSAGE(render.samples.empty(), "Euclid mask render returned zero samples");
+    TEST_ASSERT_FALSE_MESSAGE(render.control_log.empty(), "Euclid mask control log is empty");
 
-    const bool euclid_ok = write_text_file(euclid_fixture->path, euclid_log);
-    const bool burst_ok = write_text_file(burst_fixture->path, burst_log);
-    TEST_ASSERT_TRUE_MESSAGE(euclid_ok, "Failed to write Euclid golden log");
-    TEST_ASSERT_TRUE_MESSAGE(burst_ok, "Failed to write Burst golden control log");
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(audio_fixture->path).string();
+    request.sample_rate_hz = render.sample_rate_hz;
+    request.channels = render.channels;
+    request.samples = render.samples;
 
-    const std::string euclid_hash = fnv1a_bytes(euclid_log);
-    const std::string burst_hash = fnv1a_bytes(burst_log);
-    TEST_ASSERT_EQUAL_STRING(euclid_fixture->expected_hash, euclid_hash.c_str());
-    TEST_ASSERT_EQUAL_STRING(burst_fixture->expected_hash, burst_hash.c_str());
+    const bool wav_ok = golden::write_wav_16(request);
+    TEST_ASSERT_TRUE_MESSAGE(wav_ok, "Failed to write Euclid mask golden WAV");
+
+    const bool log_ok = write_text_file(log_fixture->path, render.control_log);
+    TEST_ASSERT_TRUE_MESSAGE(log_ok, "Failed to write Euclid mask control log");
+
+    const std::string audio_hash = golden::hash_pcm16(request.samples);
+    const std::string log_hash = fnv1a_bytes(render.control_log);
+    TEST_ASSERT_EQUAL_STRING(audio_fixture->expected_hash, audio_hash.c_str());
+    TEST_ASSERT_EQUAL_STRING(log_fixture->expected_hash, log_hash.c_str());
 
     const std::string manifest_body = load_manifest();
-    assert_manifest_contains(manifest_body, *euclid_fixture);
-    assert_manifest_contains(manifest_body, *burst_fixture);
+    assert_manifest_contains(manifest_body, *audio_fixture);
+    assert_manifest_contains(manifest_body, *log_fixture);
+}
+
+void test_log_burst_golden() {
+    const auto* fixture = find_log_fixture("burst-cluster-control");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "burst-cluster-control fixture metadata missing");
+
+    const std::string burst_log = render_burst_log();
+
+    const bool burst_ok = write_text_file(fixture->path, burst_log);
+    TEST_ASSERT_TRUE_MESSAGE(burst_ok, "Failed to write Burst golden control log");
+
+    const std::string burst_hash = fnv1a_bytes(burst_log);
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, burst_hash.c_str());
+
+    const std::string manifest_body = load_manifest();
+    assert_manifest_contains(manifest_body, *fixture);
 }
 
 void test_log_reseed_golden() {
@@ -1798,7 +1785,8 @@ int main(int, char**) {
     RUN_TEST(test_render_reseed_C_golden);
     RUN_TEST(test_render_reseed_poly_golden);
     RUN_TEST(test_render_long_take_golden);
-    RUN_TEST(test_log_euclid_burst_golden);
+    RUN_TEST(test_euclid_mask_pair_golden);
+    RUN_TEST(test_log_burst_golden);
     RUN_TEST(test_log_reseed_golden);
 #else
     RUN_TEST(test_golden_mode_disabled);
