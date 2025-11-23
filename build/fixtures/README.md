@@ -10,14 +10,19 @@ hashes to actually mean something.
 
 | Fixture | Story | Format |
 | --- | --- | --- |
-| `drone-intro.wav` | 110 Hz mono drone capture that proves the DSP plumbing is awake. | 48 kHz, mono | 
+| `drone-intro.wav` | 110 Hz mono drone capture that proves the DSP plumbing is awake. | 48 kHz, mono |
 | `sampler-grains.wav` | Stacked sampler grains (root/fifth/ninth) to catch voicing and detune drift. | 48 kHz, mono |
 | `resonator-tail.wav` | Plucked resonator tail that spotlights damping and feedback tweaks. | 48 kHz, mono |
 | `granular-haze.wav` | Stereo grain cloud with slow swirl to make sync and width slips obvious. | 48 kHz, stereo |
 | `mixer-console.wav` | Stereo console mix of every engine hitting around -3 dBFS for bus sanity. | 48 kHz, stereo |
-| `euclid-mask.txt` | Euclidean trigger mask parameters + bitmask dump. | text |
+| `euclid-mask.wav` | Euclid engine rendered as a stereo pan/envelope lab so the mask math is audible. | 48 kHz, stereo |
+| `euclid-mask-control.txt` | Gate-by-gate ledger that mirrors the Euclid WAV pan/envelope choices. | text |
 | `burst-cluster.wav` | Burst engine trigger cluster rendered as a mono whoosh so you can hear the spacing, not just stare at numbers. | 48 kHz, mono |
 | `burst-cluster-control.txt` | Burst engine trigger spacing log for deterministic scheduling. | text |
+| `quad-bus.wav` | Four-lane bus mix that stress-tests the quad routing math without touching DAW panners. | 48 kHz, quad |
+| `quad-bus-control.txt` | Routing ledger for every quad lane so a diff shows which stem moved. | text |
+| `surround-bus.wav` | 5.1/6-channel spin on the same stems to keep the surround layout honest. | 48 kHz, 6-channel |
+| `surround-bus-control.txt` | Surround bus routing + tilt log so reviewers can trace every hop. | text |
 
 > Burst got an actual WAV because rhythm should be heard, not inferred. The
 > control log sticks around as the forensic ledger when hashes drift.

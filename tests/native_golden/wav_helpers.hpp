@@ -44,6 +44,13 @@ SpatialRender render_stage71_scene();
 //! samples (L/R) so callers can dump the buffer straight to disk.
 std::vector<int16_t> render_layered_euclid_burst_fixture();
 
+//! Euclid mask scratchpad that now spits out both a WAV and a ledger. The
+//! stereo render doubles the Euclid stepper as a pan/envelope driver so the
+//! control log can call out every gate's timestamp, frequency pick, and
+//! left/right gain. Use it when you need a tiny deterministic loop that still
+//! exercises the Euclid math in audio form.
+SpatialRender render_euclid_mask_fixture();
+
 //! Converts the Burst engine cluster schedule into a mono WAV so reviewers can
 //! actually hear the inter-cluster decay instead of staring at a text dump.
 std::vector<int16_t> render_burst_cluster_fixture();

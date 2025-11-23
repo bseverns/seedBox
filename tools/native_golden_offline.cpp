@@ -1405,6 +1405,10 @@ int main() {
                         2,
                         [] { return golden::render_layered_euclid_burst_fixture(); },
                         filters);
+        maybe_emit_spatial_fixture("euclid-mask",
+                                   "euclid-mask-control",
+                                   [] { return golden::render_euclid_mask_fixture(); },
+                                   filters);
         maybe_emit_audio("burst-cluster", 1, [] { return golden::render_burst_cluster_fixture(); }, filters);
         maybe_emit_audio("quad-bus", 4, [] { return render_quadraphonic_fixture(); }, filters);
         maybe_emit_audio("surround-bus", 6, [] { return render_surround_fixture(); }, filters);
@@ -1437,8 +1441,6 @@ int main() {
                 return render_reseed_variant(0xC001CAFEu, "reseed-poly", 118, 5, &stems);
             },
             filters);
-
-        maybe_emit_log("euclid-mask", [] { return render_euclid_log(); }, filters);
         maybe_emit_log("burst-cluster-control", [] { return render_burst_log(); }, filters);
         maybe_emit_log(
             "reseed-log", [] { return render_reseed_log_fixture(); }, filters, ".json");

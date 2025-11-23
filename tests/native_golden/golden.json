@@ -4,10 +4,10 @@
       "name": "burst-cluster",
       "path": "build/fixtures/burst-cluster.wav",
       "kind": "audio",
-      "hash": "3a3b6e190f850bdf",
+      "hash": "00659f3c83edae65",
       "wav_path": "build/fixtures/burst-cluster.wav",
       "sample_rate_hz": 48000,
-      "frames": 38288,
+      "frames": 32222,
       "channels": 1,
       "channel_layout": "mono",
       "notes": "Burst engine cluster capture so you can hear the spacing instead of inferring it."
@@ -86,12 +86,24 @@
     },
     {
       "name": "euclid-mask",
-      "path": "build/fixtures/euclid-mask.txt",
+      "path": "build/fixtures/euclid-mask.wav",
+      "kind": "audio",
+      "hash": "df0820c3e71ba936",
+      "wav_path": "build/fixtures/euclid-mask.wav",
+      "sample_rate_hz": 48000,
+      "frames": 57600,
+      "channels": 2,
+      "channel_layout": "stereo",
+      "notes": "Stereo Euclid mask capture where each gate also swings the pan and envelope curves; paired with a control ledger."
+    },
+    {
+      "name": "euclid-mask-control",
+      "path": "build/fixtures/euclid-mask-control.txt",
       "kind": "log",
-      "hash": "2431091b3af7d347",
-      "bytes": 131,
-      "lines": 4,
-      "notes": ""
+      "hash": "899de0591f056491",
+      "bytes": 1973,
+      "lines": 53,
+      "notes": "Gate-by-gate Euclid mask ledger that mirrors the WAV pan/envelope choices for easy diffing."
     },
     {
       "name": "granular-haze",
@@ -202,7 +214,7 @@
       "name": "quad-bus",
       "path": "build/fixtures/quad-bus.wav",
       "kind": "audio",
-      "hash": "8de941a4ffe7446d",
+      "hash": "2e1656a463a978d5",
       "wav_path": "build/fixtures/quad-bus.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -379,7 +391,7 @@
       "name": "surround-bus",
       "path": "build/fixtures/surround-bus.wav",
       "kind": "audio",
-      "hash": "ec0a317b727ea022",
+      "hash": "dbafae2da8a1ac60",
       "wav_path": "build/fixtures/surround-bus.wav",
       "sample_rate_hz": 48000,
       "frames": 48000,
@@ -403,5 +415,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-19T05:11:44Z"
+  "generated_at_utc": "2025-11-23T14:32:34Z"
 }

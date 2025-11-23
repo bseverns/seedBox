@@ -12,16 +12,17 @@ struct FixtureInfo {
 };
 
 constexpr FixtureInfo kAudioFixtures[] = {
-    {"burst-cluster", "build/fixtures/burst-cluster.wav", "3a3b6e190f850bdf"},
+    {"burst-cluster", "build/fixtures/burst-cluster.wav", "00659f3c83edae65"},
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
     {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "600d12e4f06c256a"},
+    {"euclid-mask", "build/fixtures/euclid-mask.wav", "df0820c3e71ba936"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
     {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "f58e14d36c461c3a"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
     {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "d5e2176c84560f40"},
-    {"quad-bus", "build/fixtures/quad-bus.wav", "8de941a4ffe7446d"},
+    {"quad-bus", "build/fixtures/quad-bus.wav", "2e1656a463a978d5"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
     {"reseed-C", "build/fixtures/reseed-C.wav", "1c89c168dc810f77"},
@@ -29,7 +30,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
     {"stage71-bus", "build/fixtures/stage71-bus.wav", "629833da6365625b"},
-    {"surround-bus", "build/fixtures/surround-bus.wav", "ec0a317b727ea022"},
+    {"surround-bus", "build/fixtures/surround-bus.wav", "dbafae2da8a1ac60"},
 };
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
 
@@ -38,7 +39,7 @@ constexpr FixtureInfo kLogFixtures[] = {
     {"drone-intro-control", "build/fixtures/drone-intro-control.txt", "d902a9aecc33d807"},
     {"engine-hybrid-stack-control", "build/fixtures/engine-hybrid-stack-control.txt", "3281c6c1711601fb"},
     {"engine-macro-orbits-control", "build/fixtures/engine-macro-orbits-control.txt", "d3621e775d039698"},
-    {"euclid-mask", "build/fixtures/euclid-mask.txt", "2431091b3af7d347"},
+    {"euclid-mask-control", "build/fixtures/euclid-mask-control.txt", "899de0591f056491"},
     {"granular-haze-control", "build/fixtures/granular-haze-control.txt", "412d5186c87b5cc0"},
     {"layered-euclid-burst-control", "build/fixtures/layered-euclid-burst-control.txt", "5c44c5a0107e630b"},
     {"long-random-take-control", "build/fixtures/long-random-take-control.txt", "8c149dfbb252a955"},
