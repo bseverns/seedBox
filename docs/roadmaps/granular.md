@@ -5,6 +5,20 @@ The control scaffolding now spins up a real DSP graph (or tidy stubs for the
 simulator), so we can reason about routing, voice stealing, and graph patching
 before the audio assets exist.
 
+## Where to spelunk
+
+- Core code: `engine/Granular.*`, Teensy's `AudioEffectGranular`, and the
+  scheduler glue (`EngineRouter` + `PatternScheduler`).
+- Constants and knobs to keep in view: `GranularEngine::kVoicePoolSize`,
+  `GranularEngine::Source::{kLiveInput,kSdClip}`, `Seed::granular.sdSlot`,
+  `Seed::granular.{grainSizeMs,sprayMs,windowSkew,stereoSpread,source}`,
+  `Seed::pitch`, `Seed::granular.transpose`, and the
+  `GranularEngine::GrainVoice::dspHandle` records that map onto DSP slots.
+- Hot paths worth tracing in a debugger or notebook: `registerSdClip`,
+  `GranularEngine::trigger`, `EngineRouter::dispatchThunk`, `activeVoiceCount()`,
+  `beginPitchShift()`, `setGrainLength()`, and how the planner leans on
+  `Seed::granular.source` when flipping mixers.
+
 ## Voice budget
 
 - Teensy 4.0 target: **36 comfortable voices**, hard limit of 40 (see
@@ -81,3 +95,38 @@ between triggers while still reseeding cleanly.
   SD-only replacement, and multi-group fan-out profiling. Hardware runs inherit
   the same counters, so the sim receipts already prove the mixer cascade is
   doing real work. 【F:tests/test_engine/test_granular_perf_stats.cpp†L1-L89】
+
+## Coverage snapshots
+
+- `tests/test_granular_voice_budget.cpp` proves the pool caps correctly, steals
+  the oldest grain, maps SD slots, and stops phantom SD players when slot
+  metadata goes missing. 【F:tests/test_engine/test_granular_voice_budget.cpp†L24-L103】
+- The reseed README draft (`tests/test_app/README.md`) maps the seed-system doc
+  to app-level tests so we can see which promises already have regression eyes
+  on them. 【F:tests/test_app/README.md†L1-L41】
+- `tests/test_engine/test_granular_graph_layout.cpp` boots the simulator into
+  `Mode::kSim`, fans out beyond a single mixer group, and locks down the
+  `dspHandle`/hardware-sim routing promises for both SD clips and live input.
+  【F:tests/test_engine/test_granular_graph_layout.cpp†L1-L85】
+- `tests/test_hardware/test_granular_teensy.cpp` exercises the Teensy
+  `AudioEffectGranular` directly, asserting that the `beginPitchShift()`
+  fallback stays wired and that the mixer fan-out exposes unique DSP handles
+  across the pool. Run it with `pio test -e teensy40 --filter test_hardware` to
+  confirm the wiring on silicon. 【F:tests/test_hardware/test_granular_teensy.cpp†L1-L83】
+- `pio test -e native --filter test_engine` currently fails to fetch the native
+  platform (403), so the coverage story lives on paper until CI (or a cached
+  toolchain) comes online. 【eddf39†L1-L9】
+
+## Gaps + gut-checks
+
+- CPU telemetry graduated from "scribbled in the roadmap" to real counters: the
+  PERF HUD mirrors `GranularEngine::Stats`, SD-only stress cases land in
+  `tests/test_engine/test_granular_perf_stats.cpp`, and the OLED prints a `F`
+  fan-out tag so mixer load is visible without touching the debugger.
+- We still owe tap-tempo + preset prime mode tests alongside the live-input
+  checks so the reseeding roadmap stays symmetrical. 【F:tests/test_app/README.md†L23-L41】
+
+## Next deep-dive targets
+
+- Add tap-tempo and preset prime mode coverage to mirror the live-input checks
+  in the reseed plan. 【F:tests/test_app/README.md†L23-L41】
