@@ -66,4 +66,10 @@ SpatialRender render_engine_hybrid_fixture();
 //! so reviewers can diff every modulation lane alongside the WAV capture.
 SpatialRender render_engine_macro_orbits_fixture();
 
+//! Euclid-driven triple-engine probe that logs every hit plus the macro/burst
+//! modulation lanes that shaped it. The render interleaves sampler, resonator,
+//! and granular voices while dumping a control ledger so CI can publish both
+//! the WAV and the event transcript without extra glue code.
+SpatialRender render_engine_multi_ledger_fixture();
+
 }  // namespace golden
