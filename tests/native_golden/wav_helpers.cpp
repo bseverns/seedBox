@@ -827,6 +827,147 @@ SpatialRender render_engine_macro_orbits_fixture() {
 #endif
 }
 
+SpatialRender render_engine_multi_ledger_fixture() {
+#if !ENABLE_GOLDEN
+    return {};
+#else
+    constexpr double kSampleRate = 48000.0;
+    constexpr double kBpm = 96.0;
+    constexpr double kStepsPerBeat = 4.0;
+    constexpr std::size_t kBeats = 12u;
+    constexpr std::uint8_t kEuclidSteps = 9u;
+    constexpr std::uint8_t kEuclidFills = 5u;
+    constexpr std::uint8_t kEuclidRotate = 2u;
+    constexpr double kNormalizeTarget = 0.93;
+    constexpr std::size_t kTailFrames = 36000u;  // 0.75s of pad so envelopes resolve.
+
+    const std::size_t totalSteps = static_cast<std::size_t>(kBeats * kStepsPerBeat);
+    const double framesPerBeat = kSampleRate * (60.0 / kBpm);
+    const std::size_t framesPerStep = static_cast<std::size_t>(std::lround(framesPerBeat / kStepsPerBeat));
+    if (framesPerStep == 0 || totalSteps == 0) {
+        return {};
+    }
+
+    const std::size_t frames = totalSteps * framesPerStep + kTailFrames;
+    if (frames == 0) {
+        return {};
+    }
+
+    EuclidEngine euclid;
+    Engine::PrepareContext prep{};
+    prep.masterSeed = 0xFACEACEDu;
+    euclid.prepare(prep);
+    euclid.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kSteps), kEuclidSteps});
+    euclid.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kFills), kEuclidFills});
+    euclid.onParam({0, static_cast<std::uint16_t>(EuclidEngine::Param::kRotate), kEuclidRotate});
+
+    std::vector<double> left(frames, 0.0);
+    std::vector<double> right(frames, 0.0);
+
+    auto pseudo_noise = [](std::size_t sample) {
+        std::uint32_t state = static_cast<std::uint32_t>(sample * 747796405u + 2891336453u);
+        state = (state >> 16u) ^ state;
+        state *= 0x7FEB352Du;
+        state = (state >> 15u) ^ state;
+        state *= 0x846CA68Bu;
+        state = (state >> 16u) ^ state;
+        const double normalized = static_cast<double>(state & 0xFFFFu) / 65535.0;
+        return normalized * 2.0 - 1.0;
+    };
+
+    std::ostringstream log;
+    log << "# Multi-engine Euclid ledger (sampler/resonator/granular blend)" << '\n';
+    log << "sample_rate_hz=" << static_cast<int>(kSampleRate) << " bpm=" << kBpm
+        << " beats=" << kBeats << " steps_per_beat=" << kStepsPerBeat
+        << " euclid_steps=" << static_cast<int>(kEuclidSteps)
+        << " euclid_fills=" << static_cast<int>(kEuclidFills)
+        << " euclid_rotate=" << static_cast<int>(kEuclidRotate)
+        << " frames_per_step=" << framesPerStep
+        << " tail_frames=" << kTailFrames
+        << " master_seed=0x" << std::hex << std::nouppercase << euclid.generationSeed() << std::dec
+        << '\n';
+    log << "Columns: index,step,engine,when_samples,pan_l,pan_r,freq_hz,env_peak,macro_orbit,burst_density" << '\n';
+    log << std::fixed << std::setprecision(6);
+
+    Engine::TickContext tick{};
+    const std::array<const char*, 3> engineNames = {"sampler", "resonator", "granular"};
+    const std::array<double, 3> baseFreqs = {180.0, 233.08, 277.18};
+
+    std::size_t eventIndex = 0u;
+    for (std::size_t step = 0; step < totalSteps; ++step) {
+        tick.tick = step;
+        euclid.onTick(tick);
+        const bool gate = euclid.lastGate();
+
+        const double orbit = 0.4 + 0.35 * std::sin(kTwoPi * (static_cast<double>(step) / static_cast<double>(totalSteps)));
+        const double spreadLfo = 0.2 + 0.6 * std::cos(kTwoPi * (static_cast<double>(step) / static_cast<double>(totalSteps)));
+        const double burstDensity = 0.5 + 0.5 * std::sin(kTwoPi * (static_cast<double>(step) / 12.0) + 0.3);
+
+        if (!gate) {
+            continue;
+        }
+
+        const int engineIndex = static_cast<int>(step % engineNames.size());
+        const double freq = baseFreqs[static_cast<std::size_t>(engineIndex)] * (1.0 + 0.08 * spreadLfo + 0.03 * burstDensity);
+        const double envPeak = 0.64 + 0.28 * orbit;
+        const double panSeed = clamp01(0.18 + 0.5 * orbit + 0.22 * spreadLfo);
+        const auto pan = make_pan(panSeed);
+
+        const std::size_t start = step * framesPerStep;
+        const std::size_t bursts = 1u + static_cast<std::size_t>(std::floor(burstDensity * 3.0));
+        for (std::size_t burst = 0; burst < bursts; ++burst) {
+            const std::size_t localStart = start + (burst * framesPerStep) / bursts;
+            const std::size_t duration = std::min<std::size_t>(framesPerStep + 320u, frames - localStart);
+            for (std::size_t i = 0; i < duration; ++i) {
+                const std::size_t frame = localStart + i;
+                const double t = static_cast<double>(frame) / kSampleRate;
+                const double progress = static_cast<double>(i) / static_cast<double>(duration);
+                const double samplerTone = std::sin(kTwoPi * freq * t) * (0.85 + 0.10 * orbit);
+                const double resonatorGlow = std::sin(kTwoPi * freq * 1.5 * t + 0.4) * std::exp(-progress * 2.4) *
+                                            (0.60 + 0.40 * spreadLfo);
+                const double granularSpray = pseudo_noise(frame + burst * 33u) * std::exp(-progress * 3.1) *
+                                             (0.25 + 0.35 * burstDensity);
+                const double env = envPeak * std::exp(-progress * (1.6 + 0.2 * static_cast<double>(engineIndex))) *
+                                   std::sin(progress * kHalfPi);
+                const double sample = env * (0.5 * samplerTone + 0.3 * resonatorGlow + 0.2 * granularSpray);
+                left[frame] += sample * pan[0];
+                right[frame] += sample * pan[1];
+            }
+        }
+
+        log << eventIndex << ',' << step << ',' << engineNames[static_cast<std::size_t>(engineIndex)] << ','
+            << start << ',' << pan[0] << ',' << pan[1] << ',' << freq << ',' << envPeak << ',' << orbit << ','
+            << burstDensity << '\n';
+        ++eventIndex;
+    }
+
+    double max_abs = 0.0;
+    for (std::size_t i = 0; i < frames; ++i) {
+        max_abs = std::max({max_abs, std::abs(left[i]), std::abs(right[i])});
+    }
+    const double scale = (max_abs > 0.0) ? (kNormalizeTarget / max_abs) : 0.0;
+
+    SpatialRender render{};
+    render.sample_rate_hz = static_cast<std::uint32_t>(kSampleRate);
+    render.channels = 2u;
+    render.frames = frames;
+    render.samples.resize(frames * 2u);
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double l = left[i] * scale;
+        const double r = right[i] * scale;
+        render.samples[2u * i] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(l * 32767.0)), -32768L, 32767L));
+        render.samples[2u * i + 1u] = static_cast<int16_t>(
+            std::clamp<long>(static_cast<long>(std::lround(r * 32767.0)), -32768L, 32767L));
+    }
+
+    log << "normalize=" << kNormalizeTarget << " max_abs=" << max_abs << '\n';
+    render.control_log = log.str();
+    return render;
+#endif
+}
+
 std::vector<int16_t> render_layered_euclid_burst_fixture() {
 #if !ENABLE_GOLDEN
     return {};

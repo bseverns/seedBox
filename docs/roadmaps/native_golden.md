@@ -61,6 +61,15 @@ manifest of hashes that tests can diff without golden-ear guesswork.
   Burst hit plus the automation snapshot that sculpted it. The Unity harness
   wires it up via `test_render_engine_macro_orbits_golden()` so `pio test -e`
   `native_golden` always emits both the WAV and the control transcript.
+  A fresh sibling, `engine-multi-ledger.wav`, keeps the Euclid math but cycles
+  through the sampler/resonator/granular trio one hit at a time so the control
+  log can double as a lesson plan. The helper
+  [`render_engine_multi_ledger_fixture()`](../../tests/native_golden/wav_helpers.cpp)
+  sweeps macro orbit and burst-density lanes per gate, writes the stereo WAV,
+  then drops an `engine-multi-ledger-control.txt` ledger that spells out pan,
+  freq, env peak, macro orbit, and burst density for every Euclid strike. The
+  Unity test [`test_render_engine_multi_ledger_golden()`](../../tests/native_golden/test_main.cpp)
+  registers it so CI uploads both artifacts whenever the golden env runs.
 - **Layered Euclid/Burst capture:** `layered-euclid-burst.wav` now rides shotgun
   with every golden run. The helper
   [`render_layered_euclid_burst_fixture()`](../../tests/native_golden/wav_helpers.cpp)
