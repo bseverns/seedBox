@@ -86,22 +86,14 @@ pio test -e native --filter test_app --test-name test_preset_round_trip_via_eepr
 
 ## Sonic receipts — the native golden pipeline
 
-- Fire up the dedicated golden env with `pio test -e native_golden` to render
-  deterministic fixtures into `build/fixtures/`. PlatformIO injects the project
-  root as `SEEDBOX_PROJECT_ROOT_HINT`, the runner honors a live
-  `SEEDBOX_PROJECT_ROOT` override, and it still walks up to the nearest
-  `platformio.ini` as a final fallback. Even though PlatformIO executes the
-  binary from inside `.pio/`, the WAVs land in the repo root where docs and
-  scripts expect them. It mirrors the standard native toolchain but bakes in the
-  flag so cached binaries never ghost the renders.
-- `python3 scripts/compute_golden_hashes.py --write` recomputes hashes and rewrites
-  `tests/native_golden/golden.json` so reviewers can diff sound changes instead
-  of guessing (the helper refuses to run on anything older than Python 3.7, so
-  skip the creaky `python` shim).
-- The harness refuses to pass if either the WAV or the manifest entry ghosts
-  out, so every merge ships with receipts.【F:tests/native_golden/test_main.cpp†L101-L135】
-- Learn the full ritual in [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md)
-  and the matching [`tests/native_golden/README.md`](tests/native_golden/README.md).
+`native_golden` is the tape deck that proves renders and reseed logs stay
+deterministic: the fixtures land in `build/fixtures/`, the manifest lives at
+`tests/native_golden/golden.json`, and the Unity test shouts if either goes
+missing.【F:tests/native_golden/test_main.cpp†L101-L135】 Treat that manifest plus
+the dedicated docs ([`tests/native_golden/README.md`](tests/native_golden/README.md)
+and [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md)) as the
+only source of truth for how to replay or regenerate the goldens — this README
+stays short so the canonical recipes live with the fixtures themselves.
 
 That check leans on the same serialization path the hardware uses, so it's our
 CI-sized receipt that preset primes are actually deterministic.
