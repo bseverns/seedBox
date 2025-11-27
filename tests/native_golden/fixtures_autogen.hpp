@@ -12,18 +12,18 @@ struct FixtureInfo {
 };
 
 constexpr FixtureInfo kAudioFixtures[] = {
-    {"burst-cluster", "build/fixtures/burst-cluster.wav", "00659f3c83edae65"},
+    {"burst-cluster", "build/fixtures/burst-cluster.wav", "3a3b6e190f850bdf"},
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
     {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "600d12e4f06c256a"},
-    {"engine-multi-ledger", "build/fixtures/engine-multi-ledger.wav", "ab49f9ffe63cc8f1"},
-    {"euclid-mask", "build/fixtures/euclid-mask.wav", "7852b84a7e81e5d8"},
+    {"engine-multi-ledger", "build/fixtures/engine-multi-ledger.wav", "1fa31b2412ee6263"},
+    {"euclid-mask", "build/fixtures/euclid-mask.wav", "df0820c3e71ba936"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
     {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "f58e14d36c461c3a"},
     {"long-random-take", "build/fixtures/long-random-take.wav", "97e954c9e2a909df"},
     {"mixer-console", "build/fixtures/mixer-console.wav", "3ba5f705dc237611"},
     {"modulated-sampler", "build/fixtures/modulated-sampler.wav", "d5e2176c84560f40"},
-    {"quad-bus", "build/fixtures/quad-bus.wav", "7811c7a5a0b34b91"},
+    {"quad-bus", "build/fixtures/quad-bus.wav", "8de941a4ffe7446d"},
     {"reseed-A", "build/fixtures/reseed-A.wav", "6bdbf0d855da618f"},
     {"reseed-B", "build/fixtures/reseed-B.wav", "998a54390940abbc"},
     {"reseed-C", "build/fixtures/reseed-C.wav", "1c89c168dc810f77"},
@@ -31,7 +31,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
     {"stage71-bus", "build/fixtures/stage71-bus.wav", "629833da6365625b"},
-    {"surround-bus", "build/fixtures/surround-bus.wav", "69fb0d4e0f1bf6c7"},
+    {"surround-bus", "build/fixtures/surround-bus.wav", "ec0a317b727ea022"},
 };
 constexpr std::size_t kAudioFixtureCount = sizeof(kAudioFixtures) / sizeof(kAudioFixtures[0]);
 

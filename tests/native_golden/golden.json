@@ -4,10 +4,10 @@
       "name": "burst-cluster",
       "path": "build/fixtures/burst-cluster.wav",
       "kind": "audio",
-      "hash": "00659f3c83edae65",
+      "hash": "3a3b6e190f850bdf",
       "wav_path": "build/fixtures/burst-cluster.wav",
       "sample_rate_hz": 48000,
-      "frames": 32222,
+      "frames": 38288,
       "channels": 1,
       "channel_layout": "mono",
       "notes": "Burst engine cluster capture so you can hear the spacing instead of inferring it."
@@ -88,10 +88,10 @@
       "name": "engine-multi-ledger",
       "path": "build/fixtures/engine-multi-ledger.wav",
       "kind": "audio",
-      "hash": "ab49f9ffe63cc8f1",
+      "hash": "1fa31b2412ee6263",
       "wav_path": "build/fixtures/engine-multi-ledger.wav",
       "sample_rate_hz": 48000,
-      "frames": 396000,
+      "frames": 269830,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": "Euclid-driven sampler/resonator/granular crossfade with per-hit macro orbit + burst density baked into the log."
@@ -109,10 +109,10 @@
       "name": "euclid-mask",
       "path": "build/fixtures/euclid-mask.wav",
       "kind": "audio",
-      "hash": "7852b84a7e81e5d8",
+      "hash": "df0820c3e71ba936",
       "wav_path": "build/fixtures/euclid-mask.wav",
       "sample_rate_hz": 48000,
-      "frames": 29885,
+      "frames": 57600,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": "Stereo Euclid mask capture where each gate also swings the pan and envelope curves; paired with a control ledger."
@@ -235,10 +235,10 @@
       "name": "quad-bus",
       "path": "build/fixtures/quad-bus.wav",
       "kind": "audio",
-      "hash": "7811c7a5a0b34b91",
+      "hash": "8de941a4ffe7446d",
       "wav_path": "build/fixtures/quad-bus.wav",
       "sample_rate_hz": 48000,
-      "frames": 26195,
+      "frames": 48000,
       "channels": 4,
       "channel_layout": "4-channel",
       "notes": ""
@@ -412,10 +412,10 @@
       "name": "surround-bus",
       "path": "build/fixtures/surround-bus.wav",
       "kind": "audio",
-      "hash": "69fb0d4e0f1bf6c7",
+      "hash": "ec0a317b727ea022",
       "wav_path": "build/fixtures/surround-bus.wav",
       "sample_rate_hz": 48000,
-      "frames": 26047,
+      "frames": 48000,
       "channels": 6,
       "channel_layout": "6-channel",
       "notes": ""
@@ -436,5 +436,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-25T05:07:52Z"
+  "generated_at_utc": "2025-11-27T00:40:31Z"
 }
