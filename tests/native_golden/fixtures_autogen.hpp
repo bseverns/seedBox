@@ -16,7 +16,7 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"drone-intro", "build/fixtures/drone-intro.wav", "f53315eb7db89d33"},
     {"engine-hybrid-stack", "build/fixtures/engine-hybrid-stack.wav", "e78a69cb203c4627"},
     {"engine-macro-orbits", "build/fixtures/engine-macro-orbits.wav", "600d12e4f06c256a"},
-    {"engine-multi-ledger", "build/fixtures/engine-multi-ledger.wav", "1fa31b2412ee6263"},
+    {"engine-multi-ledger", "build/fixtures/engine-multi-ledger.wav", "ab49f9ffe63cc8f1"},
     {"euclid-mask", "build/fixtures/euclid-mask.wav", "df0820c3e71ba936"},
     {"granular-haze", "build/fixtures/granular-haze.wav", "0ba2bd0c8e981ef5"},
     {"layered-euclid-burst", "build/fixtures/layered-euclid-burst.wav", "f58e14d36c461c3a"},

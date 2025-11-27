@@ -88,10 +88,10 @@
       "name": "engine-multi-ledger",
       "path": "build/fixtures/engine-multi-ledger.wav",
       "kind": "audio",
-      "hash": "1fa31b2412ee6263",
+      "hash": "ab49f9ffe63cc8f1",
       "wav_path": "build/fixtures/engine-multi-ledger.wav",
       "sample_rate_hz": 48000,
-      "frames": 269830,
+      "frames": 396000,
       "channels": 2,
       "channel_layout": "stereo",
       "notes": "Euclid-driven sampler/resonator/granular crossfade with per-hit macro orbit + burst density baked into the log."
@@ -436,5 +436,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-27T00:40:31Z"
+  "generated_at_utc": "2025-11-27T00:55:25Z"
 }
