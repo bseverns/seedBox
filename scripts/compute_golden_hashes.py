@@ -27,6 +27,7 @@ if sys.version_info < (3, 7):  # pragma: no cover - guard for misconfigured envs
 import argparse
 import datetime as _dt
 import json
+import subprocess
 from pathlib import Path
 import wave
 try:
@@ -490,6 +491,16 @@ def main(argv):
             json.dump(manifest, handle, indent=2)
             handle.write("\n")
         print("\nmanifest updated -> {}".format(args.manifest))
+        generator = (Path(__file__).resolve().parent / "generate_native_golden_header.py").resolve()
+        subprocess.check_call(
+            [
+                sys.executable,
+                str(generator),
+                "--manifest",
+                str(args.manifest),
+            ]
+        )
+        print("fixture header refreshed -> tests/native_golden/fixtures_autogen.hpp")
     else:
         print("\n(dry run — re-run with --write to update the manifest)")
     return 0
