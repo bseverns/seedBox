@@ -1420,6 +1420,10 @@ int main() {
                                    "engine-macro-orbits-control",
                                    [] { return golden::render_engine_macro_orbits_fixture(); },
                                    filters);
+        maybe_emit_spatial_fixture("engine-multi-ledger",
+                                   "engine-multi-ledger-control",
+                                   [] { return golden::render_engine_multi_ledger_fixture(); },
+                                   filters);
         maybe_emit_spatial_fixture("stage71-bus",
                                    "stage71-bus-control",
                                    [] { return golden::render_stage71_scene(); },
