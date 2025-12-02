@@ -46,6 +46,10 @@ constexpr std::array<std::pair<const char*, Board::EncoderID>, 4> kEncoderLookup
 }};
 
 std::string toLower(std::string_view in) {
+  // Micro helper: normalise tokens from the script parser.  Everything below
+  // expects lowercase strings so students can type "Tap" or "tap" without
+  // tripping over case sensitivity.  We keep it tiny on purpose so folks can
+  // single-step through it in a debugger and see `std::transform` in action.
   std::string out(in);
   std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return out;
@@ -54,6 +58,11 @@ std::string toLower(std::string_view in) {
 class NativeBoard final : public Board {
 public:
   void poll() override {
+    // The simulator advances time in 10ms slices.  Every poll call jumps the
+    // clock forward and then chews through as much of the scripted input as
+    // possible.  This mirrors the "tight loop" vibe of embedded firmware
+    // without forcing the host CPU to sleep.  If you want to explain game loop
+    // patterns to students, this is an approachable anchor point.
     now_us_ += poll_period_us_;
     now_ms_ = static_cast<std::uint32_t>(now_us_ / 1000u);
 
@@ -64,6 +73,10 @@ public:
   }
 
   ButtonSample sampleButton(ButtonID id) const override {
+    // Teaching hook: `ButtonID` is an enum that lines up with the physical
+    // front panel.  We translate it into an index, sanity-check bounds, and
+    // return whatever the script last wrote.  The empty ButtonSample fallback
+    // acts like a hardware input that was never wired.
     const std::size_t idx = static_cast<std::size_t>(id);
     if (idx >= button_samples_.size()) {
       return ButtonSample{};
@@ -72,6 +85,10 @@ public:
   }
 
   int32_t consumeEncoderDelta(EncoderID id) override {
+    // Encoders report movement as deltas, not absolute positions.  We stash the
+    // accumulated delta, zero the bucket (so the caller "consumes" it), and
+    // hand the value back.  The guard rails are intentionally boring: stay
+    // inside the array or return 0 so demos don't crash on typoed IDs.
     const std::size_t idx = static_cast<std::size_t>(id);
     if (idx >= encoder_deltas_.size()) {
       return 0;
@@ -82,6 +99,8 @@ public:
   }
 
   bool tapTempoActive() const override {
+    // Convenience shim so higher layers can ask "is the tap button down right
+    // now?" without spelunking through the sample buffer.
     return button_samples_[static_cast<std::size_t>(ButtonID::TapTempo)].pressed;
   }
 
@@ -89,6 +108,10 @@ public:
   std::uint64_t nowMicros() const override { return now_us_; }
 
   void reset() {
+    // Hard reset for the simulator: wipe any pending scripted events, reset the
+    // virtual GPIO snapshots, and slam the clock back to zero.  This keeps
+    // tests hermetic and mirrors the "pull the USB cable" ritual students know
+    // from real hardware.
     script_.clear();
     std::fill(button_samples_.begin(), button_samples_.end(), ButtonSample{});
     std::fill(encoder_deltas_.begin(), encoder_deltas_.end(), 0);
@@ -100,6 +123,10 @@ public:
   // the format human readable we can teach automation without burying folks in
   // binary blobs.
   void feed(std::string_view line) {
+    // Entry point for scripted input.  Each line is a mini DSL command like
+    // "wait 10ms" or "btn seed down".  By keeping the parser here and
+    // readable we can show new firmware folks how to translate human-friendly
+    // text into structured events without needing a full parser generator.
     auto trimmed = trim(line);
     if (trimmed.empty() || trimmed.front() == '#') {
       return;
@@ -168,12 +195,17 @@ public:
   // Unit tests sometimes need to jump the simulated clock ahead without
   // chewing through poll() cycles.  fastForward makes that explicit.
   void fastForward(std::uint64_t micros) {
+    // Classroom cheat code: jump the simulated clock forward without burning
+    // CPU on poll() calls.  Handy for testing timeouts or envelope decay logic
+    // where you only care about "time later" not the steps in between.
     now_us_ += micros;
     now_ms_ = static_cast<std::uint32_t>(now_us_ / 1000u);
   }
 
 private:
   static std::string_view trim(std::string_view text) {
+    // Trim leading and trailing whitespace for the script parser.  Written in
+    // plain C++17 so it is a friendly demo of string_view mutation.
     while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) {
       text.remove_prefix(1);
     }
@@ -184,6 +216,9 @@ private:
   }
 
   static std::optional<Board::ButtonID> parseButton(std::string_view token) {
+    // Map human-friendly button nicknames to the canonical enum.  Returning
+    // std::nullopt instead of throwing keeps the flow approachable for labs and
+    // allows students to experiment with failure cases without crashing.
     const std::string key = toLower(token);
     for (const auto& entry : kButtonLookup) {
       if (key == entry.first) {
@@ -194,6 +229,9 @@ private:
   }
 
   static std::optional<Board::EncoderID> parseEncoder(std::string_view token) {
+    // Same idea as parseButton but for the four encoders.  Keeping separate
+    // lookup tables makes it obvious how to extend the script language if the
+    // front panel grows more controls.
     const std::string key = toLower(token);
     for (const auto& entry : kEncoderLookup) {
       if (key == entry.first) {
@@ -204,6 +242,10 @@ private:
   }
 
   void processScript() {
+    // Core of the native stack: walk through the queued ScriptEvents and apply
+    // them to the simulated hardware state.  Because we munch events until a
+    // "wait" asks us to pause, this function doubles as a lightweight
+    // scheduler demo.
     while (!script_.empty()) {
       auto& evt = script_.front();
       if (evt.type == ScriptEvent::Type::Wait) {
@@ -242,6 +284,9 @@ private:
   }
 
   void writeButton(ButtonID id, bool pressed) {
+    // Internal helper that mirrors a button press into the sampled state.  The
+    // timestamp uses the simulator clock so lessons about debouncing still
+    // apply even when everything is synthetic.
     const std::size_t idx = static_cast<std::size_t>(id);
     if (idx >= button_samples_.size()) {
       return;
@@ -261,8 +306,11 @@ private:
 };
 
 NativeBoard& instance() {
-    static NativeBoard board;
-    return board;
+  // Classic Meyers singleton so the shim has a single source of truth.  Keeping
+  // it local avoids global constructors while giving students a quick primer on
+  // how singletons are usually built in C++.
+  static NativeBoard board;
+  return board;
 }
 
 }  // namespace
@@ -270,9 +318,21 @@ NativeBoard& instance() {
 Board& board() { return instance(); }
 Board& nativeBoard() { return instance(); }
 
-void nativeBoardFeed(const std::string& line) { instance().feed(line); }
-void nativeBoardReset() { instance().reset(); }
-void nativeBoardFastForwardMicros(std::uint64_t delta) { instance().fastForward(delta); }
+void nativeBoardFeed(const std::string& line) {
+  // External hook for the simulator CLI.  Feeds a single script line into the
+  // queue so integration tests can choreograph button presses.
+  instance().feed(line);
+}
+void nativeBoardReset() {
+  // Public reset for labs: cleans slate between test runs so demos stay
+  // deterministic.
+  instance().reset();
+}
+void nativeBoardFastForwardMicros(std::uint64_t delta) {
+  // Expose the fast-forward cheat to other modules without forcing them to
+  // reach into the singleton directly.
+  instance().fastForward(delta);
+}
 
 }  // namespace hal
 
