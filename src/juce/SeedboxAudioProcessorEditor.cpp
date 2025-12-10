@@ -4,6 +4,7 @@
 
 #include <juce_graphics/juce_graphics.h>
 
+#include "BinaryData.h"
 #include <sstream>
 
 #include "app/AppState.h"
@@ -17,7 +18,8 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
 
   masterSeedSlider_.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   masterSeedSlider_.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
-  masterSeedSlider_.setTooltip("Master Seed drives the procedural voices; automate it to morph the groove.");
+  const juce::String tooltip = juce::String::fromUTF8(BinaryData::juce_motd_txt, BinaryData::juce_motd_txtSize);
+  masterSeedSlider_.setTooltip(tooltip);
   addAndMakeVisible(masterSeedSlider_);
 
   displayLabel_.setJustificationType(juce::Justification::centred);
