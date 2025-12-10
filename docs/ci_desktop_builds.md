@@ -20,7 +20,10 @@ we build, which arch we aim at, and how to debug it if something pops.
   trick locally when JUCE shuffles its output folders. We also flip
   `JUCE_VST3_CAN_REPLACE_VST2=OFF` so JUCE skips the legacy VST2 compatibility
   shim and never chases Steinberg’s archived VST2 headers during a VST3-only
-  build.
+  build. The repo’s `CMakeLists.txt` also bakes in
+  `JUCE_VST3_CAN_REPLACE_VST2=0` and `JUCE_PLUGINHOST_VST=0` for the plugin
+  targets, so local builds inherit the same VST3-only posture even if you forget
+  to pass the flag by hand.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
   (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
   configures the JUCE targets, and builds both the plugin and the app to ensure
@@ -65,7 +68,9 @@ we build, which arch we aim at, and how to debug it if something pops.
   references at the final link step. Do the same with
   `-DJUCE_VST3_CAN_REPLACE_VST2=OFF` if you see VST2 header errors; that flag
   intentionally disables the “VST3 can replace VST2” compatibility path so we
-  never need the VST2 SDK to ship a VST3.
+  never need the VST2 SDK to ship a VST3. (It’s already wired into the plugin
+  targets in `CMakeLists.txt`, but adding it to your ad-hoc configure lines
+  keeps third-party build scripts honest.)
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.

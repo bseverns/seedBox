@@ -131,7 +131,11 @@ target_include_directories(SeedboxVST3 PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_compile_definitions(SeedboxVST3 PRIVATE ${SEEDBOX_COMPILE_DEFINITIONS})
+target_compile_definitions(SeedboxVST3 PRIVATE
+  ${SEEDBOX_COMPILE_DEFINITIONS}
+  JUCE_VST3_CAN_REPLACE_VST2=0
+  JUCE_PLUGINHOST_VST=0
+)
 
 target_link_libraries(SeedboxVST3
   PRIVATE
@@ -155,6 +159,11 @@ set_target_properties(SeedboxVST3_VST3 PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
   ARCHIVE_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
   JUCE_VST3_COPY_DIR "${SEEDBOX_VST3_STAGING_DIR}")
+
+target_compile_definitions(SeedboxVST3_VST3 PRIVATE
+  JUCE_VST3_CAN_REPLACE_VST2=0
+  JUCE_PLUGINHOST_VST=0
+)
 
 juce_add_gui_app(SeedboxApp PRODUCT_NAME "SeedBox Standalone")
 
