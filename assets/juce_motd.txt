@@ -1,0 +1,4 @@
+SeedBox desktop vibe check:
+- This build runs the exact AppState as the hardware.
+- Master Seed automation is your cheat code for controlled chaos.
+- Keep QUIET_MODE on when you don't want MIDI spam lighting up the DAW.

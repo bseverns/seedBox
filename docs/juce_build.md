@@ -1,60 +1,122 @@
-# JUCE build + host wiring guide
+# JUCE builds without the mystery meat
 
-Welcome to the desktop lane. This is the lab notebook page for anyone slinging
-SeedBox inside a DAW or a headless JUCE harness. The vibe: ship something useful
-fast, narrate every lever you pull, and keep the Arduino-only headers out of the
-picture.
+Think of this page as the hostel kitchen logbook for desktop builds: messy, loud,
+and meant to teach. The top-level `CMakeLists.txt` now pulls JUCE via
+`FetchContent`, spins up both a VST3 plugin and a standalone app, and threads the
+same build flags PlatformIO uses so the DAW story matches the firmware truth.
 
-## TL;DR build flags
+## Quick start
 
-- Flip `-DSEEDBOX_JUCE=1` when you build. It keeps the Arduino headers on the
-  bench and lights up the JUCE-specific glue.
-- Leave `SEEDBOX_HW` and `SEEDBOX_SIM` at `0` in this mode — the new flag already
-  routes you down the native path and the config header will scream if you try
-  to combine them.
+1. **Clone dependencies.** The CMake project fetches JUCE straight from GitHub.
+   Make sure you have Git and CMake ≥ 3.22 on your path.
+2. **Configure out-of-tree.**
 
-## Audio plumbing checklist
+   ```bash
+   cmake -S . -B build/juce \
+     -DSEEDBOX_SIM=ON \
+     -DQUIET_MODE=ON \
+     -DSEEDBOX_VERSION="$(git rev-parse --short HEAD)"
+   ```
 
-1. Instantiate `seedbox::juce_bridge::JuceHost` with your `AppState`.
-2. Call `initialiseWithDefaults()` to open the default stereo output + MIDI
-   pair, or `configureForTests(sampleRate, blockSize)` if you just want CI to
-   exercise the wiring without touching CoreAudio/ASIO/JACK.
-3. Let JUCE's `audioDeviceAboutToStart` tell us the real sample rate and block
-   size. We mirror those straight into `hal::audio::configureHostStream`, so the
-   engines prep against the exact numbers your host picked instead of assuming
-   a hard-coded 48 kHz / 128 frame world.
-4. We render directly into the host-provided float buffers via
-   `hal::audio::renderHostBuffer`, clamping to stereo (if JUCE only hands us
-   mono we mirror the left channel). Latency conversations get honest because we
-   never resample or re-block behind JUCE's back.
+3. **Build the standalone app.**
 
-## MIDI routing notes
+   ```bash
+   cmake --build build/juce --target SeedboxApp
+   ```
 
+4. **Build the VST3.**
+
+   ```bash
+   cmake --build build/juce --target SeedboxVST3
+   ```
+
+Both targets live in the same build tree. The plugin copies its VST3 bundle into
+JUCE’s default staging folder after each build.
+
+## Flag mirroring (PlatformIO → CMake)
+
+Native determinism depends on the same defines PlatformIO injects. The CMake
+options below are wired straight into the JUCE targets so the simulator behaves
+exactly like `pio test -e native`:
+
+| CMake option | Mirrors PlatformIO flag | Default | Why you care |
+| --- | --- | --- | --- |
+| `SEEDBOX_JUCE` | `-D SEEDBOX_JUCE=1` | `ON` | Flags the JUCE build path and keeps the Arduino-only headers on the bench. |
+| `SEEDBOX_SIM` | `-D SEEDBOX_SIM=1` | `ON` | Enables the native board + audio shims used by tests and the DAW bridge. |
+| `QUIET_MODE` | `-D QUIET_MODE=1` | `ON` | Keeps serial/MIDI spam muted so hosts do not get flooded. |
+| `SEEDBOX_VERSION` | `-D SEEDBOX_VERSION="${PIO_SRC_REV}"` | `"dev"` | Propagates a version stamp into presets and debug logs. |
+| `SEEDBOX_PROJECT_ROOT_HINT` | `-D SEEDBOX_PROJECT_ROOT_HINT` | repo root | Lets tests and fixtures resolve paths the same way PlatformIO does. |
+| `ENABLE_GOLDEN` | `-D ENABLE_GOLDEN=1` | `OFF` | Opt-in for writing golden artifacts from host builds. |
+| `ARDUINOJSON_USE_DOUBLE` | `-D ARDUINOJSON_USE_DOUBLE=1` | `ON` | Keeps JSON parsing identical to the embedded toolchain. |
+| `SEEDBOX_HW` | `-D SEEDBOX_HW=1` | `OFF` | Pulls in Teensy-only glue; leave off for JUCE unless you like missing headers. |
+| `SEEDBOX_DEBUG_CLOCK_SOURCE` | `-D SEEDBOX_DEBUG_CLOCK_SOURCE=1` | `OFF` | Extra clock breadcrumbs when you need them. |
+| `SEEDBOX_DEBUG_UI` | `-D SEEDBOX_DEBUG_UI=1` | `OFF` | UI debug overlays; dormant by default to mirror PlatformIO defaults. |
+
+The helper function in `CMakeLists.txt` converts each `ON/OFF` switch into `0/1`
+defines so `SeedBoxConfig.h` stays happy.
+
+## Targets and sources
+
+- **`SeedboxApp`** is a JUCEApplication front door that wires the existing
+  `SeedboxAudioProcessor` into a `AudioProcessorPlayer` plus the host device
+  manager. It uses the same engine code as the Teensy build; only the platform
+  shim changes.
+- **`SeedboxVST3`** is the DAW-facing sibling. It exposes the
+  `SeedboxAudioProcessor` as a VST3 instrument, with MIDI I/O enabled and the
+  editor using the minimal teaching UI from `src/juce/`.
+- The core engine lives in `seedbox_core` so the plugin and app share every
+  translation unit except the firmware `main.cpp` and the Teensy-only
+  `board_teensy.cpp`.
+
+## Bundled assets (BinaryData)
+
+JUCE bakes runtime assets into `BinaryData` so nothing depends on external files
+at load time. We start with `assets/juce_motd.txt` (a lightweight “read this
+first” tooltip for the Master Seed knob) and wire it into the editor via
+`juce_add_binary_data`. Drop more files into `assets/` and the build will fold
+them into both targets automatically once you add them to `juce_add_binary_data`.
+
+## Rebuild rituals
+
+- Re-run `cmake -S . -B build/juce` any time you toggle options or add source
+  files so the globbed lists refresh.
+- Nuking `build/juce` is safe if you want a clean slate; `FetchContent` will
+  rehydrate JUCE on the next configure.
+- The VST3 target sets `COPY_PLUGIN_AFTER_BUILD TRUE`, so the built bundle lands
+  in JUCE’s standard output directory without extra scripts.
+
+## Host wiring crib notes (carry-overs from the old guide)
+
+The CMake plumbing above is new; the host-side expectations are the same ones
+spelled out in the original JUCE guide. Greatest hits, kept verbatim so the
+context survives the refresh:
+
+- `-DSEEDBOX_JUCE=1` keeps the Arduino headers benched and lights up the
+  JUCE-specific glue. Pair it with `SEEDBOX_SIM=1` (default) and leave
+  `SEEDBOX_HW` off so the simulator shims stay active.
+- To run the native harness yourself: instantiate
+  `seedbox::juce_bridge::JuceHost` with your `AppState`, call
+  `initialiseWithDefaults()` to open the default stereo output + MIDI pair, or
+  `configureForTests(sampleRate, blockSize)` if you only want CI to exercise the
+  wiring without touching CoreAudio/ASIO/JACK.
+- Let JUCE's `audioDeviceAboutToStart` tell us the real sample rate and block
+  size. We mirror those straight into `hal::audio::configureHostStream`, so the
+  engines prep against the exact numbers your host picked instead of assuming a
+  hard-coded 48 kHz / 128 frame world.
+- We render directly into the host-provided float buffers via
+  `hal::audio::renderHostBuffer`, clamping to stereo (if JUCE only hands us mono
+  we mirror the left channel). Latency conversations stay honest because we
+  never resample or re-block behind JUCE's back.
 - The JUCE backend is a first-class `MidiRouter` backend. Inbound messages ride
   a tiny queue inside `JuceMidiBackend` and flush during the audio callback so
-  clock/transport stay in lockstep with your DAW.
-- Outbound messages mirror the router's guard rails (channel maps, panic logic)
-  and flow through `juce::MidiOutput`, so you can still demo the MN42 handshake
-  story without a Teensy on the table.
-
-## Latency + host assumptions
-
-- We trust whatever block size the host hands us. The HAL's `framesPerBlock()`
-  will match the JUCE device setting, so unit tests and tempo math can peek at
-  the same truth your DAW sees.
-- Sample rate comes straight from `AudioDeviceManager`. No covert resampling,
-  no "maybe it's 44.1 k" hand-waving. If you need to force a rate for a demo,
-  pass it into `configureForTests` and watch `hal::audio::sampleRate()` reflect
-  it immediately.
-- Headless CI sanity lives in `src/juce/JuceHostTest.cpp` — a JUCE UnitTest that
-  boots the host shim, asserts the sample rate/block size handshake, and walks
-  the sample clock forward with a fake render pass.
-
-## Punk-rock gotchas to remember
-
+  clock/transport stay in lockstep with your DAW. Outbound messages mirror the
+  router's guard rails (channel maps, panic logic) and flow through
+  `juce::MidiOutput`, so you can still demo the MN42 handshake without a Teensy
+  on the table.
+- `hal::audio::framesPerBlock()` and `hal::audio::sampleRate()` reflect whatever
+  the host picked. If you need to force a rate for a demo, pass it into
+  `configureForTests` and watch the HAL mirror it immediately.
 - Keep the Teensy-only includes under `#if SEEDBOX_HW`. The JUCE build never
   pulls `HardwarePrelude` or SGTL5000 headers; the shared engines stay agnostic.
 - Call `midi.poll()` somewhere in your host loop if you swap out `JuceHost` for
   custom glue — the router queues events until you explicitly flush them.
-- Treat this guide like a studio diary. If you change the handshake or add a new
-  host quirk, jot it down here so the next person doesn't have to guess.

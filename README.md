@@ -119,6 +119,14 @@ Head straight to [`docs/roadmaps/`](docs/roadmaps) for narrative design notes or
 into [`tests/test_engine/`](tests/test_engine) for executable examples that double
 as tutorials.
 
+## DAW lane (JUCE + CMake)
+
+Want the laptop-native groove? The top-level `CMakeLists.txt` now fetches JUCE
+and builds both a standalone `SeedboxApp` and a `SeedboxVST3` plugin without
+breaking parity with PlatformIO flags. Cruise through the new
+[JUCE build guide](docs/juce_build.md) for the exact configure/build incantations
+plus notes on how the `SEEDBOX_*` options map to the firmware defaults.
+
 ## Pick your adventure
 
 - **Just want to hear something?** Plug in a Teensy 4.0, follow the wiring in
