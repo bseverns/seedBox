@@ -12,7 +12,10 @@ we build, which arch we aim at, and how to debug it if something pops.
   the macOS 14 SDK because macOS 15 obsoleted the CoreGraphics
   `CGWindowListCreateImage` API JUCE still leans on. The deployment target
   remains 11.0 so both Intel and Apple Silicon hosts stay happy, and we upload
-  the bundled artifacts so testers can drag-drop without a local toolchain.
+  the bundled artifacts so testers can drag-drop without a local toolchain. CI
+  now hunts for the VST3 bundle with `find` before running `lipo` so we catch
+  path changes instead of bombing out with a missing file—feel free to use the
+  same trick locally when JUCE tweaks its staging layout.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
   (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
   configures the JUCE targets, and builds both the plugin and the app to ensure
@@ -41,7 +44,11 @@ we build, which arch we aim at, and how to debug it if something pops.
   `PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig`
   and run `pkg-config --cflags --libs gtk+-3.0`—you should see include paths
   like `-I/usr/include/gtk-3.0`. No output? Install the packages or add the
-  matching pkg-config search path before blaming JUCE.
+  matching pkg-config search path before blaming JUCE. If CMake still pretends
+  GTK does not exist, bolt the pkg-config output straight into your configure
+  line with `-DCMAKE_CXX_FLAGS_INIT="$(pkg-config --cflags gtk+-3.0)"` and
+  `-DCMAKE_SHARED_LINKER_FLAGS_INIT="$(pkg-config --libs gtk+-3.0)"`—it’s loud
+  but guarantees JUCE compiles against the headers we just installed.
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.

@@ -37,13 +37,25 @@ jobs:
 
       - name: Inspect universal binaries
         run: |
-          lipo -info build/juce/SeedboxVST3_artefacts/${BUILD_TYPE}/VST3/SeedBox.vst3/Contents/MacOS/SeedBox
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -maxdepth 4 | head -n1)
+          if [[ -z "$VST3_BUNDLE" ]]; then
+            echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
+            find build/juce/SeedboxVST3_artefacts -maxdepth 4 -print
+            exit 1
+          fi
+          lipo -info "$VST3_BUNDLE/Contents/MacOS/SeedBox"
           lipo -info build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox\ Standalone.app/Contents/MacOS/SeedBox
 
       - name: Stage macOS artifacts
         run: |
           mkdir -p artifacts/macos
-          rsync -a "build/juce/SeedboxVST3_artefacts/${BUILD_TYPE}/VST3/SeedBox.vst3" artifacts/macos/
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -maxdepth 4 | head -n1)
+          if [[ -z "$VST3_BUNDLE" ]]; then
+            echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
+            find build/juce/SeedboxVST3_artefacts -maxdepth 4 -print
+            exit 1
+          fi
+          rsync -a "$VST3_BUNDLE" artifacts/macos/
           rsync -a "build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox Standalone.app" "artifacts/macos/SeedBox Standalone.app"
 
       - name: Upload macOS universal bundle
@@ -90,12 +102,17 @@ jobs:
 
       - name: Configure JUCE host build
         run: |
+          GTK_CFLAGS=$(pkg-config --cflags gtk+-3.0)
+          GTK_LIBS=$(pkg-config --libs gtk+-3.0)
           cmake -S . -B build/juce \
             -G Ninja \
             -DSEEDBOX_SIM=ON \
             -DQUIET_MODE=ON \
             -DSEEDBOX_VERSION="${{ github.sha }}" \
-            -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_CXX_FLAGS_INIT="${GTK_CFLAGS}" \
+            -DCMAKE_EXE_LINKER_FLAGS_INIT="${GTK_LIBS}" \
+            -DCMAKE_SHARED_LINKER_FLAGS_INIT="${GTK_LIBS}"
 
       - name: Build Linux targets
         run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxApp
