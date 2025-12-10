@@ -223,4 +223,10 @@ void SeedboxAudioProcessor::ProcessorMidiBackend::emit(const juce::MidiMessage& 
 
 }  // namespace seedbox::juce_bridge
 
+// JUCE looks for this factory to wire the plugin binary. Keep it down here so
+// it stays out of the way of the engine-heavy bits above.
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
+  return new seedbox::juce_bridge::SeedboxAudioProcessor();
+}
+
 #endif  // SEEDBOX_JUCE

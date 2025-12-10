@@ -131,7 +131,12 @@ target_include_directories(SeedboxVST3 PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_compile_definitions(SeedboxVST3 PRIVATE ${SEEDBOX_COMPILE_DEFINITIONS})
+target_compile_definitions(SeedboxVST3 PRIVATE
+  ${SEEDBOX_COMPILE_DEFINITIONS}
+  JUCE_VST3_CAN_REPLACE_VST2=0
+  JUCE_PLUGINHOST_VST=0
+  JUCE_USE_CURL=0
+)
 
 target_link_libraries(SeedboxVST3
   PRIVATE
@@ -147,14 +152,23 @@ target_link_libraries(SeedboxVST3
     juce::juce_core
 )
 
-set(SEEDBOX_VST3_STAGING_DIR
-  "${CMAKE_CURRENT_BINARY_DIR}/SeedboxVST3_artefacts/$<CONFIG>/VST3")
+target_compile_definitions(SeedboxVST3_VST3 PRIVATE
+  JUCE_VST3_CAN_REPLACE_VST2=0
+  JUCE_PLUGINHOST_VST=0
+  JUCE_USE_CURL=0
+)
 
-set_target_properties(SeedboxVST3_VST3 PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
-  LIBRARY_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
-  ARCHIVE_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
-  JUCE_VST3_COPY_DIR "${SEEDBOX_VST3_STAGING_DIR}")
+# JUCE spins a shared-code target named after the product. Make sure it
+# inherits the same compile defs so the plugin factory and curl-less build
+# line up across platforms.
+if(TARGET SeedBox_SharedCode)
+  target_compile_definitions(SeedBox_SharedCode PRIVATE
+    ${SEEDBOX_COMPILE_DEFINITIONS}
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_PLUGINHOST_VST=0
+    JUCE_USE_CURL=0
+  )
+endif()
 
 juce_add_gui_app(SeedboxApp PRODUCT_NAME "SeedBox Standalone")
 
@@ -165,7 +179,9 @@ target_include_directories(SeedboxApp PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_compile_definitions(SeedboxApp PRIVATE ${SEEDBOX_COMPILE_DEFINITIONS})
+target_compile_definitions(SeedboxApp PRIVATE
+  ${SEEDBOX_COMPILE_DEFINITIONS}
+  JUCE_USE_CURL=0)
 
 target_link_libraries(SeedboxApp
   PRIVATE

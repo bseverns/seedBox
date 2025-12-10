@@ -2,6 +2,8 @@
 
 #if SEEDBOX_JUCE
 
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 
 namespace seedbox::juce_bridge {
@@ -16,7 +18,7 @@ class SeedboxApplication : public juce::JUCEApplication {
   SeedboxApplication() = default;
   const juce::String getApplicationName() override { return "SeedBox"; }
   const juce::String getApplicationVersion() override { return "0.0.0"; }
-  bool moreThanOneInstanceAllowed() const override { return true; }
+  bool moreThanOneInstanceAllowed() override { return true; }
 
   void initialise(const juce::String& commandLine) override;
   void shutdown() override;
