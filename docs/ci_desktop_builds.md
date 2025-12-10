@@ -48,7 +48,11 @@ we build, which arch we aim at, and how to debug it if something pops.
   contains a binary. `lipo -info` on the VST3 binary inside the bundle should
   list both architectures. On CI we use the macOS 14 runner so JUCE can still
   rely on the CoreGraphics window snapshot APIs that vanished in the macOS 15
-  SDK.
+  SDK. Resist the urge to override the VST3 target’s output directories—the
+  JUCE helper that writes `moduleinfo.json` expects the default bundle layout
+  (`.../SeedBox.vst3/Contents/...`), and short-circuiting that with custom
+  `RUNTIME_OUTPUT_DIRECTORY` values will trick it into treating the naked `.so`
+  as a bundle and erroring out.
 - **Linux builds**: if you hit missing X11/WebKit dev packages, mirror the
   `apt-get` list from the workflow (note the `libwebkit2gtk-4.1-dev` rename and
   the explicit `pkg-config` install on Ubuntu 24.04) and rerun CMake
