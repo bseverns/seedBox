@@ -56,6 +56,8 @@ jobs:
   linux-host:
     name: Linux dependency + JUCE sanity
     runs-on: ubuntu-latest
+    env:
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -82,6 +84,9 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libcurl4-openssl-dev \
             libasound2-dev
+
+      - name: Sanity check GTK pkg-config wiring
+        run: pkg-config --cflags --libs gtk+-3.0
 
       - name: Configure JUCE host build
         run: |

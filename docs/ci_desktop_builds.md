@@ -16,7 +16,11 @@ we build, which arch we aim at, and how to debug it if something pops.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
   (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
   configures the JUCE targets, and builds both the plugin and the app to ensure
-  the headers and pkg-config hints stay lined up.
+  the headers and pkg-config hints stay lined up. We also export a
+  `PKG_CONFIG_PATH` that points at the default `/usr/lib/x86_64-linux-gnu` and
+  `/usr/share/pkgconfig` roots and run `pkg-config --cflags --libs gtk+-3.0`
+  explicitly so broken GTK discovery fails fast instead of puzzling you with a
+  missing `gtk/gtk.h` 15 minutes into a build.
 - **Windows host dependency sweep.** Leans on the Visual Studio toolchain that
   GitHub Actions ships with (explicitly boots the MSVC developer command
   prompt), layers Ninja on top, and drives the same CMake targets so we know
@@ -32,7 +36,12 @@ we build, which arch we aim at, and how to debug it if something pops.
 - **Linux builds**: if you hit missing X11/WebKit dev packages, mirror the
   `apt-get` list from the workflow (note the `libwebkit2gtk-4.1-dev` rename and
   the explicit `pkg-config` install on Ubuntu 24.04) and rerun CMake
-  out-of-tree (`cmake -S . -B build/juce -G Ninja ...`).
+  out-of-tree (`cmake -S . -B build/juce -G Ninja ...`). If GTK still refuses
+  to show up, echo the CI trick locally: set
+  `PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig`
+  and run `pkg-config --cflags --libs gtk+-3.0`—you should see include paths
+  like `-I/usr/include/gtk-3.0`. No output? Install the packages or add the
+  matching pkg-config search path before blaming JUCE.
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.
