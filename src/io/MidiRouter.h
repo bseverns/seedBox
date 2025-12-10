@@ -79,6 +79,37 @@ public:
   using ControlChangeHandler = std::function<void(std::uint8_t, std::uint8_t, std::uint8_t)>;
   using SysExHandler = std::function<void(const std::uint8_t*, std::size_t)>;
 
+  // Backend is a tiny abstract shim that each transport implementation
+  // inherits from.  We keep the definition here so std::unique_ptr sees a
+  // complete type when the header gets pulled into tests.  (Otherwise libc++
+  // panics at us with an "incomplete type" static_assert before the .cpp has a
+  // chance to spell out the vtable.)
+  class Backend {
+  public:
+    Backend(MidiRouter& router, Port port);
+    virtual ~Backend();
+
+    Port port() const { return port_; }
+
+    virtual PortInfo describe() const = 0;
+    virtual void begin() = 0;
+    virtual void poll() = 0;
+    virtual void sendClock() = 0;
+    virtual void sendStart() = 0;
+    virtual void sendStop() = 0;
+    virtual void sendControlChange(std::uint8_t channel, std::uint8_t controller,
+                                   std::uint8_t value) = 0;
+    virtual void sendNoteOn(std::uint8_t channel, std::uint8_t note,
+                            std::uint8_t velocity) = 0;
+    virtual void sendNoteOff(std::uint8_t channel, std::uint8_t note,
+                             std::uint8_t velocity) = 0;
+    virtual void sendAllNotesOff(std::uint8_t channel) = 0;
+
+  protected:
+    MidiRouter& router_;
+    Port port_;
+  };
+
   MidiRouter();
   ~MidiRouter();
 
@@ -86,6 +117,11 @@ public:
   // USB + TRS; native builds swap in CLI simulators so tests can push the same
   // flows without plugging in a Teensy.
   void begin();
+
+  // Override a backend before calling begin(). Desktop hosts can inject JUCE
+  // IO while still relying on the router's scheduling and guard rails.
+  void installBackend(Port port, std::unique_ptr<Backend> backend);
+  Backend* backend(Port port);
 
   // Pump once per loop() so each backend can flush pending bytes.  The router
   // also takes the opportunity to maintain the MN42 keep-alive cadence.
@@ -211,32 +247,6 @@ private:
   // when the header gets pulled into tests.  (Otherwise libc++ panics at us with
   // an "incomplete type" static_assert before the .cpp has a chance to spell
   // out the vtable.)
-  class Backend {
-  public:
-    Backend(MidiRouter& router, Port port);
-    virtual ~Backend();
-
-    Port port() const { return port_; }
-
-    virtual PortInfo describe() const = 0;
-    virtual void begin() = 0;
-    virtual void poll() = 0;
-    virtual void sendClock() = 0;
-    virtual void sendStart() = 0;
-    virtual void sendStop() = 0;
-    virtual void sendControlChange(std::uint8_t channel, std::uint8_t controller,
-                                   std::uint8_t value) = 0;
-    virtual void sendNoteOn(std::uint8_t channel, std::uint8_t note,
-                            std::uint8_t velocity) = 0;
-    virtual void sendNoteOff(std::uint8_t channel, std::uint8_t note,
-                             std::uint8_t velocity) = 0;
-    virtual void sendAllNotesOff(std::uint8_t channel) = 0;
-
-  protected:
-    MidiRouter& router_;
-    Port port_;
-  };
-
   struct PortState {
     PortInfo info;
     RouteConfig route;

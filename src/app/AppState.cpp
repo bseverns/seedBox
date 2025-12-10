@@ -306,21 +306,54 @@ void AppState::digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uin
 // students can run the simulator on a laptop and trust that the Teensy build
 // behaves the same.
 void AppState::initHardware() {
-#if SEEDBOX_HW
   store_ = ensureStore(store_);
+#if SEEDBOX_HW
   // Lock in the entire audio buffer pool before any engine spins up. We slam
   // all four line items from AudioMemoryBudget into one call so individual
   // init() routines can't accidentally stomp the global allocator mid-set.
   AudioMemory(AudioMemoryBudget::kTotalBlocks);
+#endif
+  configureMidiRouting();
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hal::audio::start();
+  hal::io::writeDigital(kStatusLedPin, false);
+  bootRuntime(EngineRouter::Mode::kHardware, true);
+#if SEEDBOX_HW
+  midi.markAppReady();
+#endif
+}
 
+// initSim is the lab-friendly twin of initHardware. No MIDI bootstrap, but the
+// rest of the wiring is identical so deterministic behaviour survives unit
+// tests and lecture demos.
+void AppState::initSim() {
+  store_ = ensureStore(store_);
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hal::audio::stop();
+  hal::io::writeDigital(kStatusLedPin, false);
+  bootRuntime(EngineRouter::Mode::kSim, false);
+}
+
+#if !SEEDBOX_HW
+void AppState::initJuceHost(float sampleRate, std::size_t framesPerBlock) {
+  store_ = ensureStore(store_);
+  configureMidiRouting();
+  hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hal::audio::configureHostStream(sampleRate, framesPerBlock);
+  hal::audio::start();
+  hal::io::writeDigital(kStatusLedPin, false);
+  bootRuntime(EngineRouter::Mode::kSim, false);
+  midi.markAppReady();
+}
+#endif
+
+void AppState::configureMidiRouting() {
   midi.begin();
   midi.setClockHandler([this]() { onExternalClockTick(); });
   midi.setStartHandler([this]() { onExternalTransportStart(); });
   midi.setStopHandler([this]() { onExternalTransportStop(); });
   midi.setControlChangeHandler(
-      [this](uint8_t ch, uint8_t cc, uint8_t val) {
-        onExternalControlChange(ch, cc, val);
-      });
+      [this](uint8_t ch, uint8_t cc, uint8_t val) { onExternalControlChange(ch, cc, val); });
 
   MidiRouter::ChannelMap trsChannelMap;
   for (auto& ch : trsChannelMap.inbound) {
@@ -354,25 +387,6 @@ void AppState::initHardware() {
   midi.configurePageRouting(MidiRouter::Page::kEdit, editRoutes);
   midi.configurePageRouting(MidiRouter::Page::kHack, editRoutes);
   midi.activatePage(MidiRouter::Page::kPerf);
-#endif
-  hal::audio::init(&AppState::audioCallbackTrampoline, this);
-  hal::audio::start();
-  hal::io::writeDigital(kStatusLedPin, false);
-  bootRuntime(EngineRouter::Mode::kHardware, true);
-#if SEEDBOX_HW
-  midi.markAppReady();
-#endif
-}
-
-// initSim is the lab-friendly twin of initHardware. No MIDI bootstrap, but the
-// rest of the wiring is identical so deterministic behaviour survives unit
-// tests and lecture demos.
-void AppState::initSim() {
-  store_ = ensureStore(store_);
-  hal::audio::init(&AppState::audioCallbackTrampoline, this);
-  hal::audio::stop();
-  hal::io::writeDigital(kStatusLedPin, false);
-  bootRuntime(EngineRouter::Mode::kSim, false);
 }
 
 void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {

@@ -463,6 +463,14 @@ MidiRouter::MidiRouter() {
 #endif
 }
 
+void MidiRouter::installBackend(Port port, std::unique_ptr<Backend> backend) {
+  backends_[portIndex(port)] = std::move(backend);
+}
+
+MidiRouter::Backend* MidiRouter::backend(Port port) {
+  return backends_[portIndex(port)].get();
+}
+
 MidiRouter::~MidiRouter() = default;
 
 void MidiRouter::clearNoteState() {
