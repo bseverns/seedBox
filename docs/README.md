@@ -47,8 +47,9 @@ JUCE desktop world too:
 3. If `ENABLE_GOLDEN` is flipped on in a test run, CI publishes comparison data
    in `artifacts/` so we can review sound or log diffs without rerunning locally.
 4. The JUCE desktop workflow builds a macOS universal (x86_64 + arm64) VST3 and
-   standalone app, plus sanity builds on Linux and Windows to keep the host
-   dependencies in line. Grab the runbook-style details in
+   standalone app (on the macOS 14 runner to dodge the macOS 15 SDK’s missing
+   CoreGraphics screen capture APIs), plus sanity builds on Linux and Windows to
+   keep the host dependencies in line. Grab the runbook-style details in
    [`docs/ci_desktop_builds.md`](ci_desktop_builds.md).
 
 You can stash local experiment renders in `out/` and quick `.wav` sketches in

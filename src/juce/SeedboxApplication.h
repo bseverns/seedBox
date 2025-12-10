@@ -2,6 +2,8 @@
 
 #if SEEDBOX_JUCE
 
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 
 namespace seedbox::juce_bridge {
