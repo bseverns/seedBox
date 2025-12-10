@@ -37,22 +37,28 @@ jobs:
 
       - name: Inspect universal binaries
         run: |
-          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -maxdepth 4 | head -n1)
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
           if [[ -z "$VST3_BUNDLE" ]]; then
             echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
-            find build/juce/SeedboxVST3_artefacts -maxdepth 4 -print
+            find build/juce/SeedboxVST3_artefacts -maxdepth 6 -print
             exit 1
           fi
-          lipo -info "$VST3_BUNDLE/Contents/MacOS/SeedBox"
+          VST3_BINARY=$(find "$VST3_BUNDLE" -path "*/Contents/MacOS/*" -type f -print -quit)
+          if [[ -z "$VST3_BINARY" ]]; then
+            echo "Could not locate a binary under $VST3_BUNDLE/Contents/MacOS" >&2
+            find "$VST3_BUNDLE" -maxdepth 3 -print
+            exit 1
+          fi
+          lipo -info "$VST3_BINARY"
           lipo -info build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox\ Standalone.app/Contents/MacOS/SeedBox
 
       - name: Stage macOS artifacts
         run: |
           mkdir -p artifacts/macos
-          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -maxdepth 4 | head -n1)
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
           if [[ -z "$VST3_BUNDLE" ]]; then
             echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
-            find build/juce/SeedboxVST3_artefacts -maxdepth 4 -print
+            find build/juce/SeedboxVST3_artefacts -maxdepth 6 -print
             exit 1
           fi
           rsync -a "$VST3_BUNDLE" artifacts/macos/
@@ -69,7 +75,7 @@ jobs:
     name: Linux dependency + JUCE sanity
     runs-on: ubuntu-latest
     env:
-      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -97,22 +103,24 @@ jobs:
             libcurl4-openssl-dev \
             libasound2-dev
 
-      - name: Sanity check GTK pkg-config wiring
-        run: pkg-config --cflags --libs gtk+-3.0
+      - name: Sanity check GTK/WebKit pkg-config wiring
+        run: |
+          pkg-config --cflags --libs gtk+-3.0
+          pkg-config --cflags --libs webkit2gtk-4.1
 
       - name: Configure JUCE host build
         run: |
-          GTK_CFLAGS=$(pkg-config --cflags gtk+-3.0)
-          GTK_LIBS=$(pkg-config --libs gtk+-3.0)
+          GTK_WEBKIT_CFLAGS=$(pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)
+          GTK_WEBKIT_LIBS=$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1)
           cmake -S . -B build/juce \
             -G Ninja \
             -DSEEDBOX_SIM=ON \
             -DQUIET_MODE=ON \
             -DSEEDBOX_VERSION="${{ github.sha }}" \
             -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-            -DCMAKE_CXX_FLAGS_INIT="${GTK_CFLAGS}" \
-            -DCMAKE_EXE_LINKER_FLAGS_INIT="${GTK_LIBS}" \
-            -DCMAKE_SHARED_LINKER_FLAGS_INIT="${GTK_LIBS}"
+            -DCMAKE_CXX_FLAGS_INIT="${GTK_WEBKIT_CFLAGS}" \
+            -DCMAKE_EXE_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS}" \
+            -DCMAKE_SHARED_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS}"
 
       - name: Build Linux targets
         run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxApp
