@@ -17,7 +17,10 @@ we build, which arch we aim at, and how to debug it if something pops.
   now hunts for the VST3 bundle with `find` and then hunts for the actual
   binary inside the bundle before running `lipo`, so we catch staging-layout
   changes instead of bombing out with a missing file—feel free to use the same
-  trick locally when JUCE shuffles its output folders.
+  trick locally when JUCE shuffles its output folders. We also flip
+  `JUCE_VST3_CAN_REPLACE_VST2=OFF` so JUCE skips the legacy VST2 compatibility
+  shim and never chases Steinberg’s archived VST2 headers during a VST3-only
+  build.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
   (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
   configures the JUCE targets, and builds both the plugin and the app to ensure
@@ -59,7 +62,10 @@ we build, which arch we aim at, and how to debug it if something pops.
   `-DCMAKE_SHARED_LINKER_FLAGS_INIT="$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1) $(pkg-config --libs libcurl)"`—
   it’s loud but guarantees JUCE compiles against the headers we just installed
   and links against libcurl instead of exploding with undefined `curl_*`
-  references at the final link step.
+  references at the final link step. Do the same with
+  `-DJUCE_VST3_CAN_REPLACE_VST2=OFF` if you see VST2 header errors; that flag
+  intentionally disables the “VST3 can replace VST2” compatibility path so we
+  never need the VST2 SDK to ship a VST3.
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.
