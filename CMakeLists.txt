@@ -13,7 +13,14 @@ FetchContent_Declare(
   GIT_TAG 7.0.12
   GIT_SHALLOW TRUE
 )
+FetchContent_Declare(
+  ArduinoJson
+  GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+  GIT_TAG v7.4.2
+  GIT_SHALLOW TRUE
+)
 FetchContent_MakeAvailable(JUCE)
+FetchContent_MakeAvailable(ArduinoJson)
 
 option(SEEDBOX_HW "Toggle Teensy-specific hardware paths" OFF)
 option(SEEDBOX_SIM "Enable simulator-friendly shims" ON)
@@ -98,6 +105,7 @@ target_compile_options(seedbox_core PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
 )
+target_link_libraries(seedbox_core PUBLIC ArduinoJson)
 
 juce_add_binary_data(seedbox_assets SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/juce_motd.txt)
 
