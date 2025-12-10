@@ -87,6 +87,11 @@ public:
   // flows without plugging in a Teensy.
   void begin();
 
+  // Override a backend before calling begin(). Desktop hosts can inject JUCE
+  // IO while still relying on the router's scheduling and guard rails.
+  void installBackend(Port port, std::unique_ptr<Backend> backend);
+  Backend* backend(Port port);
+
   // Pump once per loop() so each backend can flush pending bytes.  The router
   // also takes the opportunity to maintain the MN42 keep-alive cadence.
   void poll();
