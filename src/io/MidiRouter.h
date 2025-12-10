@@ -29,6 +29,38 @@ public:
     kCount
   };
 
+  // Backend is a tiny abstract shim that each transport implementation inherits
+  // from.  We keep the definition here so std::unique_ptr sees a complete type
+  // when the header gets pulled into tests.  (Otherwise libc++ panics at us with
+  // an "incomplete type" static_assert before the .cpp has a chance to spell
+  // out the vtable.) Desktop hosts can also subclass this directly to plug into
+  // the router without touching the Arduino stack.
+  class Backend {
+  public:
+    Backend(MidiRouter& router, Port port);
+    virtual ~Backend();
+
+    Port port() const { return port_; }
+
+    virtual PortInfo describe() const = 0;
+    virtual void begin() = 0;
+    virtual void poll() = 0;
+    virtual void sendClock() = 0;
+    virtual void sendStart() = 0;
+    virtual void sendStop() = 0;
+    virtual void sendControlChange(std::uint8_t channel, std::uint8_t controller,
+                                   std::uint8_t value) = 0;
+    virtual void sendNoteOn(std::uint8_t channel, std::uint8_t note,
+                            std::uint8_t velocity) = 0;
+    virtual void sendNoteOff(std::uint8_t channel, std::uint8_t note,
+                             std::uint8_t velocity) = 0;
+    virtual void sendAllNotesOff(std::uint8_t channel) = 0;
+
+  protected:
+    MidiRouter& router_;
+    Port port_;
+  };
+
   static constexpr std::size_t kPortCount = static_cast<std::size_t>(Port::kCount);
 
   // A compact truth table describing what a backend is capable of.  The goal is
@@ -211,37 +243,6 @@ private:
   class UsbMidiBackend;
   class TrsAMidiBackend;
 #endif
-  // Backend is a tiny abstract shim that each transport implementation inherits
-  // from.  We keep the definition here so std::unique_ptr sees a complete type
-  // when the header gets pulled into tests.  (Otherwise libc++ panics at us with
-  // an "incomplete type" static_assert before the .cpp has a chance to spell
-  // out the vtable.)
-  class Backend {
-  public:
-    Backend(MidiRouter& router, Port port);
-    virtual ~Backend();
-
-    Port port() const { return port_; }
-
-    virtual PortInfo describe() const = 0;
-    virtual void begin() = 0;
-    virtual void poll() = 0;
-    virtual void sendClock() = 0;
-    virtual void sendStart() = 0;
-    virtual void sendStop() = 0;
-    virtual void sendControlChange(std::uint8_t channel, std::uint8_t controller,
-                                   std::uint8_t value) = 0;
-    virtual void sendNoteOn(std::uint8_t channel, std::uint8_t note,
-                            std::uint8_t velocity) = 0;
-    virtual void sendNoteOff(std::uint8_t channel, std::uint8_t note,
-                             std::uint8_t velocity) = 0;
-    virtual void sendAllNotesOff(std::uint8_t channel) = 0;
-
-  protected:
-    MidiRouter& router_;
-    Port port_;
-  };
-
   struct PortState {
     PortInfo info;
     RouteConfig route;
