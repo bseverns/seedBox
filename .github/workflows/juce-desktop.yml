@@ -51,7 +51,19 @@ jobs:
             exit 1
           fi
           lipo -info "$VST3_BINARY"
-          lipo -info build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox\ Standalone.app/Contents/MacOS/SeedBox
+          APP_BUNDLE=$(find build/juce/SeedboxApp_artefacts -path "*SeedBox Standalone.app" -maxdepth 5 -print -quit)
+          if [[ -z "$APP_BUNDLE" ]]; then
+            echo "SeedBox Standalone.app not found under build/juce/SeedboxApp_artefacts" >&2
+            find build/juce/SeedboxApp_artefacts -maxdepth 5 -print
+            exit 1
+          fi
+          APP_BINARY=$(find "$APP_BUNDLE" -path "*/Contents/MacOS/*" -type f -print -quit)
+          if [[ -z "$APP_BINARY" ]]; then
+            echo "Could not locate a binary under $APP_BUNDLE/Contents/MacOS" >&2
+            find "$APP_BUNDLE" -maxdepth 5 -print
+            exit 1
+          fi
+          lipo -info "$APP_BINARY"
 
       - name: Stage macOS artifacts
         run: |
@@ -63,7 +75,13 @@ jobs:
             exit 1
           fi
           rsync -a "$VST3_BUNDLE" artifacts/macos/
-          rsync -a "build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox Standalone.app" "artifacts/macos/SeedBox Standalone.app"
+          APP_BUNDLE=$(find build/juce/SeedboxApp_artefacts -path "*SeedBox Standalone.app" -maxdepth 5 -print -quit)
+          if [[ -z "$APP_BUNDLE" ]]; then
+            echo "SeedBox Standalone.app not found under build/juce/SeedboxApp_artefacts" >&2
+            find build/juce/SeedboxApp_artefacts -maxdepth 5 -print
+            exit 1
+          fi
+          rsync -a "$APP_BUNDLE" "artifacts/macos/SeedBox Standalone.app"
 
       - name: Upload macOS universal bundle
         uses: actions/upload-artifact@v4

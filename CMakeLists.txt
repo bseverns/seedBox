@@ -167,6 +167,18 @@ target_compile_definitions(SeedboxVST3_VST3 PRIVATE
   JUCE_USE_CURL=0
 )
 
+# JUCE spins a shared-code target named after the product. Make sure it
+# inherits the same compile defs so the plugin factory and curl-less build
+# line up across platforms.
+if(TARGET SeedBox_SharedCode)
+  target_compile_definitions(SeedBox_SharedCode PRIVATE
+    ${SEEDBOX_COMPILE_DEFINITIONS}
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_PLUGINHOST_VST=0
+    JUCE_USE_CURL=0
+  )
+endif()
+
 juce_add_gui_app(SeedboxApp PRODUCT_NAME "SeedBox Standalone")
 
 juce_generate_juce_header(SeedboxApp)
