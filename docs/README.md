@@ -50,11 +50,12 @@ Our GitHub Actions workflow mirrors the quick-start loop and now covers the
    standalone app (explicitly hits the VST3 format target so the bundle actually
    ships with a binary) on the macOS 14 runner to dodge the macOS 15 SDK’s
    missing CoreGraphics screen capture APIs, plus sanity builds on Linux and
-   Windows that bolt GTK/WebKit/cURL pkg-config flags straight into the link to
-   keep host dependencies in line. We also set `JUCE_VST3_CAN_REPLACE_VST2=OFF`
-   (and bake `JUCE_VST3_CAN_REPLACE_VST2=0` plus `JUCE_PLUGINHOST_VST=0` into
-   the plugin targets) so CI and locals alike stop chasing the long-gone VST2
-   SDK when all we need is a VST3. Grab the runbook-style details in
+   Windows that bolt GTK/WebKit pkg-config flags straight into the link to keep
+   host dependencies in line while setting `JUCE_USE_CURL=0` to dodge missing
+   libcurl-dev headers. We also set `JUCE_VST3_CAN_REPLACE_VST2=OFF` (and bake
+   `JUCE_VST3_CAN_REPLACE_VST2=0` plus `JUCE_PLUGINHOST_VST=0` into the plugin
+   targets) so CI and locals alike stop chasing the long-gone VST2 SDK when all
+   we need is a VST3. Grab the runbook-style details in
    [`docs/ci_desktop_builds.md`](ci_desktop_builds.md).
 
 You can stash local experiment renders in `out/` and quick `.wav` sketches in

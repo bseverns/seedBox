@@ -27,10 +27,10 @@ we build, which arch we aim at, and how to debug it if something pops.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
   (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
   configures the JUCE targets, and builds both the plugin and the app to ensure
-  the headers and pkg-config hints stay lined up. We feed the
-  `pkg-config --libs libcurl` output into the linker flags so JUCE’s
-  `WebInputStream` symbols resolve cleanly instead of dying at link time. We
-  also export a
+  the headers and pkg-config hints stay lined up. We set `JUCE_USE_CURL=0` in
+  the CMake targets and workflows so JUCE never tries to pull in libcurl on CI
+  (too many distros ship it without the dev bits), but you can still re-enable
+  it locally if you need HTTP in a custom host harness. We also export a
   `PKG_CONFIG_PATH` that points at the default `/usr/lib/x86_64-linux-gnu` and
   `/usr/share/pkgconfig` roots and run `pkg-config --cflags --libs gtk+-3.0`
   explicitly so broken GTK discovery fails fast instead of puzzling you with a
@@ -62,15 +62,15 @@ we build, which arch we aim at, and how to debug it if something pops.
   blaming JUCE. If CMake still pretends GTK/WebKit do not exist, bolt the
   pkg-config output straight into your configure line with
   `-DCMAKE_CXX_FLAGS_INIT="$(pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)"` and
-  `-DCMAKE_SHARED_LINKER_FLAGS_INIT="$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1) $(pkg-config --libs libcurl)"`—
-  it’s loud but guarantees JUCE compiles against the headers we just installed
-  and links against libcurl instead of exploding with undefined `curl_*`
-  references at the final link step. Do the same with
-  `-DJUCE_VST3_CAN_REPLACE_VST2=OFF` if you see VST2 header errors; that flag
-  intentionally disables the “VST3 can replace VST2” compatibility path so we
-  never need the VST2 SDK to ship a VST3. (It’s already wired into the plugin
-  targets in `CMakeLists.txt`, but adding it to your ad-hoc configure lines
-  keeps third-party build scripts honest.)
+  `-DCMAKE_SHARED_LINKER_FLAGS_INIT="$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1)"`—
+  it’s loud but guarantees JUCE compiles against the headers we just installed.
+  We ship with `JUCE_USE_CURL=0` baked in to dodge missing libcurl-dev packages;
+  flip it back on if you explicitly need HTTP support in your host harness. Do
+  the same with `-DJUCE_VST3_CAN_REPLACE_VST2=OFF` if you see VST2 header
+  errors; that flag intentionally disables the “VST3 can replace VST2”
+  compatibility path so we never need the VST2 SDK to ship a VST3. (It’s
+  already wired into the plugin targets in `CMakeLists.txt`, but adding it to
+  your ad-hoc configure lines keeps third-party build scripts honest.)
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.
