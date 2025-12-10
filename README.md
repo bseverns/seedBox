@@ -122,12 +122,14 @@ as tutorials.
 ## DAW lane (JUCE + CMake)
 
 Want the laptop-native groove? The top-level `CMakeLists.txt` now fetches JUCE
-and builds both a standalone `SeedboxApp` and a `SeedboxVST3` plugin without
-breaking parity with PlatformIO flags. Cruise through the new
-[JUCE build guide](docs/juce_build.md) for the exact configure/build incantations
-plus notes on how the `SEEDBOX_*` options map to the firmware defaults. Bonus:
-JUCE builds now auto-drop `SEEDBOX_SIM` to `0` so the plugin/app use the
-hardware-forward defaults unless you explicitly flip the simulator flag back on.
+**and** ArduinoJson so the preset serializer has the same toys PlatformIO drags
+in for firmware builds. It spits out both a standalone `SeedboxApp` and a
+`SeedboxVST3` plugin without breaking parity with PlatformIO flags. Cruise
+through the new [JUCE build guide](docs/juce_build.md) for the exact
+configure/build incantations plus notes on how the `SEEDBOX_*` options map to
+the firmware defaults. Bonus: JUCE builds now auto-drop `SEEDBOX_SIM` to `0`
+so the plugin/app use the hardware-forward defaults unless you explicitly flip
+the simulator flag back on.
 
 ## Pick your adventure
 
