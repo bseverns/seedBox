@@ -1,0 +1,116 @@
+name: JUCE Desktop Builds
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  macos-universal:
+    name: macOS universal VST3 + app
+    runs-on: macos-13
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          brew update
+          brew install ninja
+
+      - name: Configure universal build
+        run: |
+          cmake -S . -B build/juce \
+            -G Ninja \
+            -DSEEDBOX_SIM=ON \
+            -DQUIET_MODE=ON \
+            -DSEEDBOX_VERSION="${{ github.sha }}" \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Build VST3 and standalone app
+        run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxApp
+
+      - name: Inspect universal binaries
+        run: |
+          lipo -info build/juce/SeedboxVST3_artefacts/${BUILD_TYPE}/VST3/SeedBox.vst3/Contents/MacOS/SeedBox
+          lipo -info build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox\ Standalone.app/Contents/MacOS/SeedBox
+
+      - name: Stage macOS artifacts
+        run: |
+          mkdir -p artifacts/macos
+          rsync -a "build/juce/SeedboxVST3_artefacts/${BUILD_TYPE}/VST3/SeedBox.vst3" artifacts/macos/
+          rsync -a "build/juce/SeedboxApp_artefacts/${BUILD_TYPE}/SeedBox Standalone.app" "artifacts/macos/SeedBox Standalone.app"
+
+      - name: Upload macOS universal bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-macos-universal
+          path: artifacts/macos
+          if-no-files-found: error
+
+  linux-host:
+    name: Linux dependency + JUCE sanity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install JUCE dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            ninja-build \
+            cmake \
+            libx11-dev \
+            libxinerama-dev \
+            libxext-dev \
+            libfreetype6-dev \
+            libwebkit2gtk-4.0-dev \
+            libcurl4-openssl-dev \
+            libasound2-dev
+
+      - name: Configure JUCE host build
+        run: |
+          cmake -S . -B build/juce \
+            -G Ninja \
+            -DSEEDBOX_SIM=ON \
+            -DQUIET_MODE=ON \
+            -DSEEDBOX_VERSION="${{ github.sha }}" \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+
+      - name: Build Linux targets
+        run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxApp
+
+  windows-host:
+    name: Windows dependency + JUCE sanity
+    runs-on: windows-latest
+    env:
+      CC: cl.exe
+      CXX: cl.exe
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: choco install ninja --no-progress
+
+      - name: Configure JUCE host build
+        shell: pwsh
+        run: |
+          cmake -S . -B build/juce `
+            -G "Ninja" `
+            -DSEEDBOX_SIM=ON `
+            -DQUIET_MODE=ON `
+            -DSEEDBOX_VERSION="${{ github.sha }}" `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build Windows targets
+        shell: pwsh
+        run: cmake --build build/juce --config $env:BUILD_TYPE --target SeedboxVST3 SeedboxApp
