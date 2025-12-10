@@ -30,8 +30,10 @@ same build flags PlatformIO uses so the DAW story matches the firmware truth.
    cmake --build build/juce --target SeedboxVST3
    ```
 
-Both targets live in the same build tree. The plugin copies its VST3 bundle into
-JUCE’s default staging folder after each build.
+Both targets live in the same build tree. The plugin now drops its bundle into
+`build/juce/SeedboxVST3_artefacts/<CONFIG>/VST3/SeedBox.vst3` (swap `<CONFIG>`
+for `Debug`, `Release`, etc.) so you always know where the payload landed even
+if JUCE’s automatic user-level copy goes missing on macOS.
 
 ## Flag mirroring (PlatformIO → CMake)
 
@@ -82,8 +84,10 @@ them into both targets automatically once you add them to `juce_add_binary_data`
   files so the globbed lists refresh.
 - Nuking `build/juce` is safe if you want a clean slate; `FetchContent` will
   rehydrate JUCE on the next configure.
-- The VST3 target sets `COPY_PLUGIN_AFTER_BUILD TRUE`, so the built bundle lands
-  in JUCE’s standard output directory without extra scripts.
+- The VST3 target pins its copy directory to
+  `build/juce/SeedboxVST3_artefacts/<CONFIG>/VST3`, which doubles as the
+  built-bundle output location. Peek there if your DAW does not see a fresh
+  build.
 
 ## Host wiring crib notes (carry-overs from the old guide)
 

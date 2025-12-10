@@ -147,6 +147,15 @@ target_link_libraries(SeedboxVST3
     juce::juce_core
 )
 
+set(SEEDBOX_VST3_STAGING_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/SeedboxVST3_artefacts/$<CONFIG>/VST3")
+
+set_target_properties(SeedboxVST3_VST3 PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
+  LIBRARY_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
+  ARCHIVE_OUTPUT_DIRECTORY "${SEEDBOX_VST3_STAGING_DIR}"
+  JUCE_VST3_COPY_DIR "${SEEDBOX_VST3_STAGING_DIR}")
+
 juce_add_gui_app(SeedboxApp PRODUCT_NAME "SeedBox Standalone")
 
 juce_generate_juce_header(SeedboxApp)
