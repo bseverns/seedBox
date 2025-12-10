@@ -78,9 +78,9 @@ juce::AudioProcessorEditor* SeedboxAudioProcessor::createEditor() { return new S
 
 void SeedboxAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
   auto state = parameters_.copyState();
-  state.setProperty(kParamPresetSlot, app_.activePresetSlot(), nullptr);
+  state.setProperty(kParamPresetSlot, juce::String(app_.activePresetSlot()), nullptr);
 
-  const seedbox::Preset snapshot = app_.snapshotPreset(app_.activePresetSlot());
+  const seedbox::Preset snapshot = app_.snapshotPresetForHost(app_.activePresetSlot());
   auto serialized = snapshot.serialize();
   juce::MemoryBlock presetBlock(serialized.data(), serialized.size());
   state.setProperty(kStatePresetData, presetBlock.toBase64Encoding(), nullptr);
@@ -110,7 +110,7 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
       seedbox::Preset preset;
       if (seedbox::Preset::deserialize(payload, preset)) {
         if (prepared_) {
-          app_.applyPreset(preset, false);
+          app_.applyPresetFromHost(preset, false);
         } else {
           pendingPreset_ = std::move(preset);
         }
@@ -135,7 +135,7 @@ void SeedboxAudioProcessor::applyPendingPresetIfAny() {
   if (!pendingPreset_.has_value()) {
     return;
   }
-  app_.applyPreset(*pendingPreset_, false);
+  app_.applyPresetFromHost(*pendingPreset_, false);
   pendingPreset_.reset();
 }
 
