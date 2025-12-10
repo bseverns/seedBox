@@ -167,6 +167,12 @@ public:
   std::vector<std::string> storedPresets() const;
   const std::string& activePresetSlot() const { return activePresetSlot_; }
 
+  // JUCE host helpers. Intentionally thin wrappers around the private preset
+  // plumbing so the plugin can persist/restore state without opening up the
+  // whole API surface.
+  seedbox::Preset snapshotPresetForHost(std::string_view slot) const { return snapshotPreset(slot); }
+  void applyPresetFromHost(const seedbox::Preset& preset, bool crossfade) { applyPreset(preset, crossfade); }
+
   // MIDI ingress points. Each handler maps 1:1 with incoming transport/clock
   // events so lessons about external sync can point here directly.
   void onExternalClockTick();
