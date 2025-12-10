@@ -11,8 +11,6 @@
 
 namespace seedbox::juce_bridge {
 
-class JuceMidiBackend;
-
 // Desktop shim that wires JUCE's AudioDeviceManager into the existing HAL
 // callback surface. The goal is to keep the SeedBox engines blissfully unaware
 // of the host while still letting plugin/standalone targets honour whatever
@@ -50,7 +48,7 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   AppState& app_;
   juce::AudioDeviceManager deviceManager_;
   std::shared_ptr<juce::MidiOutput> midiOutput_{};
-  JuceMidiBackend* midiBackend_{nullptr};
+  MidiRouter::Backend* midiBackend_{nullptr};
   bool bootstrapped_{false};
   std::vector<float> scratchLeft_{};
   std::vector<float> scratchRight_{};

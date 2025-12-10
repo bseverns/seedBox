@@ -237,6 +237,17 @@ public:
   CliBackend* cliBackend(Port port);
 #endif
 
+  // Backend ingress helpers --------------------------------------------------
+  // Backends hand off inbound traffic through these hooks so the router can
+  // apply its routing, channel mapping, and mirroring rules before the rest of
+  // the app sees anything.  They live in the public surface to keep backend
+  // implementations outside this file (like the JUCE host shim) honest.
+  void handleClockFrom(Port port);
+  void handleStartFrom(Port port);
+  void handleStopFrom(Port port);
+  void handleControlChangeFrom(Port port, std::uint8_t ch, std::uint8_t cc, std::uint8_t val);
+  void handleSysExFrom(Port port, const std::uint8_t* data, std::size_t len);
+
 private:
 #if SEEDBOX_HW
   class UsbMidiBackend;
@@ -260,12 +271,6 @@ private:
   }
 
   void clearNoteState();
-
-  void handleClockFrom(Port port);
-  void handleStartFrom(Port port);
-  void handleStopFrom(Port port);
-  void handleControlChangeFrom(Port port, std::uint8_t ch, std::uint8_t cc, std::uint8_t val);
-  void handleSysExFrom(Port port, const std::uint8_t* data, std::size_t len);
 
   void handleMn42ControlChange(std::uint8_t ch, std::uint8_t cc, std::uint8_t val);
   void handleMn42SysEx(const std::uint8_t* data, std::size_t len);
