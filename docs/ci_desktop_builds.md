@@ -14,9 +14,9 @@ we build, which arch we aim at, and how to debug it if something pops.
   remains 11.0 so both Intel and Apple Silicon hosts stay happy, and we upload
   the bundled artifacts so testers can drag-drop without a local toolchain.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
-  (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, etc.), configures the
-  JUCE targets, and builds both the plugin and the app to ensure the headers and
-  pkg-config hints stay lined up.
+  (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
+  configures the JUCE targets, and builds both the plugin and the app to ensure
+  the headers and pkg-config hints stay lined up.
 - **Windows host dependency sweep.** Leans on the Visual Studio toolchain that
   GitHub Actions ships with (explicitly boots the MSVC developer command
   prompt), layers Ninja on top, and drives the same CMake targets so we know
@@ -30,9 +30,9 @@ we build, which arch we aim at, and how to debug it if something pops.
   rely on the CoreGraphics window snapshot APIs that vanished in the macOS 15
   SDK.
 - **Linux builds**: if you hit missing X11/WebKit dev packages, mirror the
-  `apt-get` list from the workflow (note the `libwebkit2gtk-4.1-dev` rename on
-  Ubuntu 24.04) and rerun CMake out-of-tree (`cmake -S . -B build/juce -G Ninja
-  ...`).
+  `apt-get` list from the workflow (note the `libwebkit2gtk-4.1-dev` rename and
+  the explicit `pkg-config` install on Ubuntu 24.04) and rerun CMake
+  out-of-tree (`cmake -S . -B build/juce -G Ninja ...`).
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.

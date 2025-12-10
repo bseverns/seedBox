@@ -68,6 +68,7 @@ jobs:
             clang \
             ninja-build \
             cmake \
+            pkg-config \
             libx11-dev \
             libxinerama-dev \
             libxext-dev \
