@@ -37,6 +37,14 @@ SEEDBOX_MAYBE_UNUSED float sampleRate();
 SEEDBOX_MAYBE_UNUSED std::uint32_t sampleClock();
 
 #if !SEEDBOX_HW
+// Tell the sim/desktop path what the host's buffer sizing looks like. JUCE and
+// other native audio drivers call this when they learn the device configuration
+// so the engine prep code sees the real sample rate and block size.
+SEEDBOX_MAYBE_UNUSED void configureHostStream(float sample_rate, std::size_t frames_per_block);
+// Pump the audio callback using host-provided buffers. Drivers that already
+// hand us float buffers (e.g. JUCE) can call this directly inside their audio
+// callback instead of going through mockPump.
+SEEDBOX_MAYBE_UNUSED void renderHostBuffer(float* left, float* right, std::size_t frames);
 // Simulator hooks to control timing from unit tests.
 SEEDBOX_MAYBE_UNUSED void mockSetSampleRate(float hz);
 SEEDBOX_MAYBE_UNUSED void mockPump(std::size_t frames);

@@ -10,6 +10,7 @@ not intimidate.
 | --- | --- | --- |
 | `builder_bootstrap.md` | Environment setup, wiring diagrams, lab ideas. | When you're booting hardware or helping a friend get started. |
 | `assumptions.md` | Design bets, non-negotiables, and why quiet mode exists. | Before you ship a change that bends the vibe. |
+| `juce_build.md` | JUCE desktop wiring, sample-rate/block-size assumptions, and how to keep Arduino headers out of the build. | Before you fire up a DAW build or headless JUCE test harness. |
 | `ethics.md` | Privacy + data handling pact for labs and jams. | Any time you add IO, logging, or persistence. |
 | `hardware_bill_of_materials.md` | Shopping list + sourcing lore for the physical rig. | Before you smash the "buy" button. |
 | `roadmaps/` | Long-form design notes for current and future engines. | When you're planning a feature or trying to understand the vision. |

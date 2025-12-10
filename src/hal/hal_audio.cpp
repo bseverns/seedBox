@@ -130,6 +130,32 @@ std::vector<float> &scratch(std::vector<float> &buffer, std::size_t frames) {
 }
 }  // namespace
 
+void configureHostStream(float sample_rate, std::size_t frames_per_block) {
+  if (sample_rate > 0.0f) {
+    g_sample_rate = sample_rate;
+  }
+  if (frames_per_block > 0) {
+    g_frames_per_block = frames_per_block;
+  }
+}
+
+void renderHostBuffer(float* left, float* right, std::size_t frames) {
+  if (!left || !right) {
+    return;
+  }
+  if (frames > 0 && frames != g_frames_per_block) {
+    g_frames_per_block = frames;
+  }
+  if (g_running && g_callback) {
+    StereoBufferView view{left, right, frames};
+    g_callback(view, g_user_data);
+  } else {
+    std::fill(left, left + frames, 0.0f);
+    std::fill(right, right + frames, 0.0f);
+  }
+  g_sample_clock.fetch_add(static_cast<uint32_t>(frames), std::memory_order_relaxed);
+}
+
 void mockSetSampleRate(float hz) {
   // Handy for tests that want to explore how tempo math behaves at different
   // sample rates without touching hardware globals.

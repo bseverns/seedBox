@@ -20,6 +20,12 @@
 #define SEEDBOX_SIM 0
 #endif
 
+// JUCE desktop builds. This flag lets the audio/MIDI plumbing swap over to
+// `juce::AudioDeviceManager` without dragging Arduino headers into the mix.
+#ifndef SEEDBOX_JUCE
+#define SEEDBOX_JUCE 0
+#endif
+
 // Quiet mode flips off serial/MIDI chatter so labs can run the firmware without
 // hardware connected. See README "QUIET_MODE" entry for the longer tale.
 #ifndef QUIET_MODE
@@ -51,6 +57,7 @@ namespace SeedBoxConfig {
 
 constexpr bool kHardwareBuild = (SEEDBOX_HW != 0);
 constexpr bool kSimBuild = (SEEDBOX_SIM != 0);
+constexpr bool kJuceBuild = (SEEDBOX_JUCE != 0);
 constexpr bool kQuietMode = (QUIET_MODE != 0);
 constexpr bool kGoldenArtifacts = (ENABLE_GOLDEN != 0);
 constexpr bool kClockDebug = (SEEDBOX_DEBUG_CLOCK_SOURCE != 0);
@@ -60,6 +67,8 @@ static_assert(SEEDBOX_HW == 0 || SEEDBOX_HW == 1,
               "SEEDBOX_HW must be 0 or 1");
 static_assert(SEEDBOX_SIM == 0 || SEEDBOX_SIM == 1,
               "SEEDBOX_SIM must be 0 or 1");
+static_assert(SEEDBOX_JUCE == 0 || SEEDBOX_JUCE == 1,
+              "SEEDBOX_JUCE must be 0 or 1");
 static_assert(QUIET_MODE == 0 || QUIET_MODE == 1,
               "QUIET_MODE must be 0 or 1");
 static_assert(ENABLE_GOLDEN == 0 || ENABLE_GOLDEN == 1,
@@ -71,6 +80,10 @@ static_assert(SEEDBOX_DEBUG_UI == 0 || SEEDBOX_DEBUG_UI == 1,
               "SEEDBOX_DEBUG_UI must be 0 or 1");
 static_assert(!(kHardwareBuild && kSimBuild),
               "SEEDBOX_HW and SEEDBOX_SIM cannot both be enabled");
+static_assert(!(kHardwareBuild && kJuceBuild),
+              "SEEDBOX_HW and SEEDBOX_JUCE cannot both be enabled");
+static_assert(!(kSimBuild && kJuceBuild),
+              "SEEDBOX_SIM and SEEDBOX_JUCE cannot both be enabled at once");
 
 struct FlagSummary {
     const char *name;
@@ -83,6 +96,8 @@ inline constexpr FlagSummary kFlagMatrix[] = {
      "Hardware build. Talks to real IO (Teensy pins, codecs, storage)."},
     {"SEEDBOX_SIM", kSimBuild,
      "Native sim build. Stubs hardware so DSP can run on desktop."},
+    {"SEEDBOX_JUCE", kJuceBuild,
+     "JUCE desktop build. Talks to host audio/MIDI instead of Arduino headers."},
     {"QUIET_MODE", kQuietMode,
      "Mute extra logs + hardware callbacks. Keeps lab sessions polite."},
     {"ENABLE_GOLDEN", kGoldenArtifacts,
@@ -107,6 +122,7 @@ inline constexpr FlagSummary kFlagMatrix[] = {
 
 #define SeedBoxConfig_kHardwareBuild ((SEEDBOX_HW) != 0)
 #define SeedBoxConfig_kSimBuild ((SEEDBOX_SIM) != 0)
+#define SeedBoxConfig_kJuceBuild ((SEEDBOX_JUCE) != 0)
 #define SeedBoxConfig_kQuietMode ((QUIET_MODE) != 0)
 #define SeedBoxConfig_kGoldenArtifacts ((ENABLE_GOLDEN) != 0)
 #define SeedBoxConfig_kClockDebug ((SEEDBOX_DEBUG_CLOCK_SOURCE) != 0)
@@ -116,6 +132,8 @@ SEEDBOX_STATIC_ASSERT(SEEDBOX_HW == 0 || SEEDBOX_HW == 1,
                       "SEEDBOX_HW must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(SEEDBOX_SIM == 0 || SEEDBOX_SIM == 1,
                       "SEEDBOX_SIM must be 0 or 1");
+SEEDBOX_STATIC_ASSERT(SEEDBOX_JUCE == 0 || SEEDBOX_JUCE == 1,
+                      "SEEDBOX_JUCE must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(QUIET_MODE == 0 || QUIET_MODE == 1,
                       "QUIET_MODE must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(ENABLE_GOLDEN == 0 || ENABLE_GOLDEN == 1,
@@ -127,6 +145,10 @@ SEEDBOX_STATIC_ASSERT(SEEDBOX_DEBUG_UI == 0 || SEEDBOX_DEBUG_UI == 1,
                       "SEEDBOX_DEBUG_UI must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(!((SEEDBOX_HW != 0) && (SEEDBOX_SIM != 0)),
                       "SEEDBOX_HW and SEEDBOX_SIM cannot both be enabled");
+SEEDBOX_STATIC_ASSERT(!((SEEDBOX_HW != 0) && (SEEDBOX_JUCE != 0)),
+                      "SEEDBOX_HW and SEEDBOX_JUCE cannot both be enabled");
+SEEDBOX_STATIC_ASSERT(!((SEEDBOX_SIM != 0) && (SEEDBOX_JUCE != 0)),
+                      "SEEDBOX_SIM and SEEDBOX_JUCE cannot both be enabled");
 
 typedef struct {
     const char *name;
@@ -139,6 +161,8 @@ static const SeedBoxConfig_FlagSummary SeedBoxConfig_kFlagMatrix[] = {
      "Hardware build. Talks to real IO (Teensy pins, codecs, storage)."},
     {"SEEDBOX_SIM", SeedBoxConfig_kSimBuild,
      "Native sim build. Stubs hardware so DSP can run on desktop."},
+    {"SEEDBOX_JUCE", SeedBoxConfig_kJuceBuild,
+     "JUCE desktop build. Talks to host audio/MIDI instead of Arduino headers."},
     {"QUIET_MODE", SeedBoxConfig_kQuietMode,
      "Mute extra logs + hardware callbacks. Keeps lab sessions polite."},
     {"ENABLE_GOLDEN", SeedBoxConfig_kGoldenArtifacts,

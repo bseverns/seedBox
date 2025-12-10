@@ -2,7 +2,9 @@
 #include <array>
 #include <cstdint>
 #include "Seed.h"
+#if SEEDBOX_HW
 #include "HardwarePrelude.h"
+#endif
 #include "engine/Engine.h"
 #include "util/Annotations.h"
 #include <vector>

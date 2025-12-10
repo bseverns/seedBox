@@ -24,9 +24,7 @@
 #include "hal/hal_io.h"
 #include "app/InputEvents.h"
 #include "app/Clock.h"
-#if SEEDBOX_HW
 #include "io/MidiRouter.h"
-#endif
 
 namespace hal {
 namespace audio {
@@ -84,6 +82,13 @@ public:
   // hardware drivers so unit tests (and classroom demos) run fast and
   // repeatably on a laptop.
   void initSim();
+
+#if !SEEDBOX_HW
+  // Desktop/host bootstrap for JUCE builds. We lean on the native audio/MIDI
+  // driver for buffers + clocking but keep the core engine wiring identical to
+  // the simulator path.
+  void initJuceHost(float sampleRate, std::size_t framesPerBlock);
+#endif
 
   // Pump one control-tick. In sim builds tests call this manually; on hardware
   // the main loop does the honors. Either way, the scheduler decides whether a
@@ -182,9 +187,7 @@ public:
   uint8_t quantizeScaleIndex() const { return quantizeScaleIndex_; }
   uint8_t quantizeRoot() const { return quantizeRoot_; }
 
-#if SEEDBOX_HW
   MidiRouter midi;
-#endif
 
 private:
   static void audioCallbackTrampoline(const hal::audio::StereoBufferView& buffer, void* ctx);
@@ -200,6 +203,7 @@ private:
   void handleTransportGate(uint8_t value);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
+  void configureMidiRouting();
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
   void stepPresetCrossfade();
   void clearPresetCrossfade();
