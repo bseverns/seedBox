@@ -6,8 +6,9 @@ we build, which arch we aim at, and how to debug it if something pops.
 
 ## What each workflow does
 
-- **macOS universal (x86_64 + arm64).** Builds both the VST3 bundle and the
-  standalone app from the same CMake tree with
+- **macOS universal (x86_64 + arm64).** Builds both the VST3 bundle (explicitly
+  drives the format-specific `SeedboxVST3_VST3` target so the actual plugin
+  binary exists) and the standalone app from the same CMake tree with
   `CMAKE_OSX_ARCHITECTURES="x86_64;arm64"` on the macOS 14 runner. We stick with
   the macOS 14 SDK because macOS 15 obsoleted the CoreGraphics
   `CGWindowListCreateImage` API JUCE still leans on. The deployment target
@@ -20,7 +21,10 @@ we build, which arch we aim at, and how to debug it if something pops.
 - **Linux host dependency sweep.** Installs JUCE’s usual suspects
   (`libx11-dev`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `pkg-config`, etc.),
   configures the JUCE targets, and builds both the plugin and the app to ensure
-  the headers and pkg-config hints stay lined up. We also export a
+  the headers and pkg-config hints stay lined up. We feed the
+  `pkg-config --libs libcurl` output into the linker flags so JUCE’s
+  `WebInputStream` symbols resolve cleanly instead of dying at link time. We
+  also export a
   `PKG_CONFIG_PATH` that points at the default `/usr/lib/x86_64-linux-gnu` and
   `/usr/share/pkgconfig` roots and run `pkg-config --cflags --libs gtk+-3.0`
   explicitly so broken GTK discovery fails fast instead of puzzling you with a
@@ -33,7 +37,9 @@ we build, which arch we aim at, and how to debug it if something pops.
 ## Tips for running these steps locally
 
 - **macOS universal builds**: pass `-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"`
-  when configuring. `lipo -info` on the VST3 binary inside the bundle should
+  when configuring and remember to build the format-specific target
+  (`cmake --build build/juce --target SeedboxVST3_VST3`) so the bundle actually
+  contains a binary. `lipo -info` on the VST3 binary inside the bundle should
   list both architectures. On CI we use the macOS 14 runner so JUCE can still
   rely on the CoreGraphics window snapshot APIs that vanished in the macOS 15
   SDK.
@@ -50,8 +56,10 @@ we build, which arch we aim at, and how to debug it if something pops.
   blaming JUCE. If CMake still pretends GTK/WebKit do not exist, bolt the
   pkg-config output straight into your configure line with
   `-DCMAKE_CXX_FLAGS_INIT="$(pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)"` and
-  `-DCMAKE_SHARED_LINKER_FLAGS_INIT="$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1)"`—
-  it’s loud but guarantees JUCE compiles against the headers we just installed.
+  `-DCMAKE_SHARED_LINKER_FLAGS_INIT="$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1) $(pkg-config --libs libcurl)"`—
+  it’s loud but guarantees JUCE compiles against the headers we just installed
+  and links against libcurl instead of exploding with undefined `curl_*`
+  references at the final link step.
 - **Windows builds**: open a "x64 Native Tools" shell before running CMake (or
   run `vcvarsall.bat x64` in PowerShell) to inherit the MSVC environment, then
   reuse the same flags as the workflow.

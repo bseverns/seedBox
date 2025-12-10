@@ -33,7 +33,7 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Build VST3 and standalone app
-        run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxApp
+        run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
 
       - name: Inspect universal binaries
         run: |
@@ -46,7 +46,7 @@ jobs:
           VST3_BINARY=$(find "$VST3_BUNDLE" -path "*/Contents/MacOS/*" -type f -print -quit)
           if [[ -z "$VST3_BINARY" ]]; then
             echo "Could not locate a binary under $VST3_BUNDLE/Contents/MacOS" >&2
-            find "$VST3_BUNDLE" -maxdepth 3 -print
+            find "$VST3_BUNDLE" -maxdepth 6 -print
             exit 1
           fi
           lipo -info "$VST3_BINARY"
@@ -112,6 +112,7 @@ jobs:
         run: |
           GTK_WEBKIT_CFLAGS=$(pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)
           GTK_WEBKIT_LIBS=$(pkg-config --libs gtk+-3.0 webkit2gtk-4.1)
+          CURL_LIBS=$(pkg-config --libs libcurl)
           cmake -S . -B build/juce \
             -G Ninja \
             -DSEEDBOX_SIM=ON \
@@ -119,11 +120,11 @@ jobs:
             -DSEEDBOX_VERSION="${{ github.sha }}" \
             -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
             -DCMAKE_CXX_FLAGS_INIT="${GTK_WEBKIT_CFLAGS}" \
-            -DCMAKE_EXE_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS}" \
-            -DCMAKE_SHARED_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS}"
+            -DCMAKE_EXE_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS} ${CURL_LIBS}" \
+            -DCMAKE_SHARED_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS} ${CURL_LIBS}"
 
       - name: Build Linux targets
-        run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxApp
+        run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
 
   windows-host:
     name: Windows dependency + JUCE sanity
@@ -152,4 +153,4 @@ jobs:
 
       - name: Build Windows targets
         shell: pwsh
-        run: cmake --build build/juce --config $env:BUILD_TYPE --target SeedboxVST3 SeedboxApp
+        run: cmake --build build/juce --config $env:BUILD_TYPE --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
