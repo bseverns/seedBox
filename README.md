@@ -125,7 +125,9 @@ Want the laptop-native groove? The top-level `CMakeLists.txt` now fetches JUCE
 and builds both a standalone `SeedboxApp` and a `SeedboxVST3` plugin without
 breaking parity with PlatformIO flags. Cruise through the new
 [JUCE build guide](docs/juce_build.md) for the exact configure/build incantations
-plus notes on how the `SEEDBOX_*` options map to the firmware defaults.
+plus notes on how the `SEEDBOX_*` options map to the firmware defaults. Bonus:
+JUCE builds now auto-drop `SEEDBOX_SIM` to `0` so the plugin/app use the
+hardware-forward defaults unless you explicitly flip the simulator flag back on.
 
 ## Pick your adventure
 
@@ -325,7 +327,7 @@ same switches so you know when to flip them mid-session.
 | Flag | Where it matters | What it does |
 | --- | --- | --- |
 | `SEEDBOX_HW` | `src/`, `include/` | Enables Teensy-only IO paths so the firmware talks to real hardware. Leave it off for `native`. |
-| `SEEDBOX_SIM` | Desktop builds, tests | Marks the host build so hardware glue stays stubbed. Pair it with `QUIET_MODE` when running labs without a Teensy. |
+| `SEEDBOX_SIM` | Desktop builds, tests | Marks the host build so hardware glue stays stubbed. Defaults to `0` whenever `SEEDBOX_JUCE=1` so the plugin/app mirror the hardware wiring; re-enable it manually for simulator runs. |
 | `QUIET_MODE` | `src/util/`, tests | Silences verbose logging when you want clean terminal output or audio renders in `out/`. |
 | `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` so regressions show up as diffable golden files. |
 | `SEEDBOX_DEBUG_CLOCK_SOURCE` | `src/app/AppState.cpp`, clock docs | Dumps transport decisions over Serial so you can teach clock hand-offs in real time. |
