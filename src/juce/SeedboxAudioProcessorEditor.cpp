@@ -204,7 +204,16 @@ void SeedboxAudioProcessorEditor::resized() {
   displayLabel_.setBounds(area.reduced(4));
 }
 
-void SeedboxAudioProcessorEditor::timerCallback() { refreshDisplay(); }
+void SeedboxAudioProcessorEditor::timerCallback() {
+  const int engineId = engineSelector_.getSelectedId();
+  // ComboBoxParameterAttachment updates bypass onChange callbacks, so poll for
+  // changes here to keep the helper text in sync with host automation and
+  // preset recalls.
+  if (engineId != lastEngineId_) {
+    refreshEngineControls();
+  }
+  refreshDisplay();
+}
 
 void SeedboxAudioProcessorEditor::refreshDisplay() {
   AppState::DisplaySnapshot snapshot{};
@@ -246,6 +255,7 @@ void SeedboxAudioProcessorEditor::refreshEngineControls() {
 
   engineControlHeader_.setText(tpl.heading, juce::dontSendNotification);
   engineControlList_.setText(text, juce::dontSendNotification);
+  lastEngineId_ = engineId;
 }
 
 void SeedboxAudioProcessorEditor::buildAudioSelector() {
