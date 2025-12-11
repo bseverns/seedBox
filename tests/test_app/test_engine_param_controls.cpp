@@ -60,11 +60,3 @@ void test_engine_mode_twiddles_euclid_and_burst() {
   runTicks(app, 6);
   TEST_ASSERT_EQUAL_UINT32(expectedSpacing, app.engineRouterForDebug().burst().spacingSamples());
 }
-
-int main(int argc, char** argv) {
-  (void)argc;
-  (void)argv;
-  UNITY_BEGIN();
-  RUN_TEST(test_engine_mode_twiddles_euclid_and_burst);
-  return UNITY_END();
-}

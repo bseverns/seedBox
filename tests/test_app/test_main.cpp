@@ -12,6 +12,7 @@ void test_mn42_hello_resends_ack();
 void test_mn42_param_focus_seed_zones();
 void test_mn42_param_macros_update_seed_fields();
 void test_mn42_param_controls_respect_lock();
+void test_engine_mode_twiddles_euclid_and_burst();
 void test_simulator_audio_reports_48k();
 void test_preset_round_trip_via_eeprom_store();
 void test_init_sim_attaches_default_store();
@@ -51,6 +52,7 @@ int main(int, char**) {
   RUN_TEST(test_mn42_param_focus_seed_zones);
   RUN_TEST(test_mn42_param_macros_update_seed_fields);
   RUN_TEST(test_mn42_param_controls_respect_lock);
+  RUN_TEST(test_engine_mode_twiddles_euclid_and_burst);
   RUN_TEST(test_simulator_audio_reports_48k);
   RUN_TEST(test_preset_round_trip_via_eeprom_store);
   RUN_TEST(test_init_sim_attaches_default_store);
