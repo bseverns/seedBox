@@ -1256,6 +1256,51 @@ void AppState::onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
   // Future CC maps will route through here once the macro table lands.
 }
 
+void AppState::setSwingPercentFromHost(float value) { applySwingPercent(value); }
+
+void AppState::applyQuantizeControlFromHost(uint8_t value) { applyQuantizeControl(value); }
+
+void AppState::setDebugMetersEnabledFromHost(bool enabled) {
+  if (debugMetersEnabled_ == enabled) {
+    return;
+  }
+  debugMetersEnabled_ = enabled;
+  displayDirty_ = true;
+}
+
+void AppState::setTransportLatchFromHost(bool enabled) {
+  if (transportLatchEnabled_ == enabled) {
+    return;
+  }
+  transportLatchEnabled_ = enabled;
+  if (transportLatchEnabled_) {
+    transportLatchedRunning_ = externalTransportRunning_;
+  } else {
+    transportLatchedRunning_ = false;
+    transportGateHeld_ = false;
+  }
+  displayDirty_ = true;
+}
+
+void AppState::setFollowExternalClockFromHost(bool enabled) {
+  if (followExternalClockEnabled_ == enabled) {
+    return;
+  }
+  followExternalClockEnabled_ = enabled;
+  selectClockProvider(enabled ? static_cast<ClockProvider*>(&midiClockIn_)
+                              : static_cast<ClockProvider*>(&internalClock_));
+  updateClockDominance();
+  displayDirty_ = true;
+}
+
+void AppState::setClockSourceExternalFromHost(bool external) {
+  selectClockProvider(external ? static_cast<ClockProvider*>(&midiClockIn_)
+                               : static_cast<ClockProvider*>(&internalClock_));
+  followExternalClockEnabled_ = external;
+  updateClockDominance();
+  displayDirty_ = true;
+}
+
 void AppState::updateClockDominance() {
   // External clock wins if either the follow bit is set or the transport is
   // actively running.  This line is the truth table behind the entire sync

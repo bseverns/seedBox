@@ -193,6 +193,15 @@ public:
   uint8_t quantizeScaleIndex() const { return quantizeScaleIndex_; }
   uint8_t quantizeRoot() const { return quantizeRoot_; }
 
+  // Host/automation hooks. These mirror the hardware gestures so DAWs can hit
+  // the same code paths the front panel pokes.
+  void setSwingPercentFromHost(float value);
+  void applyQuantizeControlFromHost(uint8_t value);
+  void setDebugMetersEnabledFromHost(bool enabled);
+  void setTransportLatchFromHost(bool enabled);
+  void setFollowExternalClockFromHost(bool enabled);
+  void setClockSourceExternalFromHost(bool external);
+
   MidiRouter midi;
 
 private:

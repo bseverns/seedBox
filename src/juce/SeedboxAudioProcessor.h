@@ -4,6 +4,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "app/AppState.h"
@@ -91,6 +92,9 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   juce::AudioProcessorValueTreeState parameters_;
   bool prepared_{false};
   std::optional<seedbox::Preset> pendingPreset_{};
+  std::unordered_map<std::string, float> parameterState_{};
+  std::uint8_t quantizeScaleParam_{0};
+  std::uint8_t quantizeRootParam_{0};
 };
 
 }  // namespace seedbox::juce_bridge
