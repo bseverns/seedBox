@@ -13,6 +13,7 @@ void SeedboxApplication::initialise(const juce::String&) {
   processor_ = std::make_unique<SeedboxAudioProcessor>();
   player_ = std::make_unique<juce::AudioProcessorPlayer>();
   deviceManager_ = std::make_unique<juce::AudioDeviceManager>();
+  processor_->attachDeviceManager(deviceManager_.get());
 
   player_->setProcessor(processor_.get());
 

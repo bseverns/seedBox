@@ -3,6 +3,7 @@
 #if SEEDBOX_JUCE
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_devices/juce_audio_devices.h>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -23,6 +24,9 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
  public:
   SeedboxAudioProcessor();
   ~SeedboxAudioProcessor() override;
+
+  void attachDeviceManager(juce::AudioDeviceManager* manager) { deviceManager_ = manager; }
+  juce::AudioDeviceManager* deviceManager() const { return deviceManager_; }
 
   // juce::AudioProcessor
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -90,6 +94,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   AppState app_;
   ProcessorMidiBackend* midiBackend_{nullptr};
   juce::AudioProcessorValueTreeState parameters_;
+  juce::AudioDeviceManager* deviceManager_{nullptr};  // owned by SeedboxApplication when present
   bool prepared_{false};
   std::optional<seedbox::Preset> pendingPreset_{};
   std::unordered_map<std::string, float> parameterState_{};

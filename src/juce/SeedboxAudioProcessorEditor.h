@@ -3,6 +3,7 @@
 #if SEEDBOX_JUCE
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_utils/juce_audio_utils.h>
 
 namespace seedbox::juce_bridge {
 
@@ -22,6 +23,8 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
  private:
   void timerCallback() override;
   void refreshDisplay();
+  void refreshEngineControls();
+  void buildAudioSelector();
 
   SeedboxAudioProcessor& processor_;
   juce::ComboBox modeSelector_;
@@ -32,6 +35,10 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   juce::ComboBox quantizeScaleSelector_;
   juce::ComboBox quantizeRootSelector_;
   juce::Slider granularSourceSlider_;
+  juce::Label engineControlHeader_;
+  juce::TextEditor engineControlList_;
+  juce::Label audioSelectorHint_;
+  std::unique_ptr<juce::AudioDeviceSelectorComponent> audioSelector_;
   juce::ToggleButton transportLatchButton_;
   juce::ToggleButton externalClockButton_;
   juce::ToggleButton followClockButton_;
