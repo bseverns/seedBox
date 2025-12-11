@@ -17,7 +17,7 @@ namespace seedbox::juce_bridge {
 
 SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& processor)
     : juce::AudioProcessorEditor(&processor), processor_(processor) {
-  setSize(900, 900);
+  setSize(760, 720);
 
   modeSelector_.addItem("HOME", 1);
   modeSelector_.addItem("SEEDS", 2);
@@ -90,28 +90,6 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   granularSourceSlider_.setTooltip("Encoder D (FxMutate): Shift = source select, Alt = mutate grains.");
   addAndMakeVisible(granularSourceSlider_);
 
-  seedParamHeader_.setText("Seed + HAL knobs", juce::dontSendNotification);
-  seedParamHeader_.setJustificationType(juce::Justification::centredLeft);
-  seedParamHeader_.setFont(juce::Font(16.0f, juce::Font::bold));
-  addAndMakeVisible(seedParamHeader_);
-
-  auto configureSeedSlider = [&](juce::Slider& slider, const juce::String& suffix, const juce::String& tip) {
-    slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
-    slider.setTextValueSuffix(suffix);
-    slider.setTooltip(tip);
-    addAndMakeVisible(slider);
-  };
-  configureSeedSlider(seedPitchSlider_, " st", "Focus seed pitch macro: -24..+24 semitones vs concert A.");
-  seedPitchSlider_.setNumDecimalPlacesToDisplay(2);
-  configureSeedSlider(seedDensitySlider_, " hits", "Density: hits per beat into the scheduler.");
-  configureSeedSlider(seedProbabilitySlider_, " prob", "Gate probability 0..1 before Euclid fires.");
-  seedProbabilitySlider_.setNumDecimalPlacesToDisplay(3);
-  configureSeedSlider(seedJitterSlider_, " ms", "Timing spray in milliseconds; zero keeps it grid-snapped.");
-  configureSeedSlider(seedToneSlider_, "", "Tilt EQ macro. Left = dark, right = bright.");
-  configureSeedSlider(seedSpreadSlider_, "", "Stereo width macro from mono center to wide pan.");
-  configureSeedSlider(seedMutateSlider_, "", "Mutation guard rail — how wild random walks can get.");
-
   engineControlHeader_.setText("Engine Controls", juce::dontSendNotification);
   engineControlHeader_.setJustificationType(juce::Justification::centredLeft);
   engineControlHeader_.setFont(juce::Font(16.0f, juce::Font::bold));
@@ -167,20 +145,6 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
       *processor_.parameters().getParameter("quantizeRoot"), quantizeRootSelector_);
   granularAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
       *processor_.parameters().getParameter("granularSourceStep"), granularSourceSlider_, nullptr);
-  seedPitchAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedPitch"), seedPitchSlider_, nullptr);
-  seedDensityAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedDensity"), seedDensitySlider_, nullptr);
-  seedProbabilityAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedProbability"), seedProbabilitySlider_, nullptr);
-  seedJitterAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedJitterMs"), seedJitterSlider_, nullptr);
-  seedToneAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedTone"), seedToneSlider_, nullptr);
-  seedSpreadAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedSpread"), seedSpreadSlider_, nullptr);
-  seedMutateAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
-      *processor_.parameters().getParameter("seedMutate"), seedMutateSlider_, nullptr);
   transportLatchAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
       *processor_.parameters().getParameter("transportLatch"), transportLatchButton_);
   externalClockAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
@@ -220,19 +184,6 @@ void SeedboxAudioProcessorEditor::resized() {
                        juce::GridItem(granularSourceSlider_), juce::GridItem(transportLatchButton_),
                        juce::GridItem(externalClockButton_)});
   grid.performLayout(controlArea);
-
-  auto seedArea = area.removeFromTop(240);
-  seedParamHeader_.setBounds(seedArea.removeFromTop(28));
-  juce::Grid seedGrid;
-  seedGrid.templateRows = {juce::Grid::TrackInfo(juce::Grid::Fr(1)), juce::Grid::TrackInfo(juce::Grid::Fr(1)),
-                           juce::Grid::TrackInfo(juce::Grid::Fr(1))};
-  seedGrid.templateColumns = {juce::Grid::TrackInfo(juce::Grid::Fr(1)), juce::Grid::TrackInfo(juce::Grid::Fr(1)),
-                              juce::Grid::TrackInfo(juce::Grid::Fr(1))};
-  seedGrid.items.addArray({juce::GridItem(seedPitchSlider_), juce::GridItem(seedDensitySlider_),
-                           juce::GridItem(seedProbabilitySlider_), juce::GridItem(seedJitterSlider_),
-                           juce::GridItem(seedToneSlider_), juce::GridItem(seedSpreadSlider_),
-                           juce::GridItem(seedMutateSlider_)});
-  seedGrid.performLayout(seedArea);
 
   auto engineArea = area.removeFromTop(110);
   engineControlHeader_.setBounds(engineArea.removeFromTop(24));

@@ -13,7 +13,6 @@
 
 #include "hal/hal_audio.h"
 #include "juce/SeedboxAudioProcessorEditor.h"
-#include "interop/mn42_param_map.h"
 #include "Seed.h"
 
 namespace seedbox::juce_bridge {
@@ -30,45 +29,15 @@ constexpr auto kParamClockSourceExternal = "clockSourceExternal";
 constexpr auto kParamFollowExternalClock = "followExternalClock";
 constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
-constexpr auto kParamSeedPitch = "seedPitch";
-constexpr auto kParamSeedDensity = "seedDensity";
-constexpr auto kParamSeedProbability = "seedProbability";
-constexpr auto kParamSeedJitterMs = "seedJitterMs";
-constexpr auto kParamSeedTone = "seedTone";
-constexpr auto kParamSeedSpread = "seedSpread";
-constexpr auto kParamSeedMutate = "seedMutate";
-constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 constexpr auto kStateRoot = "seedboxState";
 
-constexpr float kSeedPitchFloor = -24.f;
-constexpr float kSeedPitchRange = 48.f;
-constexpr float kSeedMaxDensity = 8.f;
-constexpr float kSeedMaxJitterMs = 30.f;
-
-constexpr std::array<const char*, 18> kParameterIds = {kParamMasterSeed,
-                                                        kParamFocusSeed,
-                                                        kParamSeedEngine,
-                                                        kParamSwingPercent,
-                                                        kParamQuantizeScale,
-                                                        kParamQuantizeRoot,
-                                                        kParamTransportLatch,
-                                                        kParamClockSourceExternal,
-                                                        kParamFollowExternalClock,
-                                                        kParamDebugMeters,
-                                                        kParamGranularSourceStep,
-                                                        kParamSeedPitch,
-                                                        kParamSeedDensity,
-                                                        kParamSeedProbability,
-                                                        kParamSeedJitterMs,
-                                                        kParamSeedTone,
-                                                        kParamSeedSpread,
-                                                        kParamSeedMutate};
-
-std::uint8_t clampToMidi(float normalized) {
-  const auto midi = static_cast<int>(std::round(normalized * 127.f));
-  return static_cast<std::uint8_t>(std::clamp(midi, 0, 127));
-}
+constexpr std::array<const char*, 11> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
+                                                        kParamSeedEngine,     kParamSwingPercent,
+                                                        kParamQuantizeScale,  kParamQuantizeRoot,
+                                                        kParamTransportLatch, kParamClockSourceExternal,
+                                                        kParamFollowExternalClock, kParamDebugMeters,
+                                                        kParamGranularSourceStep};
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
@@ -268,55 +237,6 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
     return;
   }
 
-  using namespace seedbox::interop::mn42;
-  if (parameterID == kParamSeedPitch) {
-    const float normalized = (newValue - kSeedPitchFloor) / kSeedPitchRange;
-    app_.applyMn42ParamControl(param::kSeedPitch, clampToMidi(normalized));
-    parameterState_[kParamSeedPitch] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedDensity) {
-    const float normalized = newValue / kSeedMaxDensity;
-    app_.applyMn42ParamControl(param::kSeedDensity, clampToMidi(normalized));
-    parameterState_[kParamSeedDensity] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedProbability) {
-    const float normalized = std::clamp(newValue, 0.f, 1.f);
-    app_.applyMn42ParamControl(param::kSeedProbability, clampToMidi(normalized));
-    parameterState_[kParamSeedProbability] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedJitterMs) {
-    const float normalized = newValue / kSeedMaxJitterMs;
-    app_.applyMn42ParamControl(param::kSeedJitter, clampToMidi(normalized));
-    parameterState_[kParamSeedJitterMs] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedTone) {
-    const float normalized = std::clamp(newValue, 0.f, 1.f);
-    app_.applyMn42ParamControl(param::kSeedTone, clampToMidi(normalized));
-    parameterState_[kParamSeedTone] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedSpread) {
-    const float normalized = std::clamp(newValue, 0.f, 1.f);
-    app_.applyMn42ParamControl(param::kSeedSpread, clampToMidi(normalized));
-    parameterState_[kParamSeedSpread] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedMutate) {
-    const float normalized = std::clamp(newValue, 0.f, 1.f);
-    app_.applyMn42ParamControl(param::kSeedMutate, clampToMidi(normalized));
-    parameterState_[kParamSeedMutate] = newValue;
-    return;
-  }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::createParameterLayout() {
@@ -338,24 +258,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamGranularSourceStep, "Granular Source Step", -8, 8,
                                                             0));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedPitch, "Seed Pitch",
-      juce::NormalisableRange<float>{kSeedPitchFloor, kSeedPitchFloor + kSeedPitchRange, 0.01f}, defaults.pitch));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedDensity, "Seed Density",
-      juce::NormalisableRange<float>{0.f, kSeedMaxDensity, 0.01f, 1.f}, defaults.density));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedProbability, "Seed Probability",
-      juce::NormalisableRange<float>{0.f, 1.f, 0.001f, 1.f}, defaults.probability));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedJitterMs, "Seed Jitter Ms",
-      juce::NormalisableRange<float>{0.f, kSeedMaxJitterMs, 0.01f, 1.f}, defaults.jitterMs));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedTone, "Seed Tone", juce::NormalisableRange<float>{0.f, 1.f, 0.001f, 1.f}, defaults.tone));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedSpread, "Seed Spread", juce::NormalisableRange<float>{0.f, 1.f, 0.001f, 1.f}, defaults.spread));
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      kParamSeedMutate, "Seed Mutate", juce::NormalisableRange<float>{0.f, 1.f, 0.001f, 1.f}, defaults.mutateAmt));
   return {params.begin(), params.end()};
 }
 
