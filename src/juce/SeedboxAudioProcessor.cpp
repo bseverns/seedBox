@@ -244,27 +244,34 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
   const Seed defaults{};
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamMasterSeed, "Master Seed", 0, 9999999, 1));
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      kParamFocusSeed, "Focus Seed",
-      juce::StringArray{"Seed 1", "Seed 2", "Seed 3", "Seed 4"}, 0));
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      kParamSeedEngine, "Seed Engine",
-      juce::StringArray{"Default", "Grain", "Chord", "Drum", "FM", "Additive", "Resonator", "Noise"}, 0));
+
+  // Choice labels must stay in lockstep with the combo boxes built in
+  // SeedboxAudioProcessorEditor so that automation/preset values map correctly.
+  juce::StringArray focusSeedChoices{"Seed 1", "Seed 2", "Seed 3", "Seed 4"};
+  params.push_back(std::make_unique<juce::AudioParameterChoice>(kParamFocusSeed, "Focus Seed", focusSeedChoices, 0));
+
+  juce::StringArray engineChoices{"Default", "Grain", "Chord", "Drum", "FM", "Additive", "Resonator", "Noise"};
+  params.push_back(std::make_unique<juce::AudioParameterChoice>(kParamSeedEngine, "Seed Engine", engineChoices, 0));
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       kParamSwingPercent, "Swing Percent",
       juce::NormalisableRange<float>{0.0f, 0.99f, 0.01f, 1.0f, false}, 0.0f));
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      kParamQuantizeScale, "Quantize Scale",
-      juce::StringArray{"Chromatic", "Major", "Minor", "Dorian", "Lydian"}, 0));
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      kParamQuantizeRoot, "Quantize Root",
-      juce::StringArray{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}, 0));
+
+  juce::StringArray quantizeScaleChoices{"Chromatic", "Major", "Minor", "Dorian", "Lydian"};
+  params.push_back(
+      std::make_unique<juce::AudioParameterChoice>(kParamQuantizeScale, "Quantize Scale", quantizeScaleChoices, 0));
+
+  juce::StringArray quantizeRootChoices{"C",  "C#", "D",  "D#", "E",  "F",
+                                        "F#", "G",  "G#", "A",  "A#", "B"};
+  params.push_back(
+      std::make_unique<juce::AudioParameterChoice>(kParamQuantizeRoot, "Quantize Root", quantizeRootChoices, 0));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamTransportLatch, "Transport Latch", false));
   params.push_back(
       std::make_unique<juce::AudioParameterBool>(kParamClockSourceExternal, "Clock Source External", false));
   params.push_back(
       std::make_unique<juce::AudioParameterBool>(kParamFollowExternalClock, "Follow External Clock", false));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
+
+  // Discrete source index delta sent to app_.seedPageCycleGranularSource() when the UI nudge changes.
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamGranularSourceStep, "Granular Source Step", -8, 8,
                                                             0));
   return {params.begin(), params.end()};

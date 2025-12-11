@@ -87,6 +87,8 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
 
   granularSourceSlider_.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   granularSourceSlider_.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
+  granularSourceSlider_.setRange(-8.0, 8.0, 1.0);
+  granularSourceSlider_.setNumDecimalPlacesToDisplay(0);
   granularSourceSlider_.setTooltip("Encoder D (FxMutate): Shift = source select, Alt = mutate grains.");
   addAndMakeVisible(granularSourceSlider_);
 
