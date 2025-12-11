@@ -13,6 +13,20 @@ what the buttons and encoders pull off mid-jam, and why you'd reach for them.
 | Shift (long press) | Dumps you back to HOME from wherever you wandered. | Panic chord when you need to reorient a class. |
 | Reseed button (long press) | Spins a fresh master seed (unless locks block it). | Handy when you want to audition brand-new genomes. |
 
+## Engine page: knobs with teeth
+
+The ENGINE mode stopped being a spectator sport. Park the focused seed on a
+Euclid or Burst engine and the encoders start nudging real parameters instead of
+just listing them:
+
+| Engine | Density encoder | Tone/Tilt encoder | FX encoder |
+| --- | --- | --- | --- |
+| Euclid | Steps (±1 per detent) | Fills (±1) | Rotate (±1) |
+| Burst | Cluster count (±1, clamped 1–16) | Spacing (+/− ≈5ms per click) | — |
+
+Locked seeds still ignore the tweaks, and the OLED hint rail calls out the
+controls the moment you land on ENGINE so nobody forgets which knob is live.
+
 ## Swing edit pop-over
 
 Long-press **Tap** and the rig drops into a dedicated Swing page. It's a popup,
