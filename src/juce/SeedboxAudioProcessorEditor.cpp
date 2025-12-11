@@ -17,7 +17,7 @@ namespace seedbox::juce_bridge {
 
 SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& processor)
     : juce::AudioProcessorEditor(&processor), processor_(processor) {
-  setSize(880, 620);
+  setSize(760, 720);
 
   modeSelector_.addItem("HOME", 1);
   modeSelector_.addItem("SEEDS", 2);
