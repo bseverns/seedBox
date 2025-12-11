@@ -245,6 +245,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
   const Seed defaults{};
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamMasterSeed, "Master Seed", 0, 9999999, 1));
 
+  // Choice labels must stay in lockstep with the combo boxes built in
+  // SeedboxAudioProcessorEditor so that automation/preset values map correctly.
   juce::StringArray focusSeedChoices{"Seed 1", "Seed 2", "Seed 3", "Seed 4"};
   params.push_back(std::make_unique<juce::AudioParameterChoice>(kParamFocusSeed, "Focus Seed", focusSeedChoices, 0));
 
