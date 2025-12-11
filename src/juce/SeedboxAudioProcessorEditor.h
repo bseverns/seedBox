@@ -55,6 +55,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   std::unique_ptr<juce::ButtonParameterAttachment> externalClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> followClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> debugMetersAttachment_;
+  int lastEngineId_{-1};
 };
 
 }  // namespace seedbox::juce_bridge
