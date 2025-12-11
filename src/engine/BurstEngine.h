@@ -30,6 +30,8 @@ public:
 
   const std::vector<std::uint32_t>& pendingTriggers() const { return pending_; }
   std::uint32_t generationSeed() const { return generationSeed_; }
+  std::uint8_t clusterCount() const { return clusterCount_; }
+  std::uint32_t spacingSamples() const { return spacingSamples_; }
 
 private:
   std::uint8_t clusterCount_{1};

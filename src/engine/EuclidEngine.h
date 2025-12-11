@@ -33,6 +33,9 @@ public:
   bool lastGate() const { return lastGate_; }
   std::uint32_t generationSeed() const { return generationSeed_; }
   const std::vector<std::uint8_t>& mask() const { return mask_; }
+  std::uint8_t steps() const { return steps_; }
+  std::uint8_t fills() const { return fills_; }
+  std::uint8_t rotate() const { return rotate_; }
 
 private:
   void rebuildMask();

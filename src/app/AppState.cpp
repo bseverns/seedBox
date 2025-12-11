@@ -26,6 +26,8 @@
 #include "util/RNG.h"
 #include "util/ScaleQuantizer.h"
 #include "engine/Granular.h"
+#include "engine/EuclidEngine.h"
+#include "engine/BurstEngine.h"
 #include "engine/Sampler.h"
 #include "hal/hal_audio.h"
 #include "hal/hal_io.h"
@@ -43,6 +45,8 @@ constexpr uint8_t kEngineCycleCc = seedbox::interop::mn42::param::kEngineCycle;
 constexpr uint32_t kStorageLongPressFrames = 60;
 constexpr std::string_view kDefaultPresetSlot = "default";
 constexpr uint8_t kShortCaptureSlots = 4;
+constexpr int kEuclidStepNudge = 1;
+constexpr int kBurstSpacingStepSamples = 240;  // ~5ms at 48k.
 
 constexpr hal::io::PinNumber kReseedButtonPin = 2;
 constexpr hal::io::PinNumber kLockButtonPin = 3;
@@ -755,6 +759,15 @@ void AppState::handleSeedsEvent(const InputEvents::Event& evt) {
 }
 
 void AppState::handleEngineEvent(const InputEvents::Event& evt) {
+  if (evt.type == InputEvents::Type::EncoderTurn &&
+      evt.encoder == hal::Board::EncoderID::SeedBank && evt.encoderDelta != 0 && !seeds_.empty()) {
+    const size_t focus = std::min<size_t>(focusSeed_, seeds_.size() - 1);
+    const int32_t next = static_cast<int32_t>(focus) + evt.encoderDelta;
+    setFocusSeed(static_cast<uint8_t>(next));
+    displayDirty_ = true;
+    return;
+  }
+
   if (evt.type == InputEvents::Type::EncoderHoldTurn &&
       evt.encoder == hal::Board::EncoderID::Density && eventHasButton(evt, hal::Board::ButtonID::Shift)) {
     if (!seeds_.empty() && evt.encoderDelta != 0) {
@@ -763,6 +776,77 @@ void AppState::handleEngineEvent(const InputEvents::Event& evt) {
       const uint8_t next = static_cast<uint8_t>(static_cast<int>(current) + evt.encoderDelta);
       setSeedEngine(static_cast<uint8_t>(focus), next);
       displayDirty_ = true;
+    }
+    return;
+  }
+
+  if (seeds_.empty()) {
+    return;
+  }
+
+  const size_t focus = std::min<size_t>(focusSeed_, seeds_.size() - 1);
+  if (seedLock_.globalLocked() || seedLock_.seedLocked(focus)) {
+    return;
+  }
+
+  const Seed& seed = seeds_[focus];
+  const uint8_t engineId = seed.engine;
+
+  if (evt.type == InputEvents::Type::EncoderTurn && evt.encoderDelta != 0 && engineId == EngineRouter::kEuclidId) {
+    Engine::ParamChange change{};
+    change.seedId = seed.id;
+    switch (evt.encoder) {
+      case hal::Board::EncoderID::Density: {
+        change.id = static_cast<std::uint16_t>(EuclidEngine::Param::kSteps);
+        change.value = static_cast<std::int32_t>(engines_.euclid().steps()) +
+                       (evt.encoderDelta * kEuclidStepNudge);
+        engines_.euclid().onParam(change);
+        displayDirty_ = true;
+        return;
+      }
+      case hal::Board::EncoderID::ToneTilt: {
+        change.id = static_cast<std::uint16_t>(EuclidEngine::Param::kFills);
+        change.value = static_cast<std::int32_t>(engines_.euclid().fills()) +
+                       (evt.encoderDelta * kEuclidStepNudge);
+        engines_.euclid().onParam(change);
+        displayDirty_ = true;
+        return;
+      }
+      case hal::Board::EncoderID::FxMutate: {
+        change.id = static_cast<std::uint16_t>(EuclidEngine::Param::kRotate);
+        change.value = static_cast<std::int32_t>(engines_.euclid().rotate()) +
+                       (evt.encoderDelta * kEuclidStepNudge);
+        engines_.euclid().onParam(change);
+        displayDirty_ = true;
+        return;
+      }
+      default:
+        break;
+    }
+  }
+
+  if (evt.type == InputEvents::Type::EncoderTurn && evt.encoderDelta != 0 && engineId == EngineRouter::kBurstId) {
+    Engine::ParamChange change{};
+    change.seedId = seed.id;
+    switch (evt.encoder) {
+      case hal::Board::EncoderID::Density: {
+        change.id = static_cast<std::uint16_t>(BurstEngine::Param::kClusterCount);
+        change.value = static_cast<std::int32_t>(engines_.burst().clusterCount()) + evt.encoderDelta;
+        engines_.burst().onParam(change);
+        displayDirty_ = true;
+        return;
+      }
+      case hal::Board::EncoderID::ToneTilt: {
+        change.id = static_cast<std::uint16_t>(BurstEngine::Param::kSpacingSamples);
+        const int32_t delta = evt.encoderDelta * kBurstSpacingStepSamples;
+        const int32_t current = static_cast<std::int32_t>(engines_.burst().spacingSamples());
+        change.value = std::max<int32_t>(0, current + delta);
+        engines_.burst().onParam(change);
+        displayDirty_ = true;
+        return;
+      }
+      default:
+        break;
     }
   }
 }
@@ -1870,6 +1954,22 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   } else if (focusLocked) {
     writeUiField(uiOut->pageHints[0], "Pg focus locked");
     writeUiField(uiOut->pageHints[1], "Pg+Md: unlock");
+  } else if (mode_ == Mode::ENGINE && hasSeeds) {
+    switch (seeds_[focusIndex].engine) {
+      case EngineRouter::kEuclidId:
+        writeUiField(uiOut->pageHints[0], "Den:steps Fx:rot");
+        writeUiField(uiOut->pageHints[1], "Tone:fills");
+        break;
+      case EngineRouter::kBurstId:
+        writeUiField(uiOut->pageHints[0], "Den:clusters");
+        writeUiField(uiOut->pageHints[1], "Tone:spacing");
+        break;
+      default:
+        writeUiField(uiOut->pageHints[0], "Tone S:src ALT:d");
+        const auto primeHint = formatScratch(scratch, "S+A:p Tap:%s", primeModeLabel(seedPrimeMode_));
+        writeUiField(uiOut->pageHints[1], primeHint);
+        break;
+    }
   } else {
     writeUiField(uiOut->pageHints[0], "Tone S:src ALT:d");
     const auto primeHint = formatScratch(scratch, "S+A:p Tap:%s", primeModeLabel(seedPrimeMode_));
