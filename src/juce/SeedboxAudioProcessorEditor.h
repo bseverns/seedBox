@@ -35,6 +35,14 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   juce::ComboBox quantizeScaleSelector_;
   juce::ComboBox quantizeRootSelector_;
   juce::Slider granularSourceSlider_;
+  juce::Label seedParamHeader_;
+  juce::Slider seedPitchSlider_;
+  juce::Slider seedDensitySlider_;
+  juce::Slider seedProbabilitySlider_;
+  juce::Slider seedJitterSlider_;
+  juce::Slider seedToneSlider_;
+  juce::Slider seedSpreadSlider_;
+  juce::Slider seedMutateSlider_;
   juce::Label engineControlHeader_;
   juce::TextEditor engineControlList_;
   juce::Label audioSelectorHint_;
@@ -51,6 +59,13 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   std::unique_ptr<juce::ComboBoxParameterAttachment> quantizeScaleAttachment_;
   std::unique_ptr<juce::ComboBoxParameterAttachment> quantizeRootAttachment_;
   std::unique_ptr<juce::SliderParameterAttachment> granularAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedPitchAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedDensityAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedProbabilityAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedJitterAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedToneAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedSpreadAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> seedMutateAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> transportLatchAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> externalClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> followClockAttachment_;
