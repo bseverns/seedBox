@@ -19,6 +19,44 @@ All four paths flow through `AppState::primeSeeds`, so reseeding from the Seed
 page or a MIDI hook stays deterministic. Locked seeds keep their previous genome
 no matter which source we pivot to.
 
+## Momentary live-capture button (short sample bank jams)
+
+Think of this as a two-second Polaroid shutter: slap a button, bottle the live
+input into a tiny bank, and deterministically pick which snapshot drives the
+next reseed. Wiring it up is all plumbing and PRNG hygiene.
+
+1. **Pick a spare GPIO and debounced edge.** Mirror the reseed/lock handling in
+   `AppState::handleDigitalEdge` by adding a new pin constant and a branch that
+   fires only on the rising edge. The existing hooks already juggle long/short
+   presses; keep this one momentary-only so you never block the audio thread.
+   The pattern lives around the reseed + lock handlers today.【F:src/app/AppState.cpp†L435-L498】
+2. **Snapshot 2 s of input into a ring.** The granular engine already treats any
+   non-SD source as live input and resolves paths from the short SD bank when a
+   clip slot is requested.【F:src/engine/Granular.cpp†L352-L397】 Bolt a tiny sampler
+   (even a mono buffer) into the capture ISR, tagged with a counter so each press
+   lands in a deterministic slot like `captureIndex % shortBankSize`.
+3. **Emit a reseed request with lineage breadcrumbs.** When the buffer closes,
+   bump `masterSeed_` or stash a `captureCounter` and call `reseed(...)` so the
+   scheduler walks the new genomes. The seed system already threads per-press
+   lineage through the master seed; keep using that so cached seeds and engines
+   stay in lockstep.【F:docs/roadmaps/seed_system.md†L7-L20】【F:src/app/AppState.cpp†L500-L520】
+4. **Deterministic variation knobs instead of FIFO.** Instead of always picking
+   the newest clip, derive the selection from a user-set variation mask: e.g. a
+   `variationMode` enum that maps to `(captureCounter + kPrimeOffsets[mode]) %
+   shortBankSize`. Feed that number into `seed.sampleIdx` so engines pull the
+   same snapshot on every reroll unless the player tweaks the mode. Sprinkle
+   spray/jitter via the seed PRNG if you want timing chaos without changing the
+   deterministic clip choice.【F:src/engine/Granular.cpp†L376-L395】
+5. **Surface it in the UI copy.** Add a Seed-page blurb that explains the button
+   is a two-second grabber, not a transport toggle, and that variation modes are
+   deterministic unless locks are set. The roadmap-style notes here double as
+   the teaching aid for students wiring up their own enclosures.
+
+Bottom line: the momentary button is just another seed source—capture a tiny
+sample loop, pick its slot with PRNG math instead of chronological order, and
+let reseeds keep the playback deterministic unless the performer dials in a new
+variation profile.
+
 ## Lock choreography
 
 `SeedLock` is the tiny manager that keeps per-seed and global locks in sync.

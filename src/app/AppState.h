@@ -205,6 +205,7 @@ public:
   void setTransportLatchFromHost(bool enabled);
   void setFollowExternalClockFromHost(bool enabled);
   void setClockSourceExternalFromHost(bool external);
+  void setLiveCaptureVariation(uint8_t variationSteps);
 
   MidiRouter midi;
 
@@ -249,6 +250,7 @@ private:
   void handleUtilEvent(const InputEvents::Event& evt);
   void handleSwingEvent(const InputEvents::Event& evt);
   void handleReseedRequest();
+  void triggerLiveCaptureReseed();
   static const char* modeLabel(Mode mode);
   void selectClockProvider(ClockProvider* provider);
   void toggleClockProvider();
@@ -279,6 +281,10 @@ private:
   SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};
   std::vector<uint32_t> tapTempoHistory_{};
   std::uint64_t lastTapTempoTapUs_{0};
+  uint32_t liveCaptureCounter_{0};
+  uint8_t liveCaptureSlot_{0};
+  uint8_t liveCaptureVariation_{0};
+  uint32_t liveCaptureLineage_{0};
   struct PresetBuffer {
     uint32_t id{0};
     std::vector<Seed> seeds{};
