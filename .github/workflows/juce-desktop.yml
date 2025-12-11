@@ -156,7 +156,7 @@ jobs:
             exit 1
           fi
           rsync -a "$VST3_BUNDLE" artifacts/linux/
-          APP_BINARY=$(find build/juce/SeedboxApp_artefacts -maxdepth 6 -type f -executable \( -name "SeedBox Standalone" -o -name "SeedBox" \) -print -quit)
+          APP_BINARY=$(find build/juce/SeedboxApp_artefacts -maxdepth 6 -type f \( -name "SeedBox Standalone" -o -name "SeedBox" \) -print -quit)
           if [[ -z "$APP_BINARY" ]]; then
             echo "SeedBox standalone binary not found under build/juce/SeedboxApp_artefacts" >&2
             find build/juce/SeedboxApp_artefacts -maxdepth 6 -print
@@ -213,7 +213,7 @@ jobs:
           }
           Copy-Item -Path $vst3Bundle.FullName -Destination "artifacts/windows" -Recurse -Force
 
-          $appBinary = Get-ChildItem -Path build/juce/SeedboxApp_artefacts -Recurse -File -Include "SeedBox Standalone.exe","SeedBox.exe" | Select-Object -First 1
+          $appBinary = Get-ChildItem -Path build/juce/SeedboxApp_artefacts -Recurse -File | Where-Object { $_.Name -in @("SeedBox Standalone.exe", "SeedBox.exe") } | Select-Object -First 1
           if (-not $appBinary) {
             Write-Error "SeedBox Standalone.exe or SeedBox.exe not found under build/juce/SeedboxApp_artefacts"
           }
