@@ -270,6 +270,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
   params.push_back(
       std::make_unique<juce::AudioParameterBool>(kParamFollowExternalClock, "Follow External Clock", false));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
+
+  // Discrete source index delta sent to app_.seedPageCycleGranularSource() when the UI nudge changes.
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamGranularSourceStep, "Granular Source Step", -8, 8,
                                                             0));
   return {params.begin(), params.end()};
