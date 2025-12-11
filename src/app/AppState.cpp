@@ -824,6 +824,18 @@ const char* AppState::modeLabel(Mode mode) {
   }
 }
 
+void AppState::setModeFromHost(Mode mode) {
+  if (mode == Mode::SWING) {
+    enterSwingMode();
+    return;
+  }
+
+  swingEditing_ = false;
+  mode_ = mode;
+  previousModeBeforeSwing_ = mode_;
+  displayDirty_ = true;
+}
+
 void AppState::enterSwingMode() {
   if (mode_ != Mode::SWING) {
     previousModeBeforeSwing_ = mode_;
