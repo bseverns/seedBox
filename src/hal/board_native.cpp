@@ -28,7 +28,7 @@ struct ScriptEvent {
   int32_t encoder_delta{0};
 };
 
-constexpr std::array<std::pair<const char*, Board::ButtonID>, 7> kButtonLookup{{
+constexpr std::array<std::pair<const char*, Board::ButtonID>, 8> kButtonLookup{{
     {"seed", Board::ButtonID::EncoderSeedBank},
     {"density", Board::ButtonID::EncoderDensity},
     {"tone", Board::ButtonID::EncoderToneTilt},
@@ -36,6 +36,7 @@ constexpr std::array<std::pair<const char*, Board::ButtonID>, 7> kButtonLookup{{
     {"tap", Board::ButtonID::TapTempo},
     {"shift", Board::ButtonID::Shift},
     {"alt", Board::ButtonID::AltSeed},
+    {"capture", Board::ButtonID::LiveCapture},
 }};
 
 constexpr std::array<std::pair<const char*, Board::EncoderID>, 4> kEncoderLookup{{
@@ -298,7 +299,7 @@ private:
   }
 
   std::deque<ScriptEvent> script_{};
-  std::array<ButtonSample, 7> button_samples_{};
+  std::array<ButtonSample, 8> button_samples_{};
   std::array<int32_t, 4> encoder_deltas_{};
   std::uint64_t now_us_{0};
   std::uint32_t now_ms_{0};

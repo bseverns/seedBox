@@ -12,7 +12,7 @@ namespace hal {
 
 namespace {
 
-constexpr std::uint8_t kButtonCount = 7;
+constexpr std::uint8_t kButtonCount = 8;
 constexpr std::uint8_t kEncoderCount = 4;
 constexpr io::PinNumber kStatusLedPin = 13;
 
@@ -33,10 +33,11 @@ constexpr std::array<PinGroup, kEncoderCount> kEncoders{{
     {Board::ButtonID::EncoderFxMutate, 30, 6, 9},
 }};
 
-constexpr std::array<std::pair<Board::ButtonID, io::PinNumber>, 3> kStandaloneButtons{{
+constexpr std::array<std::pair<Board::ButtonID, io::PinNumber>, 4> kStandaloneButtons{{
     {Board::ButtonID::TapTempo, 31},
     {Board::ButtonID::Shift, 32},
     {Board::ButtonID::AltSeed, 33},
+    {Board::ButtonID::LiveCapture, 34},
 }};
 
 constexpr std::array<io::DigitalConfig, kEncoderCount * 3 + kStandaloneButtons.size() + 1> buildPinConfig() {

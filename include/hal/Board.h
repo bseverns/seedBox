@@ -11,13 +11,14 @@
 // a single hardware register.
 //
 // Hardware map cheat-sheet (mirrors docs/builder_bootstrap.md):
-//   * EncoderSeedBank   — pins 0 (A) / 1 (B), push switch on pin 2.
-//   * EncoderDensity    — pins 3 (A) / 4 (B), push switch on pin 5.
-//   * EncoderToneTilt   — pins 24 (A) / 26 (B), push switch on pin 27.
-//   * EncoderFxMutate   — pins 6 (A) / 9 (B), push switch on pin 30.
-//   * TapTempo button   — pin 31 (active-low).
-//   * Shift button      — pin 32 (active-low).
-//   * AltSeed button    — pin 33 (active-low).
+//   * EncoderSeedBank    — pins 0 (A) / 1 (B), push switch on pin 2.
+//   * EncoderDensity     — pins 3 (A) / 4 (B), push switch on pin 5.
+//   * EncoderToneTilt    — pins 24 (A) / 26 (B), push switch on pin 27.
+//   * EncoderFxMutate    — pins 6 (A) / 9 (B), push switch on pin 30.
+//   * TapTempo button    — pin 31 (active-low).
+//   * Shift button       — pin 32 (active-low).
+//   * AltSeed button     — pin 33 (active-low).
+//   * LiveCapture button — pin 34 (active-low, momentary snapshot trigger).
 //
 // Every button is active-low and debounced in the platform-specific
 // implementation.  Encoders report signed deltas so higher layers can reason in
@@ -40,6 +41,7 @@ public:
     TapTempo,
     Shift,
     AltSeed,
+    LiveCapture,
   };
 
   enum class EncoderID : std::uint8_t {

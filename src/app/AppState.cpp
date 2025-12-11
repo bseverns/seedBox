@@ -42,6 +42,7 @@ namespace {
 constexpr uint8_t kEngineCycleCc = seedbox::interop::mn42::param::kEngineCycle;
 constexpr uint32_t kStorageLongPressFrames = 60;
 constexpr std::string_view kDefaultPresetSlot = "default";
+constexpr uint8_t kShortCaptureSlots = 4;
 
 constexpr hal::io::PinNumber kReseedButtonPin = 2;
 constexpr hal::io::PinNumber kLockButtonPin = 3;
@@ -534,6 +535,11 @@ void AppState::tick() {
 void AppState::processInputEvents() {
   const auto& evts = input_.events();
   for (const auto& evt : evts) {
+    if (evt.type == InputEvents::Type::ButtonPress && evt.primaryButton == hal::Board::ButtonID::LiveCapture) {
+      triggerLiveCaptureReseed();
+      continue;
+    }
+
     if (evt.type == InputEvents::Type::ButtonLongPress &&
         evt.primaryButton == hal::Board::ButtonID::EncoderSeedBank) {
       handleReseedRequest();
@@ -809,6 +815,21 @@ void AppState::handleSwingEvent(const InputEvents::Event& evt) {
 void AppState::handleReseedRequest() {
   reseedRequested_ = true;
   displayDirty_ = true;
+}
+
+void AppState::triggerLiveCaptureReseed() {
+  // Momentary snapshot button: bump the capture counter, compute a deterministic
+  // short-bank slot, and reseed in live-input mode so the granular lane keeps
+  // hoovering the codec feed. The slot math is intentionally tiny so students
+  // can replay it on paper.
+  ++liveCaptureCounter_;
+  liveCaptureSlot_ = static_cast<uint8_t>((liveCaptureCounter_ + liveCaptureVariation_) % kShortCaptureSlots);
+  liveCaptureLineage_ = masterSeed_ ^ (liveCaptureCounter_ * 131u) ^ liveCaptureVariation_;
+  if (liveCaptureLineage_ == 0) {
+    liveCaptureLineage_ = masterSeed_ ? masterSeed_ : 0x5EEDB0B1u;
+  }
+  const uint32_t reseedValue = RNG::xorshift(liveCaptureLineage_);
+  seedPageReseed(reseedValue, SeedPrimeMode::kLiveInput);
 }
 
 const char* AppState::modeLabel(Mode mode) {
@@ -1104,11 +1125,14 @@ std::vector<Seed> AppState::buildTapTempoSeeds(uint32_t masterSeed, std::size_t 
 
 std::vector<Seed> AppState::buildLiveInputSeeds(uint32_t masterSeed, std::size_t count) {
   auto seeds = buildLfsrSeeds(masterSeed, count);
+  const uint32_t lineage = liveCaptureLineage_ ? liveCaptureLineage_ : masterSeed;
+  const uint8_t slot = static_cast<uint8_t>(liveCaptureSlot_ % kShortCaptureSlots);
   for (auto& seed : seeds) {
     seed.source = Seed::Source::kLiveInput;
-    seed.lineage = masterSeed;
+    seed.lineage = lineage;
+    seed.sampleIdx = slot;
     seed.granular.source = static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
-    seed.granular.sdSlot = 0;
+    seed.granular.sdSlot = slot;
   }
   return seeds;
 }
@@ -1311,6 +1335,13 @@ void AppState::setClockSourceExternalFromHost(bool external) {
   followExternalClockEnabled_ = external;
   updateClockDominance();
   displayDirty_ = true;
+}
+
+void AppState::setLiveCaptureVariation(uint8_t variationSteps) {
+  // Variation is a user-tweakable offset into the short capture bank. Keeping it
+  // small and explicit makes the reseed maths traceable in class instead of
+  // hiding behind a giant PRNG spray.
+  liveCaptureVariation_ = static_cast<uint8_t>(variationSteps % kShortCaptureSlots);
 }
 
 void AppState::updateClockDominance() {
