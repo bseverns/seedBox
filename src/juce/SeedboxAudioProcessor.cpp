@@ -5,6 +5,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_data_structures/juce_data_structures.h>
 
+#include <array>
 #include <cstring>
 #include <utility>
 
@@ -15,6 +16,16 @@ namespace seedbox::juce_bridge {
 
 namespace {
 constexpr auto kParamMasterSeed = "masterSeed";
+constexpr auto kParamFocusSeed = "focusSeed";
+constexpr auto kParamSeedEngine = "seedEngine";
+constexpr auto kParamSwingPercent = "swingPercent";
+constexpr auto kParamQuantizeScale = "quantizeScale";
+constexpr auto kParamQuantizeRoot = "quantizeRoot";
+constexpr auto kParamTransportLatch = "transportLatch";
+constexpr auto kParamClockSourceExternal = "clockSourceExternal";
+constexpr auto kParamFollowExternalClock = "followExternalClock";
+constexpr auto kParamDebugMeters = "debugMeters";
+constexpr auto kParamGranularSourceStep = "granularSourceStep";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 }
@@ -26,11 +37,40 @@ SeedboxAudioProcessor::SeedboxAudioProcessor()
   auto backend = std::make_unique<ProcessorMidiBackend>(app_.midi, MidiRouter::Port::kUsb);
   midiBackend_ = backend.get();
   app_.midi.installBackend(MidiRouter::Port::kUsb, std::move(backend));
-  parameters_.addParameterListener(kParamMasterSeed, this);
+  const std::array<const char*, 11> ids = {kParamMasterSeed,
+                                           kParamFocusSeed,
+                                           kParamSeedEngine,
+                                           kParamSwingPercent,
+                                           kParamQuantizeScale,
+                                           kParamQuantizeRoot,
+                                           kParamTransportLatch,
+                                           kParamClockSourceExternal,
+                                           kParamFollowExternalClock,
+                                           kParamDebugMeters,
+                                           kParamGranularSourceStep};
+  for (auto* id : ids) {
+    parameters_.addParameterListener(id, this);
+    parameterState_[id] = parameters_.getRawParameterValue(id)->load();
+  }
+  quantizeScaleParam_ = static_cast<std::uint8_t>(parameterState_[kParamQuantizeScale]);
+  quantizeRootParam_ = static_cast<std::uint8_t>(parameterState_[kParamQuantizeRoot]);
 }
 
 SeedboxAudioProcessor::~SeedboxAudioProcessor() {
-  parameters_.removeParameterListener(kParamMasterSeed, this);
+  const std::array<const char*, 11> ids = {kParamMasterSeed,
+                                           kParamFocusSeed,
+                                           kParamSeedEngine,
+                                           kParamSwingPercent,
+                                           kParamQuantizeScale,
+                                           kParamQuantizeRoot,
+                                           kParamTransportLatch,
+                                           kParamClockSourceExternal,
+                                           kParamFollowExternalClock,
+                                           kParamDebugMeters,
+                                           kParamGranularSourceStep};
+  for (auto* id : ids) {
+    parameters_.removeParameterListener(id, this);
+  }
 }
 
 void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
@@ -122,12 +162,97 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
 void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
   if (parameterID == kParamMasterSeed) {
     app_.reseed(static_cast<std::uint32_t>(newValue));
+    parameterState_[kParamMasterSeed] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamFocusSeed) {
+    app_.setFocusSeed(static_cast<std::uint8_t>(newValue));
+    parameterState_[kParamFocusSeed] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamSeedEngine) {
+    app_.setSeedEngine(app_.focusSeed(), static_cast<std::uint8_t>(newValue));
+    parameterState_[kParamSeedEngine] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamSwingPercent) {
+    app_.setSwingPercentFromHost(newValue);
+    parameterState_[kParamSwingPercent] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamQuantizeScale) {
+    quantizeScaleParam_ = static_cast<std::uint8_t>(newValue);
+    const auto control = static_cast<std::uint8_t>((quantizeScaleParam_ * 32u) + (quantizeRootParam_ % 12u));
+    app_.applyQuantizeControlFromHost(control);
+    parameterState_[kParamQuantizeScale] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamQuantizeRoot) {
+    quantizeRootParam_ = static_cast<std::uint8_t>(newValue);
+    const auto control = static_cast<std::uint8_t>((quantizeScaleParam_ * 32u) + (quantizeRootParam_ % 12u));
+    app_.applyQuantizeControlFromHost(control);
+    parameterState_[kParamQuantizeRoot] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamTransportLatch) {
+    app_.setTransportLatchFromHost(newValue >= 0.5f);
+    parameterState_[kParamTransportLatch] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamClockSourceExternal) {
+    app_.setClockSourceExternalFromHost(newValue >= 0.5f);
+    parameterState_[kParamClockSourceExternal] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamFollowExternalClock) {
+    app_.setFollowExternalClockFromHost(newValue >= 0.5f);
+    parameterState_[kParamFollowExternalClock] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamDebugMeters) {
+    app_.setDebugMetersEnabledFromHost(newValue >= 0.5f);
+    parameterState_[kParamDebugMeters] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamGranularSourceStep) {
+    const float previous = parameterState_[kParamGranularSourceStep];
+    const auto delta = static_cast<int>(newValue - previous);
+    if (delta != 0) {
+      app_.seedPageCycleGranularSource(app_.focusSeed(), delta);
+    }
+    parameterState_[kParamGranularSourceStep] = newValue;
+    return;
   }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::createParameterLayout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamMasterSeed, "Master Seed", 0, 9999999, 1));
+  params.push_back(std::make_unique<juce::AudioParameterInt>(kParamFocusSeed, "Focus Seed", 0, 3, 0));
+  params.push_back(std::make_unique<juce::AudioParameterInt>(kParamSeedEngine, "Seed Engine", 0, 7, 0));
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      kParamSwingPercent, "Swing Percent",
+      juce::NormalisableRange<float>{0.0f, 0.99f, 0.01f, 1.0f, false}, 0.0f));
+  params.push_back(std::make_unique<juce::AudioParameterInt>(kParamQuantizeScale, "Quantize Scale", 0, 4, 0));
+  params.push_back(std::make_unique<juce::AudioParameterInt>(kParamQuantizeRoot, "Quantize Root", 0, 11, 0));
+  params.push_back(std::make_unique<juce::AudioParameterBool>(kParamTransportLatch, "Transport Latch", false));
+  params.push_back(
+      std::make_unique<juce::AudioParameterBool>(kParamClockSourceExternal, "Clock Source External", false));
+  params.push_back(
+      std::make_unique<juce::AudioParameterBool>(kParamFollowExternalClock, "Follow External Clock", false));
+  params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
+  params.push_back(std::make_unique<juce::AudioParameterInt>(kParamGranularSourceStep, "Granular Source Step", -8, 8,
+                                                            0));
   return {params.begin(), params.end()};
 }
 
