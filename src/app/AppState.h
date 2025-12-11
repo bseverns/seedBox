@@ -115,6 +115,10 @@ public:
   bool displayDirty() const { return displayDirty_; }
   void clearDisplayDirtyFlag() { displayDirty_ = false; }
 
+  // Host/editor helper: jump straight to a mode without playing the button
+  // chord guessing game.  Useful for DAW-hosted inspectors.
+  void setModeFromHost(Mode mode);
+
   // Re-roll the procedural seeds using a supplied master seed. Students can use
   // this hook to explore how the scheduler reacts to different pseudo-random
   // genomes without rebooting the whole device.
