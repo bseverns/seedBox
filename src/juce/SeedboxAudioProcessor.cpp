@@ -28,6 +28,7 @@ constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
+constexpr auto kStateRoot = "seedboxState";
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
@@ -125,8 +126,10 @@ void SeedboxAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
   juce::MemoryBlock presetBlock(serialized.data(), serialized.size());
   state.setProperty(kStatePresetData, presetBlock.toBase64Encoding(), nullptr);
 
+  juce::ValueTree root(kStateRoot);
+  root.addChild(state, 0, nullptr);
   juce::MemoryOutputStream stream(destData, true);
-  state.writeToStream(stream);
+  root.writeToStream(stream);
 }
 
 void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInBytes) {
@@ -139,9 +142,22 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
     return;
   }
 
-  parameters_.replaceState(tree);
+  juce::ValueTree parameterTree = tree;
+  if (tree.hasType(kStateRoot)) {
+    parameterTree = tree.getChildWithName(parameters_.state.getType());
+    if (!parameterTree.isValid() && tree.getNumChildren() > 0) {
+      parameterTree = tree.getChild(0);
+    }
+  }
+
+  if (parameterTree.isValid()) {
+    parameters_.replaceState(parameterTree);
+  }
 
   auto presetBase64 = tree.getProperty(kStatePresetData).toString();
+  if (presetBase64.isEmpty() && parameterTree.isValid()) {
+    presetBase64 = parameterTree.getProperty(kStatePresetData).toString();
+  }
   if (presetBase64.isNotEmpty()) {
     juce::MemoryBlock block;
     if (block.fromBase64Encoding(presetBase64)) {
