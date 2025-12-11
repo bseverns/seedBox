@@ -146,6 +146,31 @@ jobs:
       - name: Build Linux targets
         run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
 
+      - name: Stage Linux artifacts
+        run: |
+          mkdir -p artifacts/linux
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
+          if [[ -z "$VST3_BUNDLE" ]]; then
+            echo "SeedBox.vst3 not found under build/juce/SeedboxVST3_artefacts" >&2
+            find build/juce/SeedboxVST3_artefacts -maxdepth 6 -print
+            exit 1
+          fi
+          rsync -a "$VST3_BUNDLE" artifacts/linux/
+          APP_BINARY=$(find build/juce/SeedboxApp_artefacts -maxdepth 6 -type f \( -name "SeedBox Standalone" -o -name "SeedBox" \) -print -quit)
+          if [[ -z "$APP_BINARY" ]]; then
+            echo "SeedBox standalone binary not found under build/juce/SeedboxApp_artefacts" >&2
+            find build/juce/SeedboxApp_artefacts -maxdepth 6 -print
+            exit 1
+          fi
+          install -m 755 "$APP_BINARY" "artifacts/linux/$(basename "$APP_BINARY")"
+
+      - name: Upload Linux bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-linux-host
+          path: artifacts/linux
+          if-no-files-found: error
+
   windows-host:
     name: Windows dependency + JUCE sanity
     runs-on: windows-latest
@@ -175,3 +200,28 @@ jobs:
       - name: Build Windows targets
         shell: pwsh
         run: cmake --build build/juce --config $env:BUILD_TYPE --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
+
+      - name: Stage Windows artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path artifacts/windows | Out-Null
+
+          $vst3Bundle = Get-ChildItem -Path build/juce/SeedboxVST3_artefacts -Recurse -Directory -Filter "SeedBox.vst3" | Select-Object -First 1
+          if (-not $vst3Bundle) {
+            Write-Error "SeedBox.vst3 not found under build/juce/SeedboxVST3_artefacts"
+          }
+          Copy-Item -Path $vst3Bundle.FullName -Destination "artifacts/windows" -Recurse -Force
+
+          $appBinary = Get-ChildItem -Path build/juce/SeedboxApp_artefacts -Recurse -File | Where-Object { $_.Name -in @("SeedBox Standalone.exe", "SeedBox.exe") } | Select-Object -First 1
+          if (-not $appBinary) {
+            Write-Error "SeedBox Standalone.exe or SeedBox.exe not found under build/juce/SeedboxApp_artefacts"
+          }
+          Copy-Item -Path $appBinary.FullName -Destination (Join-Path "artifacts/windows" $appBinary.Name) -Force
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-windows-host
+          path: artifacts/windows
+          if-no-files-found: error
