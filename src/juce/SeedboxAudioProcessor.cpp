@@ -29,6 +29,7 @@ constexpr auto kParamClockSourceExternal = "clockSourceExternal";
 constexpr auto kParamFollowExternalClock = "followExternalClock";
 constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
+constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 constexpr auto kStateRoot = "seedboxState";
 
