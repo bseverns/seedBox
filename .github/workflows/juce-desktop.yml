@@ -19,7 +19,7 @@ jobs:
       - name: Install build tools
         run: |
           brew update
-          brew install ninja
+          brew install ninja gnupg
 
       - name: Configure universal build
         run: |
@@ -83,11 +83,31 @@ jobs:
           fi
           rsync -a "$APP_BUNDLE" "artifacts/macos/SeedBox Standalone.app"
 
+      - name: Import signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$GPG_PRIVATE_KEY" ]]; then
+            echo "::error::GPG_PRIVATE_KEY secret is missing; cannot sign macOS artifacts." >&2
+            exit 1
+          fi
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Archive and sign macOS artifacts
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          tar -czf artifacts/seedbox-macos-universal.tar.gz -C artifacts macos
+          gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user 4473F115745A1A61 --detach-sign artifacts/seedbox-macos-universal.tar.gz
+
       - name: Upload macOS universal bundle
         uses: actions/upload-artifact@v4
         with:
           name: seedbox-macos-universal
-          path: artifacts/macos
+          path: |
+            artifacts/macos
+            artifacts/seedbox-macos-universal.tar.gz
+            artifacts/seedbox-macos-universal.tar.gz.sig
           if-no-files-found: error
 
   linux-host:
@@ -120,7 +140,8 @@ jobs:
             libfreetype6-dev \
             libwebkit2gtk-4.1-dev \
             libcurl4-openssl-dev \
-            libasound2-dev
+            libasound2-dev \
+            gnupg
 
       - name: Sanity check GTK/WebKit pkg-config wiring
         run: |
@@ -164,11 +185,31 @@ jobs:
           fi
           install -m 755 "$APP_BINARY" "artifacts/linux/$(basename "$APP_BINARY")"
 
+      - name: Import signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$GPG_PRIVATE_KEY" ]]; then
+            echo "::error::GPG_PRIVATE_KEY secret is missing; cannot sign Linux artifacts." >&2
+            exit 1
+          fi
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Archive and sign Linux artifacts
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          tar -czf artifacts/seedbox-linux-host.tar.gz -C artifacts linux
+          gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user 4473F115745A1A61 --detach-sign artifacts/seedbox-linux-host.tar.gz
+
       - name: Upload Linux bundle
         uses: actions/upload-artifact@v4
         with:
           name: seedbox-linux-host
-          path: artifacts/linux
+          path: |
+            artifacts/linux
+            artifacts/seedbox-linux-host.tar.gz
+            artifacts/seedbox-linux-host.tar.gz.sig
           if-no-files-found: error
 
   windows-host:
@@ -185,6 +226,9 @@ jobs:
 
       - name: Install Ninja
         run: choco install ninja --no-progress
+
+      - name: Install GnuPG
+        run: choco install gnupg --yes --no-progress
 
       - name: Configure JUCE host build
         shell: pwsh
@@ -219,9 +263,33 @@ jobs:
           }
           Copy-Item -Path $appBinary.FullName -Destination (Join-Path "artifacts/windows" $appBinary.Name) -Force
 
+      - name: Import signing key
+        shell: pwsh
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not $env:GPG_PRIVATE_KEY) {
+            Write-Error "GPG_PRIVATE_KEY secret is missing; cannot sign Windows artifacts."
+          }
+          $env:GPG_PRIVATE_KEY | gpg --batch --import
+
+      - name: Archive and sign Windows artifacts
+        shell: pwsh
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archivePath = "artifacts/seedbox-windows-host.zip"
+          Compress-Archive -Path "artifacts/windows/*" -DestinationPath $archivePath -Force
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$env:GPG_PASSPHRASE" --local-user 4473F115745A1A61 --detach-sign $archivePath
+
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4
         with:
           name: seedbox-windows-host
-          path: artifacts/windows
+          path: |
+            artifacts/windows
+            artifacts/seedbox-windows-host.zip
+            artifacts/seedbox-windows-host.zip.sig
           if-no-files-found: error
