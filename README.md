@@ -98,6 +98,30 @@ stays short so the canonical recipes live with the fixtures themselves.
 That check leans on the same serialization path the hardware uses, so it's our
 CI-sized receipt that preset primes are actually deterministic.
 
+### Signed bundles so you can trust the receipts
+
+Every artifact bundle that rolls out of CI (native goldens, JUCE builds on each
+OS) now ships with a detached GPG signature made by key `4473F115745A1A61`. The
+CI jobs slurp a private signing subkey from repo secrets, then archive the
+artifacts and sign the tar/zip so you can prove the download wasn't mangled — or
+malicious.
+
+On forks or local runs where the signing secrets stay empty, the workflows still
+publish the raw archives but skip the `.sig` so the jobs don't implode. You'll
+still want the signed drops we ship from main for anything security-sensitive.
+
+To verify a drop, grab our published public key (we'll mirror it on releases and
+keyservers), then run:
+
+```bash
+gpg --verify seedbox-linux-host.tar.gz.sig seedbox-linux-host.tar.gz
+```
+
+Swap in whichever artifact you pulled (`native_golden.tar.gz`,
+`seedbox-macos-universal.tar.gz`, `seedbox-windows-host.zip`, etc.). If GPG
+says "Good signature" for `4473F115745A1A61`, you're golden; if not, ditch the
+download and poke us. Punk-rock trust, but verified.
+
 All three paths flow through `AppState::primeSeeds`, so the scheduler, UI, and
 tests see the same genomes, and any locked seed keeps its previous sound no
 matter which source you pivot to.

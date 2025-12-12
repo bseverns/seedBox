@@ -19,7 +19,7 @@ jobs:
       - name: Install build tools
         run: |
           brew update
-          brew install ninja
+          brew install ninja gnupg
 
       - name: Configure universal build
         run: |
@@ -83,11 +83,45 @@ jobs:
           fi
           rsync -a "$APP_BUNDLE" "artifacts/macos/SeedBox Standalone.app"
 
+      - name: Archive macOS artifacts
+        run: tar -czf artifacts/seedbox-macos-universal.tar.gz -C artifacts macos
+
+      - name: Note missing signing key (macOS)
+        if: ${{ secrets.GPG_PRIVATE_KEY == '' }}
+        run: echo "::notice::Skipping macOS signing: GPG_PRIVATE_KEY is not configured for this run."
+
+      - name: Import signing key
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Sign macOS artifacts
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE}" \
+              --local-user 4473F115745A1A61 \
+              --detach-sign artifacts/seedbox-macos-universal.tar.gz
+
       - name: Upload macOS universal bundle
         uses: actions/upload-artifact@v4
         with:
           name: seedbox-macos-universal
-          path: artifacts/macos
+          path: |
+            artifacts/macos
+            artifacts/seedbox-macos-universal.tar.gz
+          if-no-files-found: error
+
+      - name: Upload macOS signature
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-macos-universal
+          path: artifacts/seedbox-macos-universal.tar.gz.sig
           if-no-files-found: error
 
   linux-host:
@@ -120,7 +154,8 @@ jobs:
             libfreetype6-dev \
             libwebkit2gtk-4.1-dev \
             libcurl4-openssl-dev \
-            libasound2-dev
+            libasound2-dev \
+            gnupg
 
       - name: Sanity check GTK/WebKit pkg-config wiring
         run: |
@@ -164,11 +199,45 @@ jobs:
           fi
           install -m 755 "$APP_BINARY" "artifacts/linux/$(basename "$APP_BINARY")"
 
+      - name: Archive Linux artifacts
+        run: tar -czf artifacts/seedbox-linux-host.tar.gz -C artifacts linux
+
+      - name: Note missing signing key (Linux)
+        if: ${{ secrets.GPG_PRIVATE_KEY == '' }}
+        run: echo "::notice::Skipping Linux signing: GPG_PRIVATE_KEY is not configured for this run."
+
+      - name: Import signing key
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Sign Linux artifacts
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE}" \
+              --local-user 4473F115745A1A61 \
+              --detach-sign artifacts/seedbox-linux-host.tar.gz
+
       - name: Upload Linux bundle
         uses: actions/upload-artifact@v4
         with:
           name: seedbox-linux-host
-          path: artifacts/linux
+          path: |
+            artifacts/linux
+            artifacts/seedbox-linux-host.tar.gz
+          if-no-files-found: error
+
+      - name: Upload Linux signature
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-linux-host
+          path: artifacts/seedbox-linux-host.tar.gz.sig
           if-no-files-found: error
 
   windows-host:
@@ -185,6 +254,9 @@ jobs:
 
       - name: Install Ninja
         run: choco install ninja --no-progress
+
+      - name: Install GnuPG
+        run: choco install gnupg --yes --no-progress
 
       - name: Configure JUCE host build
         shell: pwsh
@@ -219,9 +291,49 @@ jobs:
           }
           Copy-Item -Path $appBinary.FullName -Destination (Join-Path "artifacts/windows" $appBinary.Name) -Force
 
+      - name: Archive Windows artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Compress-Archive -Path "artifacts/windows/*" -DestinationPath "artifacts/seedbox-windows-host.zip" -Force
+
+      - name: Note missing signing key (Windows)
+        if: ${{ secrets.GPG_PRIVATE_KEY == '' }}
+        shell: pwsh
+        run: echo "::notice::Skipping Windows signing: GPG_PRIVATE_KEY is not configured for this run."
+
+      - name: Import signing key
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        shell: pwsh
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: $env:GPG_PRIVATE_KEY | gpg --batch --import
+
+      - name: Sign Windows artifacts
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        shell: pwsh
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          gpg --batch --yes `
+              --pinentry-mode loopback `
+              --passphrase "$env:GPG_PASSPHRASE" `
+              --local-user 4473F115745A1A61 `
+              --detach-sign "artifacts/seedbox-windows-host.zip"
+
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4
         with:
           name: seedbox-windows-host
-          path: artifacts/windows
+          path: |
+            artifacts/windows
+            artifacts/seedbox-windows-host.zip
+          if-no-files-found: error
+
+      - name: Upload Windows signature
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-windows-host
+          path: artifacts/seedbox-windows-host.zip.sig
           if-no-files-found: error
