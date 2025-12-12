@@ -120,24 +120,25 @@ jobs:
           rsync -a build/fixtures/ artifacts/native_golden/
           cp tests/native_golden/golden.json artifacts/native_golden/
 
-      - name: Import signing key for golden fixtures
+      - name: Archive golden fixtures
         if: ${{ matrix.name == 'native' }}
+        run: tar -czf artifacts/native_golden.tar.gz -C artifacts native_golden
+
+      - name: Note missing signing key for golden fixtures
+        if: ${{ matrix.name == 'native' && secrets.GPG_PRIVATE_KEY == '' }}
+        run: echo "::notice::Skipping signing: GPG_PRIVATE_KEY is not configured for this run."
+
+      - name: Import signing key for golden fixtures
+        if: ${{ matrix.name == 'native' && secrets.GPG_PRIVATE_KEY != '' }}
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        run: |
-          if [ -z "$GPG_PRIVATE_KEY" ]; then
-            echo "::error::GPG_PRIVATE_KEY secret is missing; cannot sign golden artifacts." >&2
-            exit 1
-          fi
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+        run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
-      - name: Archive and sign golden fixtures
-        if: ${{ matrix.name == 'native' }}
+      - name: Sign golden fixtures
+        if: ${{ matrix.name == 'native' && secrets.GPG_PRIVATE_KEY != '' }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          tar -czf artifacts/native_golden.tar.gz -C artifacts native_golden
-          gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user 4473F115745A1A61 --detach-sign artifacts/native_golden.tar.gz
+        run: gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user 4473F115745A1A61 --detach-sign artifacts/native_golden.tar.gz
 
       - name: Upload native golden artifacts
         if: ${{ matrix.name == 'native' }}
@@ -147,5 +148,12 @@ jobs:
           path: |
             artifacts/native_golden
             artifacts/native_golden.tar.gz
-            artifacts/native_golden.tar.gz.sig
+          if-no-files-found: error
+
+      - name: Upload native golden signature
+        if: ${{ matrix.name == 'native' && secrets.GPG_PRIVATE_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-golden-fixtures
+          path: artifacts/native_golden.tar.gz.sig
           if-no-files-found: error

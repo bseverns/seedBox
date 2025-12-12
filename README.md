@@ -106,6 +106,10 @@ CI jobs slurp a private signing subkey from repo secrets, then archive the
 artifacts and sign the tar/zip so you can prove the download wasn't mangled — or
 malicious.
 
+On forks or local runs where the signing secrets stay empty, the workflows still
+publish the raw archives but skip the `.sig` so the jobs don't implode. You'll
+still want the signed drops we ship from main for anything security-sensitive.
+
 To verify a drop, grab our published public key (we'll mirror it on releases and
 keyservers), then run:
 
