@@ -100,7 +100,12 @@ jobs:
         if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user 4473F115745A1A61 --detach-sign artifacts/seedbox-macos-universal.tar.gz
+        run: |
+          gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE}" \
+              --local-user 4473F115745A1A61 \
+              --detach-sign artifacts/seedbox-macos-universal.tar.gz
 
       - name: Upload macOS universal bundle
         uses: actions/upload-artifact@v4
@@ -211,7 +216,12 @@ jobs:
         if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --local-user 4473F115745A1A61 --detach-sign artifacts/seedbox-linux-host.tar.gz
+        run: |
+          gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE}" \
+              --local-user 4473F115745A1A61 \
+              --detach-sign artifacts/seedbox-linux-host.tar.gz
 
       - name: Upload Linux bundle
         uses: actions/upload-artifact@v4
@@ -304,7 +314,12 @@ jobs:
         shell: pwsh
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: gpg --batch --yes --pinentry-mode loopback --passphrase "$env:GPG_PASSPHRASE" --local-user 4473F115745A1A61 --detach-sign "artifacts/seedbox-windows-host.zip"
+        run: |
+          gpg --batch --yes `
+              --pinentry-mode loopback `
+              --passphrase "$env:GPG_PASSPHRASE" `
+              --local-user 4473F115745A1A61 `
+              --detach-sign "artifacts/seedbox-windows-host.zip"
 
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4
