@@ -425,8 +425,19 @@ jobs:
       - name: Install Ninja
         run: choco install ninja --no-progress
 
-      - name: Install GnuPG
-        run: choco install gnupg --yes --no-progress
+      - name: Ensure GnuPG available
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $gpg = Get-Command gpg -ErrorAction SilentlyContinue
+          if ($gpg) {
+            gpg --version
+            return
+          }
+
+          choco install gnupg --yes --no-progress --execution-timeout=1200
+          gpg --version
 
       - name: Configure JUCE host build
         shell: pwsh
