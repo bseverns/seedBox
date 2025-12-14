@@ -2,6 +2,7 @@
 
 #if SEEDBOX_JUCE
 
+#include <array>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -55,7 +56,14 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   std::unique_ptr<juce::ButtonParameterAttachment> externalClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> followClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> debugMetersAttachment_;
+  struct NamedKnob {
+    juce::Label label;
+    juce::Slider slider;
+  };
+  std::array<NamedKnob, 4> engineKnobs_{};
+  int visibleEngineKnobCount_{0};
   int lastEngineId_{-1};
+  int lastFocusSeed_{-1};
 };
 
 }  // namespace seedbox::juce_bridge
