@@ -4,8 +4,10 @@
 
 #include <juce_graphics/juce_graphics.h>
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <utility>
+#include <vector>
 
 #include "BinaryData.h"
 #include <sstream>
@@ -126,6 +128,16 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   debugMetersButton_.setTooltip("Shift + FxMutate toggles the debug waterfall.");
   addAndMakeVisible(debugMetersButton_);
 
+  for (auto& knob : engineKnobs_) {
+    knob.slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    knob.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
+    knob.slider.setEnabled(false);
+    knob.label.setJustificationType(juce::Justification::centred);
+    knob.label.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+    addAndMakeVisible(knob.slider);
+    addAndMakeVisible(knob.label);
+  }
+
   displayLabel_.setJustificationType(juce::Justification::centred);
   displayLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black);
   displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
@@ -158,7 +170,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
 
   buildAudioSelector();
   refreshEngineControls();
-  
+
   refreshDisplay();
   startTimerHz(15);
 }
@@ -187,8 +199,29 @@ void SeedboxAudioProcessorEditor::resized() {
                        juce::GridItem(externalClockButton_)});
   grid.performLayout(controlArea);
 
-  auto engineArea = area.removeFromTop(110);
+  auto engineArea = area.removeFromTop(260);
   engineControlHeader_.setBounds(engineArea.removeFromTop(24));
+  auto knobArea = engineArea.removeFromTop(160);
+  if (visibleEngineKnobCount_ > 0) {
+    juce::Grid knobGrid;
+    knobGrid.rowGap = juce::Grid::Px(6);
+    knobGrid.columnGap = juce::Grid::Px(12);
+    knobGrid.templateRows.add(juce::Grid::TrackInfo(juce::Grid::Fr(3)));
+    knobGrid.templateRows.add(juce::Grid::TrackInfo(juce::Grid::Fr(1)));
+    for (int i = 0; i < visibleEngineKnobCount_; ++i) {
+      knobGrid.templateColumns.add(juce::Grid::TrackInfo(juce::Grid::Fr(1)));
+    }
+
+    juce::Array<juce::GridItem> knobItems;
+    for (int i = 0; i < visibleEngineKnobCount_; ++i) {
+      knobItems.add(juce::GridItem(engineKnobs_[i].slider));
+    }
+    for (int i = 0; i < visibleEngineKnobCount_; ++i) {
+      knobItems.add(juce::GridItem(engineKnobs_[i].label));
+    }
+    knobGrid.items = knobItems;
+    knobGrid.performLayout(knobArea);
+  }
   engineControlList_.setBounds(engineArea);
 
   auto buttonArea = area.removeFromTop(48);
@@ -208,10 +241,11 @@ void SeedboxAudioProcessorEditor::resized() {
 
 void SeedboxAudioProcessorEditor::timerCallback() {
   const int engineId = engineSelector_.getSelectedId();
+  const int focusId = focusSeedSelector_.getSelectedId();
   // ComboBoxParameterAttachment updates bypass onChange callbacks, so poll for
   // changes here to keep the helper text in sync with host automation and
   // preset recalls.
-  if (engineId != lastEngineId_) {
+  if (engineId != lastEngineId_ || focusId != lastFocusSeed_) {
     refreshEngineControls();
   }
   refreshDisplay();
@@ -226,20 +260,70 @@ void SeedboxAudioProcessorEditor::refreshDisplay() {
 }
 
 namespace {
+struct EngineKnobSpec {
+  juce::String label;
+  std::function<double(const Seed&)> value;
+  double minValue{0.0};
+  double maxValue{1.0};
+  double step{0.01};
+  int decimals{2};
+  juce::String suffix;
+};
+
 struct EngineControlTemplate {
   juce::String heading;
   juce::StringArray controls;
+  std::vector<EngineKnobSpec> knobs;
 };
 
+const EngineKnobSpec kToneKnob{"Tone", [](const Seed& seed) { return seed.tone; }, 0.0, 1.0, 0.01, 2, {}};
+const EngineKnobSpec kDensityKnob{"Density", [](const Seed& seed) { return seed.density; }, 0.0, 8.0, 0.01, 2, {" hits"}};
+const EngineKnobSpec kProbabilityKnob{"Probability", [](const Seed& seed) { return seed.probability; }, 0.0, 1.0, 0.01, 2, {}};
+const EngineKnobSpec kSpreadKnob{"Spread", [](const Seed& seed) { return seed.spread; }, 0.0, 1.0, 0.01, 2, {}};
+const EngineKnobSpec kJitterKnob{"Jitter (ms)", [](const Seed& seed) { return seed.jitterMs; }, 0.0, 50.0, 0.1, 1, {" ms"}};
+const EngineKnobSpec kReleaseKnob{"Env R (s)", [](const Seed& seed) { return seed.envR; }, 0.0, 1.5, 0.01, 2, {" s"}};
+const EngineKnobSpec kGrainSizeKnob{"Grain (ms)", [](const Seed& seed) { return seed.granular.grainSizeMs; }, 10.0, 400.0, 1.0, 0, " ms"};
+const EngineKnobSpec kSprayKnob{"Spray (ms)", [](const Seed& seed) { return seed.granular.sprayMs; }, 0.0, 120.0, 1.0, 0, " ms"};
+const EngineKnobSpec kTransposeKnob{"Transpose", [](const Seed& seed) { return seed.granular.transpose; }, -24.0, 24.0, 0.1, 1, " st"};
+const EngineKnobSpec kWindowSkewKnob{"Window skew", [](const Seed& seed) { return seed.granular.windowSkew; }, -1.0, 1.0, 0.01, 2, {}};
+const EngineKnobSpec kResonatorModeKnob{"Mode", [](const Seed& seed) { return static_cast<double>(seed.resonator.mode); }, 0.0, 3.0, 1.0, 0, {}};
+const EngineKnobSpec kResonatorBankKnob{"Bank", [](const Seed& seed) { return static_cast<double>(seed.resonator.bank); }, 0.0, 7.0, 1.0, 0, {}};
+const EngineKnobSpec kResonatorFeedbackKnob{"Feedback", [](const Seed& seed) { return seed.resonator.feedback; }, 0.0, 1.0, 0.01, 2, {}};
+const EngineKnobSpec kResonatorDampingKnob{"Damping", [](const Seed& seed) { return seed.resonator.damping; }, 0.0, 1.0, 0.01, 2, {}};
+
 const std::map<int, EngineControlTemplate> kEngineControls = {
-    {1, {"Sampler lane", {"Start + length macros live on Density", "Tone tilt is your quick EQ", "Spread widens the stereo field", "Env ADSR rides per-seed"}}},
-    {2, {"Grain lane", {"Grain size + spray set texture", "Transpose macro follows seed pitch", "Window skew sculpts envelopes", "Source select flips between live + SD"}}},
-    {3, {"Chord lane", {"Voice stack = Density", "Macro tilt brightens/darkens", "Spread and jitter keep voicings human"}}},
-    {4, {"Drum lane", {"Probability acts like a gate", "Tone -> transient tilt", "Spread fans the kit in stereo"}}},
-    {5, {"FM playground", {"Carrier/Mod ratio rides on Tone", "Mod index sits on Density", "Feedback macro is in Spread", "Jitter sprinkles subtle detune"}}},
-    {6, {"Additive palette", {"Harmonic mix -> Tone", "Density drives partial triggers", "Spread pans the bank"}}},
-    {7, {"Resonator", {"Mode/bank live on Tone", "Feedback macro lives on Spread", "Excite time and damping follow Density/Jitter"}}},
-    {8, {"Noise lab", {"Filter tilt on Tone", "Density = burst rate", "Spread = width"}}},
+    {1,
+     {"Sampler lane",
+      {"Start + length macros live on Density", "Tone tilt is your quick EQ", "Spread widens the stereo field", "Env ADSR rides per-seed"},
+      {kDensityKnob, kToneKnob, kSpreadKnob, kReleaseKnob}}},
+    {2,
+     {"Grain lane",
+      {"Grain size + spray set texture", "Transpose macro follows seed pitch", "Window skew sculpts envelopes", "Source select flips between live + SD"},
+      {kGrainSizeKnob, kSprayKnob, kTransposeKnob, kWindowSkewKnob}}},
+    {3,
+     {"Chord lane",
+      {"Voice stack = Density", "Macro tilt brightens/darkens", "Spread and jitter keep voicings human"},
+      {kDensityKnob, kToneKnob, kSpreadKnob, kJitterKnob}}},
+    {4,
+     {"Drum lane",
+      {"Probability acts like a gate", "Tone -> transient tilt", "Spread fans the kit in stereo"},
+      {kProbabilityKnob, kToneKnob, kSpreadKnob, kDensityKnob}}},
+    {5,
+     {"FM playground",
+      {"Carrier/Mod ratio rides on Tone", "Mod index sits on Density", "Feedback macro is in Spread", "Jitter sprinkles subtle detune"},
+      {kToneKnob, kDensityKnob, kSpreadKnob, kJitterKnob}}},
+    {6,
+     {"Additive palette",
+      {"Harmonic mix -> Tone", "Density drives partial triggers", "Spread pans the bank"},
+      {kToneKnob, kDensityKnob, kSpreadKnob}}},
+    {7,
+     {"Resonator",
+      {"Mode/bank live on Tone", "Feedback macro lives on Spread", "Excite time and damping follow Density/Jitter"},
+      {kResonatorModeKnob, kResonatorBankKnob, kResonatorFeedbackKnob, kResonatorDampingKnob}}},
+    {8,
+     {"Noise lab",
+      {"Filter tilt on Tone", "Density = burst rate", "Spread = width"},
+      {kToneKnob, kDensityKnob, kSpreadKnob, kJitterKnob}}},
 };
 }  // namespace
 
@@ -257,7 +341,41 @@ void SeedboxAudioProcessorEditor::refreshEngineControls() {
 
   engineControlHeader_.setText(tpl.heading, juce::dontSendNotification);
   engineControlList_.setText(text, juce::dontSendNotification);
+  const Seed* focusSeed = [&]() -> const Seed* {
+    const auto& seeds = processor_.appState().seeds();
+    if (seeds.empty()) {
+      return nullptr;
+    }
+    const std::size_t focus = std::min<std::size_t>(processor_.appState().focusSeed(), seeds.size() - 1);
+    return &seeds[focus];
+  }();
+
+  const std::size_t knobCount = std::min<std::size_t>(tpl.knobs.size(), engineKnobs_.size());
+  visibleEngineKnobCount_ = static_cast<int>(focusSeed ? knobCount : 0);
+
+  for (std::size_t i = 0; i < engineKnobs_.size(); ++i) {
+    const bool show = focusSeed != nullptr && i < knobCount;
+    auto& knob = engineKnobs_[i];
+    knob.slider.setVisible(show);
+    knob.label.setVisible(show);
+    if (!show) {
+      continue;
+    }
+
+    const auto& spec = tpl.knobs[i];
+    const double value = spec.value(*focusSeed);
+    const double minRange = std::min(spec.minValue, value);
+    const double maxRange = std::max(spec.maxValue, value);
+    knob.slider.setRange(minRange, maxRange, spec.step);
+    knob.slider.setNumDecimalPlacesToDisplay(spec.decimals);
+    knob.slider.setTextValueSuffix(spec.suffix);
+    knob.slider.setValue(value, juce::dontSendNotification);
+    knob.label.setText(spec.label, juce::dontSendNotification);
+  }
+
   lastEngineId_ = engineId;
+  lastFocusSeed_ = focusSeedSelector_.getSelectedId();
+  resized();
 }
 
 void SeedboxAudioProcessorEditor::buildAudioSelector() {
