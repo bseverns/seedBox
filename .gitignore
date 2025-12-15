@@ -11,3 +11,7 @@ build/*
 !build/fixtures/*.wav
 /out/
 /artifacts/
+-DCMAKE_OSX_ARCHITECTURES=x86_64~
+-DQUIET_MODE=ON
+-DSEEDBOX_SIM=ON
+-DSEEDBOX_VERSION=0a07f4d
