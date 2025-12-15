@@ -94,7 +94,7 @@ void nativeBoardFeed(const std::string& line);
 void nativeBoardReset();
 void nativeBoardFastForwardMicros(std::uint64_t delta);
 // Desktop UI shim: toggle a front-panel button without crafting a script line.
-void nativeBoardSetButton(ButtonID id, bool pressed);
+void nativeBoardSetButton(Board::ButtonID id, bool pressed);
 #endif
 
 }  // namespace hal
