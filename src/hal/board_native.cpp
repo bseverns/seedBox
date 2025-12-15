@@ -203,6 +203,19 @@ public:
     now_ms_ = static_cast<std::uint32_t>(now_us_ / 1000u);
   }
 
+  void setButton(ButtonID id, bool pressed) {
+    const std::size_t idx = static_cast<std::size_t>(id);
+    if (idx >= button_samples_.size()) {
+      return;
+    }
+    auto& sample = button_samples_[idx];
+    if (sample.pressed == pressed) {
+      return;
+    }
+    sample.pressed = pressed;
+    sample.timestamp_us = now_us_;
+  }
+
 private:
   static std::string_view trim(std::string_view text) {
     // Trim leading and trailing whitespace for the script parser.  Written in
@@ -334,6 +347,8 @@ void nativeBoardFastForwardMicros(std::uint64_t delta) {
   // reach into the singleton directly.
   instance().fastForward(delta);
 }
+
+void nativeBoardSetButton(Board::ButtonID id, bool pressed) { instance().setButton(id, pressed); }
 
 }  // namespace hal
 
