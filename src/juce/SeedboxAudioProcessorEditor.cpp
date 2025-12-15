@@ -3,6 +3,7 @@
 #if SEEDBOX_JUCE
 
 #include <juce_graphics/juce_graphics.h>
+#include <cctype>
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -20,6 +21,7 @@ namespace seedbox::juce_bridge {
 SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& processor)
     : juce::AudioProcessorEditor(&processor), processor_(processor) {
   setSize(760, 720);
+  setWantsKeyboardFocus(true);
 
   modeSelector_.addItem("HOME", 1);
   modeSelector_.addItem("SEEDS", 2);
@@ -37,6 +39,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     }
     const auto mode = static_cast<AppState::Mode>(id - 1);
     processor_.appState().setModeFromHost(mode);
+    refreshModeControls();
   };
   modeSelector_.setSelectedId(1);
   addAndMakeVisible(modeSelector_);
@@ -143,6 +146,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
   displayLabel_.setFont(juce::Font(16.0f, juce::Font::plain));
   displayLabel_.setBorderSize(juce::BorderSize<int>(4));
+  displayLabel_.setTooltip("Desktop control hint: press T for Tone, S for Shift, A for Alt.");
   addAndMakeVisible(displayLabel_);
 
   masterSeedAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
@@ -169,7 +173,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
       *processor_.parameters().getParameter("debugMeters"), debugMetersButton_);
 
   buildAudioSelector();
-  refreshEngineControls();
+  refreshModeControls();
 
   refreshDisplay();
   startTimerHz(15);
@@ -240,13 +244,20 @@ void SeedboxAudioProcessorEditor::resized() {
 }
 
 void SeedboxAudioProcessorEditor::timerCallback() {
+  int selectedModeId = modeSelector_.getSelectedId();
+  const int appModeId = static_cast<int>(processor_.appState().mode()) + 1;
+  if (selectedModeId != appModeId) {
+    selectedModeId = appModeId;
+    modeSelector_.setSelectedId(appModeId, juce::dontSendNotification);
+  }
+
   const int engineId = engineSelector_.getSelectedId();
   const int focusId = focusSeedSelector_.getSelectedId();
   // ComboBoxParameterAttachment updates bypass onChange callbacks, so poll for
   // changes here to keep the helper text in sync with host automation and
   // preset recalls.
-  if (engineId != lastEngineId_ || focusId != lastFocusSeed_) {
-    refreshEngineControls();
+  if (engineId != lastEngineId_ || focusId != lastFocusSeed_ || selectedModeId != lastModeId_) {
+    refreshModeControls();
   }
   refreshDisplay();
 }
@@ -257,6 +268,69 @@ void SeedboxAudioProcessorEditor::refreshDisplay() {
   std::ostringstream stream;
   stream << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance;
   displayLabel_.setText(stream.str(), juce::dontSendNotification);
+}
+
+void SeedboxAudioProcessorEditor::syncKeyboardButtons() {
+#if !SEEDBOX_HW
+  const bool toneDown = juce::KeyPress::isKeyCurrentlyDown(toneKeyCode_);
+  const bool shiftDown = juce::KeyPress::isKeyCurrentlyDown(shiftKeyCode_);
+  const bool altDown = juce::KeyPress::isKeyCurrentlyDown(altKeyCode_);
+  updateButtonState(hal::Board::ButtonID::EncoderToneTilt, toneDown, toneKeyDown_);
+  updateButtonState(hal::Board::ButtonID::Shift, shiftDown, shiftKeyDown_);
+  updateButtonState(hal::Board::ButtonID::AltSeed, altDown, altKeyDown_);
+#endif
+}
+
+bool SeedboxAudioProcessorEditor::handleButtonKey(int keyCode, bool pressed) {
+#if !SEEDBOX_HW
+  const int lower = std::tolower(keyCode);
+  if (lower == toneKeyCode_) {
+    updateButtonState(hal::Board::ButtonID::EncoderToneTilt, pressed, toneKeyDown_);
+    return true;
+  }
+  if (lower == shiftKeyCode_) {
+    updateButtonState(hal::Board::ButtonID::Shift, pressed, shiftKeyDown_);
+    return true;
+  }
+  if (lower == altKeyCode_) {
+    updateButtonState(hal::Board::ButtonID::AltSeed, pressed, altKeyDown_);
+    return true;
+  }
+#endif
+  juce::ignoreUnused(keyCode, pressed);
+  return false;
+}
+
+void SeedboxAudioProcessorEditor::updateButtonState(hal::Board::ButtonID id, bool pressed, bool& lastState) {
+#if !SEEDBOX_HW
+  if (pressed == lastState) {
+    return;
+  }
+  lastState = pressed;
+  hal::nativeBoardSetButton(id, pressed);
+#else
+  juce::ignoreUnused(id, pressed, lastState);
+#endif
+}
+
+bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
+#if !SEEDBOX_HW
+  return handleButtonKey(key.getKeyCode(), true);
+#else
+  juce::ignoreUnused(key);
+  return false;
+#endif
+}
+
+bool SeedboxAudioProcessorEditor::keyStateChanged(bool isKeyDown) {
+#if !SEEDBOX_HW
+  juce::ignoreUnused(isKeyDown);
+  syncKeyboardButtons();
+  return false;
+#else
+  juce::ignoreUnused(isKeyDown);
+  return false;
+#endif
 }
 
 namespace {
@@ -274,6 +348,11 @@ struct EngineControlTemplate {
   juce::String heading;
   juce::StringArray controls;
   std::vector<EngineKnobSpec> knobs;
+};
+
+struct ModeControlTemplate {
+  juce::String heading;
+  juce::StringArray controls;
 };
 
 const EngineKnobSpec kToneKnob{"Tone", [](const Seed& seed) { return seed.tone; }, 0.0, 1.0, 0.01, 2, {}};
@@ -325,7 +404,63 @@ const std::map<int, EngineControlTemplate> kEngineControls = {
       {"Filter tilt on Tone", "Density = burst rate", "Spread = width"},
       {kToneKnob, kDensityKnob, kSpreadKnob, kJitterKnob}}},
 };
+
+const std::map<AppState::Mode, ModeControlTemplate> kModeControls = {
+    {AppState::Mode::HOME,
+     {"Home base",
+      {"Shift+Seed slides focus", "Tap for tempo, latch to loop", "Hop to SEEDS or ENGINE to sculpt"}}},
+    {AppState::Mode::SEEDS,
+     {"Seeds page",
+      {"Seed encoder swaps focus", "Hold Tone+Shift: swap granular src", "Hold Tone+Alt: density micro nudges"}}},
+    {AppState::Mode::PERF,
+     {"Performance",
+      {"Tap toggles transport latch", "Use swing + quantize to tighten", "Locks keep accident-proof sets"}}},
+    {AppState::Mode::SETTINGS,
+     {"Settings",
+      {"Tap flips external clock follow", "Clock + transport live here", "Alt/Shift mirrors hardware combos"}}},
+    {AppState::Mode::UTIL,
+     {"Utility bench",
+      {"FX knob with motion = debug meters", "Great for lab checks", "Leave OFF when tracking"}}},
+    {AppState::Mode::SWING,
+     {"Swing edit",
+      {"Seed encoder: 5% chunks", "Density encoder: fine shuffles", "Tap exits back to your last mode"}}},
+};
 }  // namespace
+
+void SeedboxAudioProcessorEditor::refreshModeControls() {
+  const int id = modeSelector_.getSelectedId();
+  const auto mode = id > 0 ? static_cast<AppState::Mode>(id - 1) : AppState::Mode::HOME;
+
+  if (mode == AppState::Mode::ENGINE) {
+    refreshEngineControls();
+    return;
+  }
+
+  const auto it = kModeControls.find(mode);
+  const auto& tpl = (it != kModeControls.end())
+                        ? it->second
+                        : ModeControlTemplate{"Pick a mode",
+                                              {"Choose a page to see its live controls."}};
+
+  juce::String text;
+  for (const auto& line : tpl.controls) {
+    text << juce::String("• ") << line << "\n";
+  }
+
+  engineControlHeader_.setText(tpl.heading, juce::dontSendNotification);
+  engineControlList_.setText(text, juce::dontSendNotification);
+
+  visibleEngineKnobCount_ = 0;
+  for (auto& knob : engineKnobs_) {
+    knob.slider.setVisible(false);
+    knob.label.setVisible(false);
+  }
+
+  lastModeId_ = id;
+  lastEngineId_ = engineSelector_.getSelectedId();
+  lastFocusSeed_ = focusSeedSelector_.getSelectedId();
+  resized();
+}
 
 void SeedboxAudioProcessorEditor::refreshEngineControls() {
   const int engineId = engineSelector_.getSelectedId();
@@ -373,6 +508,7 @@ void SeedboxAudioProcessorEditor::refreshEngineControls() {
     knob.label.setText(spec.label, juce::dontSendNotification);
   }
 
+  lastModeId_ = modeSelector_.getSelectedId();
   lastEngineId_ = engineId;
   lastFocusSeed_ = focusSeedSelector_.getSelectedId();
   resized();

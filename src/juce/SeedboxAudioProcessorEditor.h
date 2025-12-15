@@ -6,6 +6,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include "hal/Board.h"
+
 namespace seedbox::juce_bridge {
 
 class SeedboxAudioProcessor;
@@ -20,12 +22,18 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
 
   void paint(juce::Graphics& g) override;
   void resized() override;
+  bool keyPressed(const juce::KeyPress& key) override;
+  bool keyStateChanged(bool isKeyDown) override;
 
  private:
   void timerCallback() override;
   void refreshDisplay();
+  void refreshModeControls();
   void refreshEngineControls();
   void buildAudioSelector();
+  void syncKeyboardButtons();
+  bool handleButtonKey(int keyCode, bool pressed);
+  void updateButtonState(hal::Board::ButtonID id, bool pressed, bool& lastState);
 
   SeedboxAudioProcessor& processor_;
   juce::ComboBox modeSelector_;
@@ -64,6 +72,13 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   int visibleEngineKnobCount_{0};
   int lastEngineId_{-1};
   int lastFocusSeed_{-1};
+  int lastModeId_{-1};
+  const int toneKeyCode_{'t'};
+  const int shiftKeyCode_{'s'};
+  const int altKeyCode_{'a'};
+  bool toneKeyDown_{false};
+  bool shiftKeyDown_{false};
+  bool altKeyDown_{false};
 };
 
 }  // namespace seedbox::juce_bridge
