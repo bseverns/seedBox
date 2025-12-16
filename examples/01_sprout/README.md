@@ -34,4 +34,4 @@ pio run -e native
 ./.pio/build/native/program --export-wav
 ```
 
-The renderer writes `out/intro-sprout.wav` and the folder stays gitignored, so your repo stays clean while your ears get proof. Punk ethos preserved, intent documented.
+The renderer writes `out/intro-sprout.wav` and the folder stays gitignored, so your repo stays clean while your ears get proof.
