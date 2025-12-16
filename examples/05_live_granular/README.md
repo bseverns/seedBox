@@ -44,8 +44,8 @@ you need.
 * Hooks into the same offline renderer golden harness that guards the reseed
   demos: peek at [`tests/native_golden`](../../tests/native_golden) to see how
   WAV fixtures get validated.
-* Keeps the punk-rock ethos: build, bounce, inspect the WAV, and tweak the seed
+* Keeps the ethos: build, bounce, inspect the WAV, and tweak the seed
   script without ever plugging in hardware.
 
-Treat this README as a notebook. Scribble why you changed a grain recipe, not
+This README is a notebook. Scribble why you changed a grain recipe, not
 just the numbers you nudged.
