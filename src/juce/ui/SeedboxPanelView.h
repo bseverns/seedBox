@@ -54,13 +54,16 @@ class SeedboxPanelView : public juce::Component {
 
   class JackIcon : public juce::Component {
    public:
-    JackIcon(juce::String name, std::function<void()> onClick);
+    using MenuBuilder = std::function<juce::PopupMenu()>;
+
+    JackIcon(juce::String name, MenuBuilder menuBuilder, std::function<void()> onClick = nullptr);
     void paint(juce::Graphics& g) override;
 
    private:
     void mouseUp(const juce::MouseEvent& event) override;
     juce::String label_;
-    std::function<void()> onClick_;
+    MenuBuilder menuBuilder_{};
+    std::function<void()> onClick_{};
   };
 
   struct LabeledKnob {

@@ -82,6 +82,14 @@ SeedboxAudioProcessor::~SeedboxAudioProcessor() {
   }
 }
 
+void SeedboxAudioProcessor::requestShutdown() {
+#if JucePlugin_Build_Standalone
+  if (auto* app = juce::JUCEApplicationBase::getInstance()) {
+    app->systemRequestedQuit();
+  }
+#endif
+}
+
 void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
   if (!prepared_) {
     prepared_ = true;

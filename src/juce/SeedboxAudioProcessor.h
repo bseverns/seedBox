@@ -55,6 +55,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
 
   AppState& appState() { return app_; }
   juce::AudioProcessorValueTreeState& parameters() { return parameters_; }
+  void requestShutdown();
   void applySeedEdit(const juce::Identifier& key, double value,
                      const std::function<void(Seed&)>& applyFn);
   juce::var getSeedProp(int idx, const juce::Identifier& key, juce::var defaultValue) const;

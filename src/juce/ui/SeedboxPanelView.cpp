@@ -4,6 +4,10 @@
 
 #include <cmath>
 
+#include <algorithm>
+
+#include <juce_audio_utils/juce_audio_utils.h>
+
 #include "hal/Board.h"
 
 namespace seedbox::juce_bridge {
@@ -40,6 +44,25 @@ juce::String engineName(int index) {
 
 juce::Colour accentColour() { return juce::Colour::fromRGB(0x66, 0xCC, 0xFF); }
 }  // namespace
+
+class AudioSelectorHost : public juce::Component {
+ public:
+  AudioSelectorHost(juce::AudioDeviceManager& manager, int inputChannels, int outputChannels)
+      : manager_(manager),
+        selector_(manager_, inputChannels > 0 ? 1 : 0, std::max(1, inputChannels), outputChannels > 0 ? 1 : 0,
+                  std::max(1, outputChannels), false, false, true, false) {
+    addAndMakeVisible(selector_);
+    setSize(420, 320);
+  }
+
+  ~AudioSelectorHost() override { manager_.restartLastAudioDevice(); }
+
+  void resized() override { selector_.setBounds(getLocalBounds()); }
+
+ private:
+  juce::AudioDeviceManager& manager_;
+  juce::AudioDeviceSelectorComponent selector_;
+};
 
 SeedboxPanelView::PanelLookAndFeel::PanelLookAndFeel() {
   setColour(juce::Slider::thumbColourId, accentColour());
@@ -120,8 +143,8 @@ void SeedboxPanelView::PanelButton::mouseUp(const juce::MouseEvent& event) {
   }
 }
 
-SeedboxPanelView::JackIcon::JackIcon(juce::String name, std::function<void()> onClick)
-    : label_(std::move(name)), onClick_(std::move(onClick)) {
+SeedboxPanelView::JackIcon::JackIcon(juce::String name, MenuBuilder menuBuilder, std::function<void()> onClick)
+    : label_(std::move(name)), menuBuilder_(std::move(menuBuilder)), onClick_(std::move(onClick)) {
   setInterceptsMouseClicks(true, false);
 }
 
@@ -145,7 +168,23 @@ void SeedboxPanelView::JackIcon::paint(juce::Graphics& g) {
 }
 
 void SeedboxPanelView::JackIcon::mouseUp(const juce::MouseEvent& event) {
-  if (!event.mouseWasDraggedSinceMouseDown() && onClick_) {
+  if (event.mouseWasDraggedSinceMouseDown()) {
+    return;
+  }
+
+  if (menuBuilder_) {
+    auto menu = menuBuilder_();
+    if (menu.getNumItems() > 0) {
+      auto options = juce::PopupMenu::Options()
+                          .withTargetComponent(this)
+                          .withPreferredPopupDirection(juce::PopupMenu::Options::Direction::downwards)
+                          .withTargetScreenArea(getScreenBounds());
+      menu.showMenuAsync(options);
+      return;
+    }
+  }
+
+  if (onClick_) {
     onClick_();
   }
 }
@@ -269,18 +308,79 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
   addAndMakeVisible(engineNameLabel_);
 
   jackIcons_.add(new JackIcon("MIDI In", [this]() {
-    processor_.appState().setClockSourceExternalFromHost(true);
+    juce::PopupMenu menu;
+    const bool follow = processor_.appState().followExternalClockEnabled();
+
+    menu.addItem("Use MIDI In as clock source", true, follow,
+                 [this]() { processor_.appState().setClockSourceExternalFromHost(true); });
+    menu.addItem("Use internal clock", true, !follow,
+                 [this]() { processor_.appState().setClockSourceExternalFromHost(false); });
+    menu.addSeparator();
+    menu.addItem("Follow external clock", true, follow,
+                 [this]() { processor_.appState().setFollowExternalClockFromHost(true); });
+    menu.addItem("Ignore external clock", true, !follow,
+                 [this]() { processor_.appState().setFollowExternalClockFromHost(false); });
+    return menu;
   }));
   jackIcons_.add(new JackIcon("MIDI Out", [this]() {
-    processor_.appState().setFollowExternalClockFromHost(true);
+    juce::PopupMenu menu;
+    const bool follow = processor_.appState().followExternalClockEnabled();
+
+    menu.addItem("Send MIDI clock from host", true, follow,
+                 [this]() { processor_.appState().setClockSourceExternalFromHost(true); });
+    menu.addItem("Keep SeedBox internal clock", true, !follow,
+                 [this]() { processor_.appState().setClockSourceExternalFromHost(false); });
+    menu.addSeparator();
+    menu.addItem("Follow external transport/clock", true, follow,
+                 [this]() { processor_.appState().setFollowExternalClockFromHost(true); });
+    menu.addItem("Stop following host clock", true, !follow,
+                 [this]() { processor_.appState().setFollowExternalClockFromHost(false); });
+    return menu;
   }));
   jackIcons_.add(new JackIcon("Headphone", [this]() {
+    juce::PopupMenu menu;
     if (auto* dm = processor_.deviceManager()) {
-      dm->restartLastAudioDevice();
+      menu.addItem("Audio I/O...", true, false, [this, dm]() {
+        const int numInputs = processor_.getTotalNumInputChannels();
+        const int numOutputs = processor_.getTotalNumOutputChannels();
+        auto selector = std::make_unique<AudioSelectorHost>(*dm, numInputs, numOutputs);
+        auto* jack = jackIcons_[2];
+        const auto target = jack != nullptr ? jack->getScreenBounds() : getScreenBounds().toNearestInt();
+        juce::CallOutBox::launchAsynchronously(std::move(selector), target, jack != nullptr ? jack : this);
+      });
+      menu.addSeparator();
+      menu.addItem("Restart audio engine", true, false, [dm]() { dm->restartLastAudioDevice(); });
+    } else {
+      menu.addItem("Host controls audio", false, true, nullptr);
     }
+    return menu;
   }));
-  jackIcons_.add(new JackIcon("USB", nullptr));
-  jackIcons_.add(new JackIcon("DC", nullptr));
+  jackIcons_.add(new JackIcon("USB", [this]() {
+    juce::PopupMenu menu;
+#if !SEEDBOX_HW
+    const auto controllers = hal::nativeEnumerateControllers();
+#else
+    const std::vector<std::string> controllers;
+#endif
+    if (controllers.empty()) {
+      menu.addItem("No controller connected", false, true, nullptr);
+    } else {
+      int itemId = 1;
+      for (const auto& name : controllers) {
+        menu.addItem(itemId++, name, true, false, []() {});
+      }
+    }
+    return menu;
+  }));
+  jackIcons_.add(new JackIcon("DC", [this]() {
+    juce::PopupMenu menu;
+#if JucePlugin_Build_Standalone
+    menu.addItem("Power off / Exit", true, false, [this]() { processor_.requestShutdown(); });
+#else
+    menu.addItem("Power off / Exit", false, false, nullptr);
+#endif
+    return menu;
+  }));
   for (auto* jack : jackIcons_) {
     addAndMakeVisible(jack);
   }

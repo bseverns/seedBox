@@ -28,6 +28,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace hal {
 
@@ -95,6 +96,10 @@ void nativeBoardReset();
 void nativeBoardFastForwardMicros(std::uint64_t delta);
 // Desktop UI shim: toggle a front-panel button without crafting a script line.
 void nativeBoardSetButton(Board::ButtonID id, bool pressed);
+// Discovery hook for any attached controllers (USB, BLE, etc.).  The native
+// simulator uses this to feed the front-panel USB menu without speaking to
+// hardware.
+std::vector<std::string> nativeEnumerateControllers();
 #endif
 
 }  // namespace hal
