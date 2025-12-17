@@ -39,6 +39,7 @@ class SeedboxApplication : public juce::JUCEApplication {
   std::unique_ptr<juce::AudioProcessorPlayer> player_;
   std::unique_ptr<juce::AudioDeviceManager> deviceManager_;
   std::unique_ptr<MainWindow> mainWindow_;
+  std::unique_ptr<juce::ApplicationProperties> appProperties_;
 };
 
 }  // namespace seedbox::juce_bridge

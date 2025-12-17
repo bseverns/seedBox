@@ -1421,6 +1421,35 @@ void AppState::setClockSourceExternalFromHost(bool external) {
   displayDirty_ = true;
 }
 
+void AppState::setInternalBpmFromHost(float bpm) {
+  const float sanitized = std::clamp(bpm, 20.0f, 999.0f);
+  scheduler_.setBpm(sanitized);
+  displayDirty_ = true;
+}
+
+bool AppState::applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit) {
+  if (seeds_.empty()) {
+    return false;
+  }
+
+  const std::size_t idx = static_cast<std::size_t>(seedIndex) % seeds_.size();
+  if (seedLock_.globalLocked() || seedLock_.seedLocked(idx)) {
+    return false;
+  }
+
+  Seed before = seeds_[idx];
+  edit(seeds_[idx]);
+
+  if (std::memcmp(&before, &seeds_[idx], sizeof(Seed)) == 0) {
+    return false;
+  }
+
+  scheduler_.updateSeed(idx, seeds_[idx]);
+  engines_.onSeed(seeds_[idx]);
+  displayDirty_ = true;
+  return true;
+}
+
 void AppState::setLiveCaptureVariation(uint8_t variationSteps) {
   // Variation is a user-tweakable offset into the short capture bank. Keeping it
   // small and explicit makes the reseed maths traceable in class instead of

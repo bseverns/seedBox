@@ -172,6 +172,7 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* /*inputChann
   right = right ? right : scratch(scratchRight_, frames).data();
   hal::audio::renderHostBuffer(left, right, frames);
   app_.midi.poll();
+  app_.tick();
 }
 
 void JuceHost::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& message) {
