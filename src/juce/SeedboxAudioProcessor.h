@@ -4,6 +4,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_devices/juce_audio_devices.h>
+#include <functional>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -54,6 +55,9 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
 
   AppState& appState() { return app_; }
   juce::AudioProcessorValueTreeState& parameters() { return parameters_; }
+  void applySeedEdit(const juce::Identifier& key, double value,
+                     const std::function<void(Seed&)>& applyFn);
+  juce::var getSeedProp(int idx, const juce::Identifier& key, juce::var defaultValue) const;
 
  private:
   struct BufferedMidiMessage {
@@ -90,12 +94,19 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void parameterChanged(const juce::String& parameterID, float newValue) override;
   static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
   void applyPendingPresetIfAny();
+  void syncSeedStateFromApp();
+  void applySeedStateToApp();
+  juce::ValueTree getOrCreateSeedNode(int idx);
+  juce::ValueTree findSeedNode(int idx) const;
+  void setSeedProp(int idx, const juce::Identifier& key, const juce::var& value);
 
   AppState app_;
   ProcessorMidiBackend* midiBackend_{nullptr};
   juce::AudioProcessorValueTreeState parameters_;
   juce::AudioDeviceManager* deviceManager_{nullptr};  // owned by SeedboxApplication when present
+  juce::AudioBuffer<float> renderScratch_{};
   bool prepared_{false};
+  juce::AudioBuffer<float> inputScratch_{};
   std::optional<seedbox::Preset> pendingPreset_{};
   std::unordered_map<std::string, float> parameterState_{};
   std::uint8_t quantizeScaleParam_{0};

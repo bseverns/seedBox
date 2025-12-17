@@ -32,6 +32,23 @@ constexpr auto kParamGranularSourceStep = "granularSourceStep";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 constexpr auto kStateRoot = "seedboxState";
+constexpr auto kSeedNodePrefix = "seed";
+
+const juce::Identifier kPropEngineId{"engineId"};
+const juce::Identifier kPropTone{"tone"};
+const juce::Identifier kPropDensity{"density"};
+const juce::Identifier kPropProbability{"probability"};
+const juce::Identifier kPropSpread{"spread"};
+const juce::Identifier kPropJitterMs{"jitterMs"};
+const juce::Identifier kPropEnvRelease{"envRelease"};
+const juce::Identifier kPropGrainSizeMs{"grainSizeMs"};
+const juce::Identifier kPropGrainSprayMs{"grainSprayMs"};
+const juce::Identifier kPropGranularTranspose{"granularTranspose"};
+const juce::Identifier kPropGranularWindowSkew{"granularWindowSkew"};
+const juce::Identifier kPropResonatorMode{"resonatorMode"};
+const juce::Identifier kPropResonatorBank{"resonatorBank"};
+const juce::Identifier kPropResonatorFeedback{"resonatorFeedback"};
+const juce::Identifier kPropResonatorDamping{"resonatorDamping"};
 
 constexpr std::array<const char*, 11> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
                                                         kParamSeedEngine,     kParamSwingPercent,
@@ -42,7 +59,9 @@ constexpr std::array<const char*, 11> kParameterIds = {kParamMasterSeed,      kP
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
-    : AudioProcessor(BusesProperties().withOutput("Main", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor(BusesProperties()
+                         .withInput("Input", juce::AudioChannelSet::stereo(), true)
+                         .withOutput("Main", juce::AudioChannelSet::stereo(), true)),
       app_(hal::board()),
       parameters_(*this, nullptr, "SeedBoxParameters", createParameterLayout()) {
   auto backend = std::make_unique<ProcessorMidiBackend>(app_.midi, MidiRouter::Port::kUsb);
@@ -67,6 +86,8 @@ void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     prepared_ = true;
     app_.initJuceHost(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
     applyPendingPresetIfAny();
+    applySeedStateToApp();
+    syncSeedStateFromApp();
   } else {
     hal::audio::configureHostStream(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
   }
@@ -78,12 +99,34 @@ bool SeedboxAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) c
   if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()) {
     return false;
   }
-  return true;
+
+  const auto input = layouts.getMainInputChannelSet();
+  if (input.isDisabled() || input == juce::AudioChannelSet::mono() || input == juce::AudioChannelSet::stereo()) {
+    return true;
+  }
+  return false;
 }
 
 void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
   juce::ScopedNoDenormals noDenormals;
-  buffer.clear();
+  const int numSamples = buffer.getNumSamples();
+  const int numInputs = getTotalNumInputChannels();
+  const int numOutputs = getTotalNumOutputChannels();
+
+  auto inputBus = getBusBuffer(buffer, true, 0);
+  auto outputBus = getBusBuffer(buffer, false, 0);
+
+  if (numInputs > 0) {
+    inputScratch_.setSize(numInputs, numSamples, false, false, true);
+    for (int ch = 0; ch < numInputs; ++ch) {
+      juce::FloatVectorOperations::copy(inputScratch_.getWritePointer(ch), inputBus.getReadPointer(ch), numSamples);
+    }
+  } else {
+    inputScratch_.setSize(0, 0, false, false, true);
+  }
+
+  renderScratch_.setSize(std::max(2, numOutputs), numSamples, false, false, true);
+  renderScratch_.clear();
   midiBackend_->setOutboundBuffer(&midiMessages);
 
   std::vector<BufferedMidiMessage> incoming;
@@ -96,16 +139,47 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     midiBackend_->queueIncoming(msg);
   }
 
-  const int numSamples = buffer.getNumSamples();
-  float* left = buffer.getWritePointer(0);
-  float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : left;
-  hal::audio::renderHostBuffer(left, right, static_cast<std::size_t>(numSamples));
+  float* renderLeft = renderScratch_.getWritePointer(0);
+  float* renderRight = renderScratch_.getNumChannels() > 1 ? renderScratch_.getWritePointer(1) : renderLeft;
+  hal::audio::renderHostBuffer(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
   app_.midi.poll();
+  const bool engineHasOutput = renderScratch_.getRMSLevel(0, 0, numSamples) > 0.0f ||
+                               (renderScratch_.getNumChannels() > 1 &&
+                                renderScratch_.getRMSLevel(1, 0, numSamples) > 0.0f);
+
+  float* outLeft = outputBus.getWritePointer(0);
+  float* outRight = outputBus.getNumChannels() > 1 ? outputBus.getWritePointer(1) : outLeft;
+
+  if (engineHasOutput) {
+    juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
+    if (outputBus.getNumChannels() > 1) {
+      juce::FloatVectorOperations::copy(outRight, renderScratch_.getReadPointer(1), numSamples);
+    } else {
+      juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
+    }
+  } else if (numInputs > 0 && inputScratch_.getNumSamples() == numSamples) {
+    const float* inLeft = inputScratch_.getReadPointer(0);
+    const bool hasRight = inputScratch_.getNumChannels() > 1;
+    const float* inRight = hasRight ? inputScratch_.getReadPointer(1) : inLeft;
+
+    juce::FloatVectorOperations::copy(outLeft, inLeft, numSamples);
+    if (outputBus.getNumChannels() > 1) {
+      juce::FloatVectorOperations::copy(outRight, inRight, numSamples);
+    } else {
+      // duplicate mono/left into single bus when hosts give us one channel
+      juce::FloatVectorOperations::copy(outLeft, inLeft, numSamples);
+    }
+  } else {
+    outputBus.clear();
+  }
+
+  app_.tick();
 }
 
 juce::AudioProcessorEditor* SeedboxAudioProcessor::createEditor() { return new SeedboxAudioProcessorEditor(*this); }
 
 void SeedboxAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
+  syncSeedStateFromApp();
   auto state = parameters_.copyState();
   state.setProperty(kParamPresetSlot, juce::String(app_.activePresetSlot()), nullptr);
 
@@ -140,6 +214,7 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
 
   if (parameterTree.isValid()) {
     parameters_.replaceState(parameterTree);
+    applySeedStateToApp();
   }
 
   auto presetBase64 = tree.getProperty(kStatePresetData).toString();
@@ -166,6 +241,7 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
 void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
   if (parameterID == kParamMasterSeed) {
     app_.reseed(static_cast<std::uint32_t>(newValue));
+    syncSeedStateFromApp();
     parameterState_[kParamMasterSeed] = newValue;
     return;
   }
@@ -178,6 +254,8 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
 
   if (parameterID == kParamSeedEngine) {
     app_.setSeedEngine(app_.focusSeed(), static_cast<std::uint8_t>(newValue));
+    setSeedProp(static_cast<int>(app_.focusSeed()), kPropEngineId,
+                static_cast<int>(static_cast<std::uint8_t>(newValue)));
     parameterState_[kParamSeedEngine] = newValue;
     return;
   }
@@ -283,6 +361,116 @@ void SeedboxAudioProcessor::applyPendingPresetIfAny() {
   }
   app_.applyPresetFromHost(*pendingPreset_, false);
   pendingPreset_.reset();
+}
+
+juce::ValueTree SeedboxAudioProcessor::findSeedNode(int idx) const {
+  const juce::Identifier name(juce::String(kSeedNodePrefix) + juce::String(idx));
+  return parameters_.state.getChildWithName(name);
+}
+
+juce::ValueTree SeedboxAudioProcessor::getOrCreateSeedNode(int idx) {
+  auto node = findSeedNode(idx);
+  if (!node.isValid()) {
+    node = juce::ValueTree(juce::Identifier(juce::String(kSeedNodePrefix) + juce::String(idx)));
+    parameters_.state.addChild(node, static_cast<int>(parameters_.state.getNumChildren()), nullptr);
+  }
+  return node;
+}
+
+void SeedboxAudioProcessor::setSeedProp(int idx, const juce::Identifier& key, const juce::var& value) {
+  auto node = getOrCreateSeedNode(idx);
+  node.setProperty(key, value, nullptr);
+}
+
+juce::var SeedboxAudioProcessor::getSeedProp(int idx, const juce::Identifier& key, juce::var defaultValue) const {
+  auto node = findSeedNode(idx);
+  if (!node.isValid()) {
+    return defaultValue;
+  }
+  auto prop = node.getProperty(key, defaultValue);
+  if (prop.isVoid()) {
+    return defaultValue;
+  }
+  return prop;
+}
+
+void SeedboxAudioProcessor::applySeedEdit(const juce::Identifier& key, double value,
+                                          const std::function<void(Seed&)>& applyFn) {
+  const std::uint8_t focus = app_.focusSeed();
+  app_.applySeedEditFromHost(focus, applyFn);
+  setSeedProp(static_cast<int>(focus), key, value);
+}
+
+void SeedboxAudioProcessor::syncSeedStateFromApp() {
+  const auto& seeds = app_.seeds();
+  for (std::size_t i = 0; i < seeds.size(); ++i) {
+    const Seed& seed = seeds[i];
+    const int idx = static_cast<int>(i);
+    setSeedProp(idx, kPropEngineId, static_cast<int>(seed.engine));
+    setSeedProp(idx, kPropTone, seed.tone);
+    setSeedProp(idx, kPropDensity, seed.density);
+    setSeedProp(idx, kPropProbability, seed.probability);
+    setSeedProp(idx, kPropSpread, seed.spread);
+    setSeedProp(idx, kPropJitterMs, seed.jitterMs);
+    setSeedProp(idx, kPropEnvRelease, seed.envR);
+    setSeedProp(idx, kPropGrainSizeMs, seed.granular.grainSizeMs);
+    setSeedProp(idx, kPropGrainSprayMs, seed.granular.sprayMs);
+    setSeedProp(idx, kPropGranularTranspose, seed.granular.transpose);
+    setSeedProp(idx, kPropGranularWindowSkew, seed.granular.windowSkew);
+    setSeedProp(idx, kPropResonatorMode, static_cast<int>(seed.resonator.mode));
+    setSeedProp(idx, kPropResonatorBank, static_cast<int>(seed.resonator.bank));
+    setSeedProp(idx, kPropResonatorFeedback, seed.resonator.feedback);
+    setSeedProp(idx, kPropResonatorDamping, seed.resonator.damping);
+  }
+}
+
+void SeedboxAudioProcessor::applySeedStateToApp() {
+  const auto& seeds = app_.seeds();
+  for (std::size_t i = 0; i < seeds.size(); ++i) {
+    const Seed& seed = seeds[i];
+    const std::uint8_t index = static_cast<std::uint8_t>(i);
+    const auto engineId = static_cast<std::uint8_t>(static_cast<int>(getSeedProp(static_cast<int>(i), kPropEngineId, seed.engine)));
+    if (engineId != seed.engine) {
+      app_.setSeedEngine(index, engineId);
+    }
+
+    auto applyFloat = [&](const juce::Identifier& key, float current, float min, float max,
+                         const std::function<void(Seed&, float)>& setter) {
+      const float target = static_cast<float>(getSeedProp(static_cast<int>(i), key, current));
+      const float clamped = juce::jlimit(min, max, target);
+      app_.applySeedEditFromHost(index, [&](Seed& s) { setter(s, clamped); });
+    };
+
+    auto applyInt = [&](const juce::Identifier& key, int current, int min, int max,
+                        const std::function<void(Seed&, int)>& setter) {
+      const int target = static_cast<int>(getSeedProp(static_cast<int>(i), key, current));
+      const int clamped = juce::jlimit(min, max, target);
+      app_.applySeedEditFromHost(index, [&](Seed& s) { setter(s, clamped); });
+    };
+
+    applyFloat(kPropTone, seed.tone, 0.0f, 1.0f, [](Seed& s, float v) { s.tone = v; });
+    applyFloat(kPropDensity, seed.density, 0.0f, 8.0f, [](Seed& s, float v) { s.density = v; });
+    applyFloat(kPropProbability, seed.probability, 0.0f, 1.0f, [](Seed& s, float v) { s.probability = v; });
+    applyFloat(kPropSpread, seed.spread, 0.0f, 1.0f, [](Seed& s, float v) { s.spread = v; });
+    applyFloat(kPropJitterMs, seed.jitterMs, 0.0f, 50.0f, [](Seed& s, float v) { s.jitterMs = v; });
+    applyFloat(kPropEnvRelease, seed.envR, 0.0f, 1.5f, [](Seed& s, float v) { s.envR = v; });
+    applyFloat(kPropGrainSizeMs, seed.granular.grainSizeMs, 10.0f, 400.0f,
+               [](Seed& s, float v) { s.granular.grainSizeMs = v; });
+    applyFloat(kPropGrainSprayMs, seed.granular.sprayMs, 0.0f, 120.0f,
+               [](Seed& s, float v) { s.granular.sprayMs = v; });
+    applyFloat(kPropGranularTranspose, seed.granular.transpose, -24.0f, 24.0f,
+               [](Seed& s, float v) { s.granular.transpose = v; });
+    applyFloat(kPropGranularWindowSkew, seed.granular.windowSkew, -1.0f, 1.0f,
+               [](Seed& s, float v) { s.granular.windowSkew = v; });
+    applyInt(kPropResonatorMode, seed.resonator.mode, 0, 3,
+             [](Seed& s, int v) { s.resonator.mode = static_cast<std::uint8_t>(v); });
+    applyInt(kPropResonatorBank, seed.resonator.bank, 0, 7,
+             [](Seed& s, int v) { s.resonator.bank = static_cast<std::uint8_t>(v); });
+    applyFloat(kPropResonatorFeedback, seed.resonator.feedback, 0.0f, 1.0f,
+               [](Seed& s, float v) { s.resonator.feedback = v; });
+    applyFloat(kPropResonatorDamping, seed.resonator.damping, 0.0f, 1.0f,
+               [](Seed& s, float v) { s.resonator.damping = v; });
+  }
 }
 
 SeedboxAudioProcessor::ProcessorMidiBackend::ProcessorMidiBackend(MidiRouter& router, MidiRouter::Port port)

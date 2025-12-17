@@ -9,6 +9,7 @@
 // are fair game — we're not hiding cleverness, we're teaching it.
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -205,7 +206,9 @@ public:
   void setTransportLatchFromHost(bool enabled);
   void setFollowExternalClockFromHost(bool enabled);
   void setClockSourceExternalFromHost(bool external);
+  void setInternalBpmFromHost(float bpm);
   void setLiveCaptureVariation(uint8_t variationSteps);
+  bool applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit);
 
   MidiRouter midi;
 

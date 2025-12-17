@@ -35,6 +35,11 @@ Both targets live in the same build tree. The plugin now drops its bundle into
 for `Debug`, `Release`, etc.) so you always know where the payload landed even
 if JUCE’s automatic user-level copy goes missing on macOS.
 
+Need the short answer for actually _hearing_ things and driving the UI? Jump to
+[`src/juce/README.md`](../src/juce/README.md) for the monitoring flow, page
+tour, keyboard map, and persistence notes (test tone beats passthrough; engines
+write back into per-seed state; standalone remembers your last page/window).
+
 ## Flag mirroring (PlatformIO → CMake)
 
 Native determinism depends on the same defines PlatformIO injects. The CMake
