@@ -248,6 +248,12 @@ The rig only gives you a handful of controls, but each one moonlights as a
 modifier, transport hook, or classroom trick. Here's the cheat sheet so you can
 teach a workshop without guessing.
 
+![Front panel hardware map, sketchy zine edition](assets/front-panel-map.svg)
+
+The labels in the diagram line up with the gestures below, so students can map
+what their fingers are doing to what the OLED and engines react to in real
+time.
+
 | Control | Primary gestures | What it drives |
 | --- | --- | --- |
 | **Seed Bank encoder**<br>rotary + push | - Press from HOME/SWING to hop straight into the SEEDS page.<br>- Turn to move the focused seed (or hold **Shift** while in HOME to change focus without leaving the landing pad).<br>- Long-press the switch to queue up a fresh reseed spin. | Seed focus, reseed trigger, and the swing editor's coarse (±5%) tweak lane. |

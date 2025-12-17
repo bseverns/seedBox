@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 520" fill="none" stroke="none">
+  <defs>
+    <style>
+      .panel { fill: #f4f5f7; stroke: #2d2d2d; stroke-width: 2; }
+      .encoder { fill: #dfe6ed; stroke: #2d2d2d; stroke-width: 2; }
+      .button { fill: #ffecc7; stroke: #2d2d2d; stroke-width: 2; }
+      .jack { fill: #d9f2e6; stroke: #2d2d2d; stroke-width: 2; }
+      .screen { fill: #0e1116; stroke: #2d2d2d; stroke-width: 2; }
+      .label { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 14px; fill: #111; }
+      .callout { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 13px; fill: #0b3a63; font-weight: 600; }
+      .arrow { stroke: #0b3a63; stroke-width: 2; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#0b3a63" />
+    </marker>
+  </defs>
+
+  <rect x="40" y="40" width="640" height="360" rx="18" class="panel" />
+
+  <!-- OLED window -->
+  <rect x="290" y="80" width="160" height="70" rx="6" class="screen" />
+  <text x="370" y="122" text-anchor="middle" class="label" fill="#c3f7d1">OLED status rail</text>
+
+  <!-- Encoders top row -->
+  <circle cx="150" cy="170" r="32" class="encoder" />
+  <text x="150" y="177" text-anchor="middle" class="label">Seed Bank</text>
+
+  <circle cx="280" cy="170" r="32" class="encoder" />
+  <text x="280" y="177" text-anchor="middle" class="label">Density</text>
+
+  <circle cx="440" cy="170" r="32" class="encoder" />
+  <text x="440" y="177" text-anchor="middle" class="label">Tone/Tilt</text>
+
+  <circle cx="570" cy="170" r="32" class="encoder" />
+  <text x="570" y="177" text-anchor="middle" class="label">FX/Mutate</text>
+
+  <!-- Button cluster -->
+  <rect x="120" y="250" width="60" height="40" rx="6" class="button" />
+  <text x="150" y="275" text-anchor="middle" class="label">Tap</text>
+  <text x="150" y="292" text-anchor="middle" class="label">Tempo</text>
+
+  <rect x="220" y="250" width="60" height="40" rx="6" class="button" />
+  <text x="250" y="275" text-anchor="middle" class="label">Shift</text>
+
+  <rect x="320" y="250" width="60" height="40" rx="6" class="button" />
+  <text x="350" y="275" text-anchor="middle" class="label">Alt /</text>
+  <text x="350" y="292" text-anchor="middle" class="label">Storage</text>
+
+  <rect x="420" y="250" width="60" height="40" rx="6" class="button" />
+  <text x="450" y="275" text-anchor="middle" class="label">Reseed</text>
+
+  <rect x="520" y="250" width="60" height="40" rx="6" class="button" />
+  <text x="550" y="275" text-anchor="middle" class="label">Lock</text>
+
+  <!-- Jacks along the bottom edge -->
+  <circle cx="180" cy="360" r="20" class="jack" />
+  <text x="180" y="365" text-anchor="middle" class="label">TRS</text>
+  <text x="180" y="382" text-anchor="middle" class="label">MIDI In</text>
+
+  <circle cx="280" cy="360" r="20" class="jack" />
+  <text x="280" y="365" text-anchor="middle" class="label">TRS</text>
+  <text x="280" y="382" text-anchor="middle" class="label">MIDI Out</text>
+
+  <circle cx="380" cy="360" r="20" class="jack" />
+  <text x="380" y="365" text-anchor="middle" class="label">Head-</text>
+  <text x="380" y="382" text-anchor="middle" class="label">phone</text>
+
+  <circle cx="480" cy="360" r="20" class="jack" />
+  <text x="480" y="365" text-anchor="middle" class="label">USB</text>
+  <text x="480" y="382" text-anchor="middle" class="label">power</text>
+
+  <circle cx="580" cy="360" r="20" class="jack" />
+  <text x="580" y="365" text-anchor="middle" class="label">DC</text>
+  <text x="580" y="382" text-anchor="middle" class="label">(opt.)</text>
+
+  <!-- Callouts -->
+  <text x="70" y="115" class="callout">Seed Bank encoder</text>
+  <line x1="90" y1="120" x2="140" y2="150" class="arrow" />
+
+  <text x="70" y="210" class="callout">Tap Tempo button</text>
+  <line x1="90" y1="215" x2="145" y2="245" class="arrow" />
+
+  <text x="70" y="320" class="callout">TRS MIDI In (Type-A)</text>
+  <line x1="110" y1="325" x2="165" y2="345" class="arrow" />
+
+  <text x="600" y="115" class="callout">FX/Mutate encoder</text>
+  <line x1="640" y1="120" x2="585" y2="150" class="arrow" />
+
+  <text x="600" y="205" class="callout">Lock button</text>
+  <line x1="640" y1="210" x2="565" y2="245" class="arrow" />
+
+  <text x="600" y="305" class="callout">USB for power/program</text>
+  <line x1="630" y1="310" x2="495" y2="340" class="arrow" />
+</svg>
