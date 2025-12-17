@@ -350,6 +350,14 @@ void nativeBoardFastForwardMicros(std::uint64_t delta) {
 
 void nativeBoardSetButton(Board::ButtonID id, bool pressed) { instance().setButton(id, pressed); }
 
+std::vector<std::string> nativeEnumerateControllers() {
+  // Native desktop builds don't talk to real hardware yet, so this hook stays
+  // intentionally sparse.  It still exists so the front panel can surface a
+  // menu that mirrors the embedded UX and can be filled in once controller
+  // discovery lands.
+  return {};
+}
+
 }  // namespace hal
 
 #endif  // !SEEDBOX_HW
