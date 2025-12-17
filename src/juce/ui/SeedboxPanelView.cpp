@@ -49,8 +49,8 @@ SeedboxPanelView::PanelLookAndFeel::PanelLookAndFeel() {
 }
 
 void SeedboxPanelView::PanelLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
-                                                          double sliderPos, double rotaryStartAngle,
-                                                          double rotaryEndAngle, juce::Slider& slider) {
+                                                          float sliderPos, float rotaryStartAngle,
+                                                          float rotaryEndAngle, juce::Slider& slider) {
   const auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
                                              static_cast<float>(width), static_cast<float>(height))
                           .reduced(4.0f);
@@ -103,6 +103,20 @@ void SeedboxPanelView::PanelKnob::mouseUp(const juce::MouseEvent& event) {
   juce::Slider::mouseUp(event);
   if (!event.mouseWasDraggedSinceMouseDown() && onPress) {
     onPress();
+  }
+}
+
+void SeedboxPanelView::PanelButton::mouseDown(const juce::MouseEvent& event) {
+  juce::TextButton::mouseDown(event);
+  if (onDown) {
+    onDown(event);
+  }
+}
+
+void SeedboxPanelView::PanelButton::mouseUp(const juce::MouseEvent& event) {
+  juce::TextButton::mouseUp(event);
+  if (onUp) {
+    onUp(event);
   }
 }
 
@@ -211,15 +225,15 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
     updateEngineLabel();
   };
 
-  auto setupButton = [&](juce::TextButton& btn, const juce::String& label) {
+  auto setupButton = [&](PanelButton& btn, const juce::String& label) {
     btn.setButtonText(label);
     btn.setColour(juce::TextButton::buttonColourId, juce::Colours::dimgrey);
     addAndMakeVisible(btn);
   };
 
   setupButton(tapButton_, "Tap Tempo");
-  tapButton_.onMouseDown = [this](const juce::MouseEvent&) { lastTapMs_ = juce::Time::getMillisecondCounterHiRes(); };
-  tapButton_.onMouseUp = [this](const juce::MouseEvent& evt) {
+  tapButton_.onDown = [this](const juce::MouseEvent&) { lastTapMs_ = juce::Time::getMillisecondCounterHiRes(); };
+  tapButton_.onUp = [this](const juce::MouseEvent& evt) {
     const double now = juce::Time::getMillisecondCounterHiRes();
     const double delta = now - lastTapMs_;
     handleTap(delta > 600.0);
@@ -229,13 +243,13 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
 
   setupButton(shiftButton_, "Shift");
   shiftButton_.setClickingTogglesState(false);
-  shiftButton_.onMouseDown = [this](const juce::MouseEvent&) { setShiftHeld(true, false); };
-  shiftButton_.onMouseUp = [this](const juce::MouseEvent&) { setShiftHeld(false, false); };
+  shiftButton_.onDown = [this](const juce::MouseEvent&) { setShiftHeld(true, false); };
+  shiftButton_.onUp = [this](const juce::MouseEvent&) { setShiftHeld(false, false); };
 
   setupButton(altButton_, "Alt / Storage");
   altButton_.setClickingTogglesState(false);
-  altButton_.onMouseDown = [this](const juce::MouseEvent&) { setAltHeld(true, false); };
-  altButton_.onMouseUp = [this](const juce::MouseEvent&) { setAltHeld(false, false); };
+  altButton_.onDown = [this](const juce::MouseEvent&) { setAltHeld(true, false); };
+  altButton_.onUp = [this](const juce::MouseEvent&) { setAltHeld(false, false); };
 
   setupButton(reseedButton_, "Reseed");
   reseedButton_.onClick = [this]() { handleReseed(); };
@@ -402,9 +416,13 @@ void SeedboxPanelView::setToneHeld(bool held, bool keyboard) {
 
 void SeedboxPanelView::applySensitivity() {
   const double fine = shiftActive() ? 0.01 : 0.05;
-  densityKnob_.knob.setInterval(fine);
-  toneKnob_.knob.setInterval(shiftActive() ? 0.005 : 0.01);
-  fxKnob_.knob.setInterval(shiftActive() ? 0.005 : 0.01);
+  auto setInterval = [](PanelKnob& knob, double interval) {
+    knob.setRange(knob.getMinimum(), knob.getMaximum(), interval);
+  };
+
+  setInterval(densityKnob_.knob, fine);
+  setInterval(toneKnob_.knob, shiftActive() ? 0.005 : 0.01);
+  setInterval(fxKnob_.knob, shiftActive() ? 0.005 : 0.01);
 }
 
 void SeedboxPanelView::handleTap(bool longPress) {

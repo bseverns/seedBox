@@ -26,8 +26,8 @@ class SeedboxPanelView : public juce::Component {
   class PanelLookAndFeel : public juce::LookAndFeel_V4 {
    public:
     PanelLookAndFeel();
-    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, double sliderPos,
-                          double rotaryStartAngle, double rotaryEndAngle, juce::Slider&) override;
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
+                          float rotaryStartAngle, float rotaryEndAngle, juce::Slider&) override;
     void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
                               bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
   };
@@ -38,6 +38,17 @@ class SeedboxPanelView : public juce::Component {
     std::function<void()> onPress;
 
    private:
+    void mouseUp(const juce::MouseEvent& event) override;
+  };
+
+  class PanelButton : public juce::TextButton {
+   public:
+    using juce::TextButton::TextButton;
+    std::function<void(const juce::MouseEvent&)> onDown;
+    std::function<void(const juce::MouseEvent&)> onUp;
+
+   private:
+    void mouseDown(const juce::MouseEvent& event) override;
     void mouseUp(const juce::MouseEvent& event) override;
   };
 
@@ -83,11 +94,11 @@ class SeedboxPanelView : public juce::Component {
   LabeledKnob toneKnob_;
   LabeledKnob fxKnob_;
 
-  juce::TextButton tapButton_;
-  juce::TextButton shiftButton_;
-  juce::TextButton altButton_;
-  juce::TextButton reseedButton_;
-  juce::TextButton lockButton_;
+  PanelButton tapButton_;
+  PanelButton shiftButton_;
+  PanelButton altButton_;
+  PanelButton reseedButton_;
+  PanelButton lockButton_;
 
   juce::OwnedArray<JackIcon> jackIcons_;
   juce::Label oledLabel_;
