@@ -31,6 +31,7 @@ constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
+constexpr auto kStatePanelPreset = "panelPreset";
 constexpr auto kStateRoot = "seedboxState";
 constexpr auto kSeedNodePrefix = "seed";
 
@@ -187,6 +188,7 @@ void SeedboxAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
   auto serialized = snapshot.serialize();
   juce::MemoryBlock presetBlock(serialized.data(), serialized.size());
   state.setProperty(kStatePresetData, presetBlock.toBase64Encoding(), nullptr);
+  state.setProperty(kStatePanelPreset, panelPresetBase64_, nullptr);
 
   juce::ValueTree root(kStateRoot);
   root.addChild(state, 0, nullptr);
@@ -236,6 +238,46 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
       }
     }
   }
+
+  auto panelPresetBase64 = tree.getProperty(kStatePanelPreset).toString();
+  if (panelPresetBase64.isEmpty() && parameterTree.isValid()) {
+    panelPresetBase64 = parameterTree.getProperty(kStatePanelPreset).toString();
+  }
+  if (panelPresetBase64.isNotEmpty()) {
+    juce::MemoryBlock block;
+    if (block.fromBase64Encoding(panelPresetBase64)) {
+      std::vector<std::uint8_t> payload(block.getSize());
+      std::memcpy(payload.data(), block.getData(), block.getSize());
+      seedbox::Preset preset;
+      if (seedbox::Preset::deserialize(payload, preset)) {
+        panelPreset_ = preset;
+        panelPresetBase64_ = panelPresetBase64;
+      }
+    }
+  }
+}
+
+juce::String SeedboxAudioProcessor::serializePresetToBase64(const seedbox::Preset& preset) const {
+  auto serialized = preset.serialize();
+  juce::MemoryBlock presetBlock(serialized.data(), serialized.size());
+  return presetBlock.toBase64Encoding();
+}
+
+void SeedboxAudioProcessor::setPanelQuickPreset(const seedbox::Preset& preset) {
+  panelPreset_ = preset;
+  panelPresetBase64_ = serializePresetToBase64(preset);
+}
+
+bool SeedboxAudioProcessor::applyPanelQuickPreset() {
+  if (!panelPreset_.has_value()) {
+    return false;
+  }
+  if (prepared_) {
+    app_.applyPresetFromHost(*panelPreset_, false);
+  } else {
+    pendingPreset_ = *panelPreset_;
+  }
+  return true;
 }
 
 void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
