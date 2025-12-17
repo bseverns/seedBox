@@ -4,6 +4,8 @@
 | --- | --- |
 | CI (native + Teensy) | [![CI](https://github.com/bseverns/seedBox/actions/workflows/ci.yml/badge.svg)](https://github.com/bseverns/seedBox/actions/workflows/ci.yml) |
 
+> 🔏 Fresh pull? Every published `native_golden.tar.gz`, `seedbox-linux-host.tar.gz`, `seedbox-macos-universal.tar.gz`, and `seedbox-windows-host.zip` ships with a detached sig from key `4473F115745A1A61`. [Skip the scroll and verify right away](#signed-bundles-so-you-can-trust-the-receipts): `gpg --verify seedbox-linux-host.tar.gz.sig seedbox-linux-host.tar.gz`.
+
 SeedBox is a tiny music lab wrapped in C++ and wild ideas. Think of it as the
 companion project to the MOARkNOBS mythos: a Teensy(IMXRT1062)-based instrument that can
 also run a "pretend hardware" build on your laptop. You can poke at rhythm
