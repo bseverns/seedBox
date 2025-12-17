@@ -23,7 +23,6 @@
 
   <!-- Encoders top row -->
   <circle cx="150" cy="170" r="32" class="encoder" />
-  <text x="150" y="177" text-anchor="middle" class="label">Seed Bank</text>
 
   <circle cx="280" cy="170" r="32" class="encoder" />
   <text x="280" y="177" text-anchor="middle" class="label">Density</text>
@@ -32,12 +31,9 @@
   <text x="440" y="177" text-anchor="middle" class="label">Tone/Tilt</text>
 
   <circle cx="570" cy="170" r="32" class="encoder" />
-  <text x="570" y="177" text-anchor="middle" class="label">FX/Mutate</text>
 
   <!-- Button cluster -->
   <rect x="120" y="250" width="60" height="40" rx="6" class="button" />
-  <text x="150" y="275" text-anchor="middle" class="label">Tap</text>
-  <text x="150" y="292" text-anchor="middle" class="label">Tempo</text>
 
   <rect x="220" y="250" width="60" height="40" rx="6" class="button" />
   <text x="250" y="275" text-anchor="middle" class="label">Shift</text>
@@ -50,12 +46,9 @@
   <text x="450" y="275" text-anchor="middle" class="label">Reseed</text>
 
   <rect x="520" y="250" width="60" height="40" rx="6" class="button" />
-  <text x="550" y="275" text-anchor="middle" class="label">Lock</text>
 
   <!-- Jacks along the bottom edge -->
   <circle cx="180" cy="360" r="20" class="jack" />
-  <text x="180" y="365" text-anchor="middle" class="label">TRS</text>
-  <text x="180" y="382" text-anchor="middle" class="label">MIDI In</text>
 
   <circle cx="280" cy="360" r="20" class="jack" />
   <text x="280" y="365" text-anchor="middle" class="label">TRS</text>
@@ -66,8 +59,6 @@
   <text x="380" y="382" text-anchor="middle" class="label">phone</text>
 
   <circle cx="480" cy="360" r="20" class="jack" />
-  <text x="480" y="365" text-anchor="middle" class="label">USB</text>
-  <text x="480" y="382" text-anchor="middle" class="label">power</text>
 
   <circle cx="580" cy="360" r="20" class="jack" />
   <text x="580" y="365" text-anchor="middle" class="label">DC</text>
