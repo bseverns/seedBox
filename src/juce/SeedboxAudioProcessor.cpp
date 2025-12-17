@@ -113,8 +113,8 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   const int numInputs = getTotalNumInputChannels();
   const int numOutputs = getTotalNumOutputChannels();
 
-  auto& inputBus = getBusBuffer(buffer, true, 0);
-  auto& outputBus = getBusBuffer(buffer, false, 0);
+  auto inputBus = getBusBuffer(buffer, true, 0);
+  auto outputBus = getBusBuffer(buffer, false, 0);
 
   if (numInputs > 0) {
     inputScratch_.setSize(numInputs, numSamples, false, false, true);

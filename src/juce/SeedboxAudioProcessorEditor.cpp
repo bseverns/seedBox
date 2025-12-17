@@ -446,7 +446,7 @@ SwingPageComponent::SwingPageComponent(SeedboxAudioProcessor& processor) : PageC
 
 void SwingPageComponent::refresh() {
   const auto& ui = processor_.appState().uiStateCache();
-  swingSlider_.setValue(ui.swingPercent, juce::dontSendNotification);
+  swingSlider_.setValue(ui.swing, juce::dontSendNotification);
   quantizeScaleSelector_.setSelectedItemIndex(static_cast<int>(processor_.appState().quantizeScaleIndex()),
                                               juce::dontSendNotification);
   quantizeRootSelector_.setSelectedItemIndex(static_cast<int>(processor_.appState().quantizeRoot()),
@@ -507,7 +507,7 @@ SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) :
 
 void SettingsPageComponent::refresh() {
   if (auto* dm = processor_.deviceManager()) {
-    const auto* setup = dm->getCurrentAudioDevice();
+    auto* setup = dm->getCurrentAudioDevice();
     if (setup != nullptr) {
       audioInfo_.setText("Device: " + setup->getName() +
                              " | Inputs: " + juce::String(setup->getInputChannelNames().size()) +
