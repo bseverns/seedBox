@@ -58,6 +58,9 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void applySeedEdit(const juce::Identifier& key, double value,
                      const std::function<void(Seed&)>& applyFn);
   juce::var getSeedProp(int idx, const juce::Identifier& key, juce::var defaultValue) const;
+  void setPanelQuickPreset(const seedbox::Preset& preset);
+  bool applyPanelQuickPreset();
+  const std::optional<seedbox::Preset>& panelQuickPreset() const { return panelPreset_; }
 
  private:
   struct BufferedMidiMessage {
@@ -99,6 +102,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   juce::ValueTree getOrCreateSeedNode(int idx);
   juce::ValueTree findSeedNode(int idx) const;
   void setSeedProp(int idx, const juce::Identifier& key, const juce::var& value);
+  juce::String serializePresetToBase64(const seedbox::Preset& preset) const;
 
   AppState app_;
   ProcessorMidiBackend* midiBackend_{nullptr};
@@ -108,6 +112,8 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   bool prepared_{false};
   juce::AudioBuffer<float> inputScratch_{};
   std::optional<seedbox::Preset> pendingPreset_{};
+  std::optional<seedbox::Preset> panelPreset_{};
+  juce::String panelPresetBase64_{};
   std::unordered_map<std::string, float> parameterState_{};
   std::uint8_t quantizeScaleParam_{0};
   std::uint8_t quantizeRootParam_{0};

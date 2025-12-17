@@ -10,6 +10,16 @@ Design vibe: half studio logbook, half teaching lab. Nothing is hidden behind ma
 
 Persistence: VST3 state rides along with the host chunk via the APVTS tree plus a base64 preset blob (includes per-seed engines and BPM). The standalone now keeps a tiny `ApplicationProperties` file that restores the last editor page + window size so you drop back into your last teaching groove instead of the default HOME screen.
 
+## Hardware panel-first view (new default)
+
+The editor now boots straight into a single-page "panel" that mirrors the SVG sketch in the brief. Think of it as a desk-sized control surface: one rounded rectangle, an OLED rail, four jumbo encoders, five tactile buttons, and a run of jack badges. The legacy multi-page UI still exists behind `-DSEEDBOX_LEGACY_UI=1` if you want the old tabbed tour.
+
+- **Knobs:** Seed Bank (focus 1–4 + click-to-cycle), Density, Tone/Tilt (Shift = fine tilt), FX/Mutate (Spread; click cycles the engine).
+- **Buttons:** Tap (long-press toggles transport latch), Shift + Alt as momentary modifiers, Reseed (Alt saves a quick preset), Lock (Alt recalls the quick preset) tied to the per-seed lock state.
+- **OLED:** Monospace snapshot of the firmware display, refreshed ~15 Hz so you still see page hints/metrics.
+- **Jacks:** Decorative circles with light-touch helpers (MIDI clock follow/clock source toggles, audio device nudge) to mimic the panel art.
+- **Shortcuts:** Space = latch transport, `T` = tap, `1`–`4` focus seeds, `E` cycle engines, arrows nudge the last touched control. Shift/Alt keys still mirror the hardware modifiers.
+
 ## How to hear audio (monitoring + test tone priority)
 
 - **Standalone:** launch the app, open the Audio/MIDI settings block on the SETTINGS page, and pick a stereo input + output. With inputs enabled, the processor copies input → output every block _unless_ the test tone or engines are actively generating sound. Test tone/engines always win; passthrough fills the gap when they are silent. Mono inputs get mirrored to stereo automatically.

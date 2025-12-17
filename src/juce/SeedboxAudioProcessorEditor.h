@@ -2,12 +2,17 @@
 
 #if SEEDBOX_JUCE
 
+#ifndef SEEDBOX_LEGACY_UI
+#define SEEDBOX_LEGACY_UI 0
+#endif
+
 #include <array>
 #include <functional>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include "hal/Board.h"
+#include "juce/ui/SeedboxPanelView.h"
 
 namespace seedbox::juce_bridge {
 
@@ -162,6 +167,8 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   void refreshAllPages();
 
   SeedboxAudioProcessor& processor_;
+  const bool useLegacyUi_{SEEDBOX_LEGACY_UI != 0};
+  std::unique_ptr<SeedboxPanelView> panelView_;
   juce::ComboBox modeSelector_;
   juce::Label displayLabel_;
   juce::Label shortcutsLabel_;

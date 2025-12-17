@@ -88,6 +88,7 @@ set(SEEDBOX_JUCE_PLUGIN_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/JuceHostTest.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/SeedboxAudioProcessor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/SeedboxAudioProcessorEditor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/ui/SeedboxPanelView.cpp
 )
 
 set(SEEDBOX_JUCE_APP_SOURCES
