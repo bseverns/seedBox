@@ -175,10 +175,7 @@ void SeedboxPanelView::JackIcon::mouseUp(const juce::MouseEvent& event) {
   if (menuBuilder_) {
     auto menu = menuBuilder_();
     if (menu.getNumItems() > 0) {
-      auto options = juce::PopupMenu::Options()
-                          .withTargetComponent(this)
-                          .withPreferredPopupDirection(juce::PopupMenu::Options::Direction::downwards)
-                          .withTargetScreenArea(getScreenBounds());
+      auto options = juce::PopupMenu::Options().withTargetComponent(this).withTargetScreenArea(getScreenBounds());
       menu.showMenuAsync(options);
       return;
     }
@@ -346,7 +343,9 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
         auto selector = std::make_unique<AudioSelectorHost>(*dm, numInputs, numOutputs);
         auto* jack = jackIcons_[2];
         const auto target = jack != nullptr ? jack->getScreenBounds() : getScreenBounds().toNearestInt();
-        juce::CallOutBox::launchAsynchronously(std::move(selector), target, jack != nullptr ? jack : this);
+        juce::Component* anchor = jack != nullptr ? static_cast<juce::Component*>(jack)
+                                                  : static_cast<juce::Component*>(this);
+        juce::CallOutBox::launchAsynchronously(std::move(selector), target, anchor);
       });
       menu.addSeparator();
       menu.addItem("Restart audio engine", true, false, [dm]() { dm->restartLastAudioDevice(); });
@@ -365,9 +364,8 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
     if (controllers.empty()) {
       menu.addItem("No controller connected", false, true, nullptr);
     } else {
-      int itemId = 1;
       for (const auto& name : controllers) {
-        menu.addItem(itemId++, name, true, false, []() {});
+        menu.addItem(name, true, false, []() {});
       }
     }
     return menu;
