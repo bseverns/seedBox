@@ -157,13 +157,13 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   float* renderRight = renderScratch_.getNumChannels() > 1 ? renderScratch_.getWritePointer(1) : renderLeft;
   hal::audio::renderHostBuffer(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
   app_.midi.poll();
-  const bool engineHasOutput =
-      hal::audio::bufferHasEngineEnergy(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
+  const bool enginesIdle =
+      hal::audio::bufferEngineIdle(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
 
   float* outLeft = outputBus.getWritePointer(0);
   float* outRight = outputBus.getNumChannels() > 1 ? outputBus.getWritePointer(1) : outLeft;
 
-  if (engineHasOutput) {
+  if (!enginesIdle) {
     juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
     if (outputBus.getNumChannels() > 1) {
       juce::FloatVectorOperations::copy(outRight, renderScratch_.getReadPointer(1), numSamples);

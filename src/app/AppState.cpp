@@ -449,18 +449,18 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   engines_.euclid().renderAudio(ctx);
   engines_.burst().renderAudio(ctx);
 
-  const bool hasEngineSignal = hal::audio::bufferHasEngineEnergy(buffer.left, buffer.right, buffer.frames);
+  const bool enginesIdle = hal::audio::bufferEngineIdle(buffer.left, buffer.right, buffer.frames);
 
 #if SEEDBOX_HW && QUIET_MODE
   // Classroom rigs built in quiet mode keep their codecs muted; we still tick
   // the callback counter above so timing-sensitive tests can probe the audio
   // heartbeat without blasting speakers.
-  if (!hasEngineSignal) {
+  if (enginesIdle) {
     return;
   }
 #endif
 
-  if (!hasEngineSignal && !dryInputLeft_.empty()) {
+  if (enginesIdle && !dryInputLeft_.empty()) {
     const std::size_t copyFrames = std::min<std::size_t>(buffer.frames, dryInputLeft_.size());
     const float* dryLeft = dryInputLeft_.data();
     const float* dryRight = (!dryInputRight_.empty() && dryInputRight_.size() >= copyFrames)
