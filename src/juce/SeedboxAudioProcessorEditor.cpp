@@ -529,70 +529,9 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   setWantsKeyboardFocus(true);
   grabKeyboardFocus();
 
-  if (useLegacyUi_) {
-    setSize(820, 760);
-    modeSelector_.addItem("HOME", 1);
-    modeSelector_.addItem("SEEDS", 2);
-    modeSelector_.addItem("ENGINE", 3);
-    modeSelector_.addItem("PERF", 4);
-    modeSelector_.addItem("SETTINGS", 5);
-    modeSelector_.addItem("UTIL", 6);
-    modeSelector_.addItem("SWING", 7);
-    modeSelector_.setJustificationType(juce::Justification::centred);
-    modeSelector_.setTooltip("Mode jumper: same as mashing the panel combos without wearing out your fingers.");
-    modeSelector_.onChange = [this]() {
-      const auto id = modeSelector_.getSelectedId();
-      if (id <= 0) {
-        return;
-      }
-      const auto mode = static_cast<AppState::Mode>(id - 1);
-      processor_.appState().setModeFromHost(mode);
-      updateVisiblePage();
-    };
-    modeSelector_.setSelectedId(1);
-    addAndMakeVisible(modeSelector_);
+  showAdvanced_ = useLegacyUi_;
 
-    displayLabel_.setJustificationType(juce::Justification::centred);
-    displayLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black);
-    displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
-    displayLabel_.setFont(juce::Font(16.0f, juce::Font::plain));
-    displayLabel_.setBorderSize(juce::BorderSize<int>(4));
-    displayLabel_.setTooltip("Desktop control hint: press T for Tone, S for Shift, A for Alt.");
-    addAndMakeVisible(displayLabel_);
-
-    shortcutsLabel_.setJustificationType(juce::Justification::centred);
-    shortcutsLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-    shortcutsLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.3f));
-    shortcutsLabel_.setText("Shortcuts: Space=Latch, T=Tap, 1-4=Focus seed, E=Cycle engine, Arrows=Nudge",
-                            juce::dontSendNotification);
-    shortcutsLabel_.setFont(juce::Font(13.0f));
-    addAndMakeVisible(shortcutsLabel_);
-
-    audioSelectorHint_.setJustificationType(juce::Justification::centredLeft);
-    audioSelectorHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-
-    homePage_ = std::make_unique<HomePageComponent>(processor_);
-    seedsPage_ = std::make_unique<SeedsPageComponent>(processor_);
-    enginePage_ = std::make_unique<EnginePageComponent>(processor_);
-    perfPage_ = std::make_unique<PerfPageComponent>(processor_);
-    swingPage_ = std::make_unique<SwingPageComponent>(processor_);
-    utilPage_ = std::make_unique<UtilPageComponent>(processor_);
-    settingsPage_ = std::make_unique<SettingsPageComponent>(processor_);
-    perfPage_->setTapHandler([this]() { handleTapTempo(); });
-
-    addAndMakeVisible(homePage_.get());
-    addChildComponent(seedsPage_.get());
-    addChildComponent(enginePage_.get());
-    addChildComponent(perfPage_.get());
-    addChildComponent(swingPage_.get());
-    addChildComponent(utilPage_.get());
-    addChildComponent(settingsPage_.get());
-
-    buildAudioSelector();
-    updateVisiblePage();
-    refreshAllPages();
-    refreshDisplay();
-  } else {
+  if (!useLegacyUi_) {
     setSize(960, 720);
     setResizable(true, true);
     if (auto* constrainer = getConstrainer()) {
@@ -600,7 +539,83 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     }
     panelView_ = std::make_unique<SeedboxPanelView>(processor_, processor_.deviceManager());
     addAndMakeVisible(panelView_.get());
+
+    advancedToggle_.setButtonText("Advanced / Pages");
+    advancedToggle_.setTooltip(
+        "Show the legacy HOME/SEEDS/ENGINE/PERF/SWING/SETTINGS/UTIL stack without rebuilding with SEEDBOX_LEGACY_UI.");
+    advancedToggle_.onClick = [this]() { setAdvancedVisible(!showAdvanced_); };
+    addAndMakeVisible(advancedToggle_);
+  } else {
+    setSize(820, 760);
   }
+
+  advancedFrame_.setText("Advanced Pages");
+  advancedFrame_.setTextLabelPosition(juce::Justification::centredLeft);
+  advancedFrame_.setColour(juce::GroupComponent::outlineColourId, juce::Colours::dimgrey);
+  advancedFrame_.setColour(juce::GroupComponent::textColourId, juce::Colours::lightgrey);
+  advancedFrame_.setInterceptsMouseClicks(false, false);
+  addAndMakeVisible(advancedFrame_);
+
+  modeSelector_.addItem("HOME", 1);
+  modeSelector_.addItem("SEEDS", 2);
+  modeSelector_.addItem("ENGINE", 3);
+  modeSelector_.addItem("PERF", 4);
+  modeSelector_.addItem("SETTINGS", 5);
+  modeSelector_.addItem("UTIL", 6);
+  modeSelector_.addItem("SWING", 7);
+  modeSelector_.setJustificationType(juce::Justification::centred);
+  modeSelector_.setTooltip("Mode jumper: same as mashing the panel combos without wearing out your fingers.");
+  modeSelector_.onChange = [this]() {
+    const auto id = modeSelector_.getSelectedId();
+    if (id <= 0) {
+      return;
+    }
+    const auto mode = static_cast<AppState::Mode>(id - 1);
+    processor_.appState().setModeFromHost(mode);
+    updateVisiblePage();
+  };
+  modeSelector_.setSelectedId(1);
+  addAndMakeVisible(modeSelector_);
+
+  displayLabel_.setJustificationType(juce::Justification::centred);
+  displayLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black);
+  displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
+  displayLabel_.setFont(juce::Font(16.0f, juce::Font::plain));
+  displayLabel_.setBorderSize(juce::BorderSize<int>(4));
+  displayLabel_.setTooltip("Desktop control hint: press T for Tone, S for Shift, A for Alt.");
+  addAndMakeVisible(displayLabel_);
+
+  shortcutsLabel_.setJustificationType(juce::Justification::centred);
+  shortcutsLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+  shortcutsLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.3f));
+  shortcutsLabel_.setText("Shortcuts: Space=Latch, T=Tap, 1-4=Focus seed, E=Cycle engine, Arrows=Nudge",
+                          juce::dontSendNotification);
+  shortcutsLabel_.setFont(juce::Font(13.0f));
+  addAndMakeVisible(shortcutsLabel_);
+
+  audioSelectorHint_.setJustificationType(juce::Justification::centredLeft);
+  audioSelectorHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+
+  homePage_ = std::make_unique<HomePageComponent>(processor_);
+  seedsPage_ = std::make_unique<SeedsPageComponent>(processor_);
+  enginePage_ = std::make_unique<EnginePageComponent>(processor_);
+  perfPage_ = std::make_unique<PerfPageComponent>(processor_);
+  swingPage_ = std::make_unique<SwingPageComponent>(processor_);
+  utilPage_ = std::make_unique<UtilPageComponent>(processor_);
+  settingsPage_ = std::make_unique<SettingsPageComponent>(processor_);
+  perfPage_->setTapHandler([this]() { handleTapTempo(); });
+
+  addAndMakeVisible(homePage_.get());
+  addChildComponent(seedsPage_.get());
+  addChildComponent(enginePage_.get());
+  addChildComponent(perfPage_.get());
+  addChildComponent(swingPage_.get());
+  addChildComponent(utilPage_.get());
+  addChildComponent(settingsPage_.get());
+
+  buildAudioSelector();
+  setAdvancedVisible(showAdvanced_);
+  refreshDisplay();
   startTimerHz(15);
 }
 
@@ -609,40 +624,58 @@ SeedboxAudioProcessorEditor::~SeedboxAudioProcessorEditor() { stopTimer(); }
 void SeedboxAudioProcessorEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colours::darkslategrey); }
 
 void SeedboxAudioProcessorEditor::resized() {
-  if (useLegacyUi_) {
-    auto area = getLocalBounds().reduced(12);
-    auto header = area.removeFromTop(44);
-    modeSelector_.setBounds(header.removeFromLeft(260));
+  auto layoutAdvanced = [this](juce::Rectangle<int> area) {
+    advancedFrame_.setBounds(area);
+    auto inner = area.reduced(8);
+    auto header = inner.removeFromTop(44);
+    modeSelector_.setBounds(header.removeFromLeft(std::min(260, header.getWidth())));
 
-    auto body = area.removeFromBottom(48);
-    shortcutsLabel_.setBounds(body.removeFromLeft(520));
+    auto body = inner.removeFromBottom(48);
+    shortcutsLabel_.setBounds(body.removeFromLeft(std::min(520, body.getWidth())));
     displayLabel_.setBounds(body);
 
     if (audioSelector_ && audioSelector_->isVisible()) {
-      const auto selectorBounds = area.removeFromBottom(200);
+      const auto selectorBounds = inner.removeFromBottom(200);
       audioSelector_->setBounds(selectorBounds);
     }
     if (audioSelectorHint_.isVisible()) {
-      const auto hintArea = area.removeFromBottom(32);
+      const auto hintArea = inner.removeFromBottom(32);
       audioSelectorHint_.setBounds(hintArea);
     }
 
-    if (homePage_) homePage_->setBounds(area);
-    if (seedsPage_) seedsPage_->setBounds(area);
-    if (enginePage_) enginePage_->setBounds(area);
-    if (perfPage_) perfPage_->setBounds(area);
-    if (swingPage_) swingPage_->setBounds(area);
-    if (utilPage_) utilPage_->setBounds(area);
-    if (settingsPage_) settingsPage_->setBounds(area);
+    if (homePage_) homePage_->setBounds(inner);
+    if (seedsPage_) seedsPage_->setBounds(inner);
+    if (enginePage_) enginePage_->setBounds(inner);
+    if (perfPage_) perfPage_->setBounds(inner);
+    if (swingPage_) swingPage_->setBounds(inner);
+    if (utilPage_) utilPage_->setBounds(inner);
+    if (settingsPage_) settingsPage_->setBounds(inner);
+  };
+
+  if (useLegacyUi_) {
+    layoutAdvanced(getLocalBounds().reduced(12));
+    return;
+  }
+
+  auto bounds = getLocalBounds().reduced(8);
+  auto header = bounds.removeFromTop(36);
+  advancedToggle_.setBounds(header.removeFromRight(180));
+
+  if (advancedUiEnabled()) {
+    const int advancedWidth = std::min(420, bounds.getWidth() / 2 + 120);
+    auto advancedArea = bounds.removeFromRight(advancedWidth);
+    layoutAdvanced(advancedArea);
   } else {
-    if (panelView_) {
-      panelView_->setBounds(getLocalBounds().reduced(8));
-    }
+    advancedFrame_.setBounds({});
+  }
+
+  if (panelView_) {
+    panelView_->setBounds(bounds);
   }
 }
 
 void SeedboxAudioProcessorEditor::timerCallback() {
-  if (useLegacyUi_) {
+  if (advancedUiEnabled()) {
     const int appModeId = static_cast<int>(processor_.appState().mode()) + 1;
     if (modeSelector_.getSelectedId() != appModeId) {
       modeSelector_.setSelectedId(appModeId, juce::dontSendNotification);
@@ -650,7 +683,8 @@ void SeedboxAudioProcessorEditor::timerCallback() {
     }
     refreshAllPages();
     refreshDisplay();
-  } else if (panelView_) {
+  }
+  if (panelView_) {
     panelView_->refresh();
   }
   syncKeyboardButtons();
@@ -718,7 +752,7 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
   if (code == juce::KeyPress::spaceKey) {
     const bool next = !processor_.appState().transportLatchEnabled();
     processor_.appState().setTransportLatchFromHost(next);
-    if (useLegacyUi_ && perfPage_) {
+    if (advancedUiEnabled() && perfPage_) {
       perfPage_->refresh();
     }
     return true;
@@ -732,16 +766,13 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
   if (lower >= '1' && lower <= '4') {
     const int index = lower - '1';
     processor_.appState().setFocusSeed(static_cast<std::uint8_t>(index));
-    if (panelView_) {
-      panelView_->refresh();
-    } else {
-      refreshAllPages();
-    }
+    if (panelView_) panelView_->refresh();
+    if (advancedUiEnabled()) refreshAllPages();
     return true;
   }
 
   if (lower == 'e') {
-    if (useLegacyUi_ && enginePage_) {
+    if (advancedUiEnabled() && enginePage_) {
       const int current = enginePage_->currentEngineId();
       const int total = std::max(1, enginePage_->engineCount());
       const int next = ((current - 1 + total) % total) + 1;
@@ -793,7 +824,7 @@ void SeedboxAudioProcessorEditor::handleTapTempo() {
 }
 
 void SeedboxAudioProcessorEditor::nudgeVisibleControl(double delta) {
-  if (!useLegacyUi_) {
+  if (!advancedUiEnabled()) {
     if (panelView_) panelView_->nudgeActiveControl(delta);
     return;
   }
@@ -817,8 +848,48 @@ void SeedboxAudioProcessorEditor::nudgeVisibleControl(double delta) {
   }
 }
 
+bool SeedboxAudioProcessorEditor::advancedUiEnabled() const { return useLegacyUi_ || showAdvanced_; }
+
+void SeedboxAudioProcessorEditor::setAdvancedVisible(bool visible) {
+  showAdvanced_ = useLegacyUi_ || visible;
+  const int appModeId = static_cast<int>(processor_.appState().mode()) + 1;
+  modeSelector_.setSelectedId(appModeId, juce::dontSendNotification);
+  updateVisiblePage();
+  refreshAllPages();
+  resized();
+  if (advancedUiEnabled()) {
+    advancedFrame_.toFront(false);
+    modeSelector_.toFront(false);
+    displayLabel_.toFront(false);
+    shortcutsLabel_.toFront(false);
+    audioSelectorHint_.toFront(false);
+    if (audioSelector_) audioSelector_->toFront(false);
+    if (homePage_) homePage_->toFront(false);
+    if (seedsPage_) seedsPage_->toFront(false);
+    if (enginePage_) enginePage_->toFront(false);
+    if (perfPage_) perfPage_->toFront(false);
+    if (swingPage_) swingPage_->toFront(false);
+    if (settingsPage_) settingsPage_->toFront(false);
+    if (utilPage_) utilPage_->toFront(false);
+  }
+}
+
 void SeedboxAudioProcessorEditor::updateVisiblePage() {
-  if (!useLegacyUi_) {
+  const bool advancedVisible = advancedUiEnabled();
+  advancedFrame_.setVisible(advancedVisible);
+  modeSelector_.setVisible(advancedVisible);
+  shortcutsLabel_.setVisible(advancedVisible);
+  displayLabel_.setVisible(advancedVisible);
+  audioSelectorHint_.setVisible(false);
+  if (!advancedVisible) {
+    if (homePage_) homePage_->setVisible(false);
+    if (seedsPage_) seedsPage_->setVisible(false);
+    if (enginePage_) enginePage_->setVisible(false);
+    if (perfPage_) perfPage_->setVisible(false);
+    if (settingsPage_) settingsPage_->setVisible(false);
+    if (utilPage_) utilPage_->setVisible(false);
+    if (swingPage_) swingPage_->setVisible(false);
+    if (audioSelector_) audioSelector_->setVisible(false);
     return;
   }
   const auto mode = processor_.appState().mode();
@@ -834,7 +905,7 @@ void SeedboxAudioProcessorEditor::updateVisiblePage() {
 }
 
 void SeedboxAudioProcessorEditor::refreshAllPages() {
-  if (!useLegacyUi_) {
+  if (!advancedUiEnabled()) {
     return;
   }
   if (homePage_ && homePage_->isVisible()) homePage_->refresh();
@@ -847,9 +918,6 @@ void SeedboxAudioProcessorEditor::refreshAllPages() {
 }
 
 void SeedboxAudioProcessorEditor::buildAudioSelector() {
-  if (!useLegacyUi_) {
-    return;
-  }
   if (processor_.deviceManager() == nullptr) {
     audioSelectorHint_.setText("Host plugin builds let the DAW pick I/O. Standalone gets a full selector.",
                                juce::dontSendNotification);
@@ -863,6 +931,7 @@ void SeedboxAudioProcessorEditor::buildAudioSelector() {
       *processor_.deviceManager(), numInputs > 0 ? 1 : 0, std::max(1, numInputs), numOutputs > 0 ? 1 : 0,
       std::max(1, numOutputs), false, false, true, false);
   addAndMakeVisible(audioSelector_.get());
+  audioSelector_->setVisible(advancedUiEnabled() && processor_.appState().mode() == AppState::Mode::SETTINGS);
 }
 
 }  // namespace seedbox::juce_bridge

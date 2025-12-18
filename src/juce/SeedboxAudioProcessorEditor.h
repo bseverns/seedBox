@@ -157,7 +157,6 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
  private:
   void timerCallback() override;
   void refreshDisplay();
-  void buildAudioSelector();
   void syncKeyboardButtons();
   bool handleButtonKey(int keyCode, bool pressed);
   void updateButtonState(hal::Board::ButtonID id, bool pressed, bool& lastState);
@@ -165,10 +164,16 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   void nudgeVisibleControl(double delta);
   void updateVisiblePage();
   void refreshAllPages();
+  void setAdvancedVisible(bool visible);
+  bool advancedUiEnabled() const;
+  void buildAudioSelector();
 
   SeedboxAudioProcessor& processor_;
   const bool useLegacyUi_{SEEDBOX_LEGACY_UI != 0};
+  bool showAdvanced_{false};
   std::unique_ptr<SeedboxPanelView> panelView_;
+  juce::TextButton advancedToggle_{};
+  juce::GroupComponent advancedFrame_{};
   juce::ComboBox modeSelector_;
   juce::Label displayLabel_;
   juce::Label shortcutsLabel_;
