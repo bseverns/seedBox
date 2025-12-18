@@ -373,7 +373,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     const auto target = jack != nullptr ? jack->getScreenBounds() : getScreenBounds().toNearestInt();
     juce::Component* anchor = jack != nullptr ? static_cast<juce::Component*>(jack) : static_cast<juce::Component*>(this);
     if (dm != nullptr) {
-      menu.addItem("Audio I/O...", true, false, [this, dm]() {
+      menu.addItem("Audio I/O...", true, false, [this, dm, target, anchor]() {
         const int numInputs = processor_.getTotalNumInputChannels();
         const int numOutputs = processor_.getTotalNumOutputChannels();
         auto selector = std::make_unique<AudioSelectorHost>(*dm, numInputs, numOutputs);
