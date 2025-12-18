@@ -130,7 +130,7 @@ void JuceHost::initialiseWithDefaults() {
   midiBackend_ = backend.get();
   app_.midi.installBackend(MidiRouter::Port::kUsb, std::move(backend));
 
-  deviceManager_.initialiseWithDefaultDevices(/*numInputChannels*/ 0, /*numOutputChannels*/ 2);
+  deviceManager_.initialiseWithDefaultDevices(/*numInputChannels*/ 2, /*numOutputChannels*/ 2);
   deviceManager_.addAudioCallback(this);
   deviceManager_.addMidiInputDeviceCallback({}, this);
 }

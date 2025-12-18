@@ -509,10 +509,13 @@ void SettingsPageComponent::refresh() {
   if (auto* dm = processor_.deviceManager()) {
     auto* setup = dm->getCurrentAudioDevice();
     if (setup != nullptr) {
-      audioInfo_.setText("Device: " + setup->getName() +
-                             " | Inputs: " + juce::String(setup->getInputChannelNames().size()) +
-                             " | Outputs: " + juce::String(setup->getOutputChannelNames().size()),
+      const auto inputs = setup->getActiveInputChannels().countNumberOfSetBits();
+      const auto outputs = setup->getActiveOutputChannels().countNumberOfSetBits();
+      audioInfo_.setText("Device: " + setup->getName() + " | Inputs: " + juce::String(inputs) +
+                             " | Outputs: " + juce::String(outputs),
                          juce::dontSendNotification);
+    } else {
+      audioInfo_.setText("No audio device", juce::dontSendNotification);
     }
   }
 }

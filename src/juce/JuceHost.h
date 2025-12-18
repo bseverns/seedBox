@@ -20,7 +20,7 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   explicit JuceHost(AppState& app);
   ~JuceHost() override;
 
-  // Convenience bootstrap: open the default audio device (stereo out), connect
+  // Convenience bootstrap: open the default audio device (stereo in/out), connect
   // the default MIDI input/output pair, and start streaming buffers into the
   // existing hal::audio callback.
   void initialiseWithDefaults();
