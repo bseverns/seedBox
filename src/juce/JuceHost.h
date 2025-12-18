@@ -50,6 +50,8 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   std::shared_ptr<juce::MidiOutput> midiOutput_{};
   MidiRouter::Backend* midiBackend_{nullptr};
   bool bootstrapped_{false};
+  std::vector<float> inputScratchLeft_{};
+  std::vector<float> inputScratchRight_{};
   std::vector<float> scratchLeft_{};
   std::vector<float> scratchRight_{};
 };
