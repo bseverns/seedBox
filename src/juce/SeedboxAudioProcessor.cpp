@@ -157,9 +157,8 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   float* renderRight = renderScratch_.getNumChannels() > 1 ? renderScratch_.getWritePointer(1) : renderLeft;
   hal::audio::renderHostBuffer(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
   app_.midi.poll();
-  const bool engineHasOutput = renderScratch_.getRMSLevel(0, 0, numSamples) > 0.0f ||
-                               (renderScratch_.getNumChannels() > 1 &&
-                                renderScratch_.getRMSLevel(1, 0, numSamples) > 0.0f);
+  const bool engineHasOutput =
+      hal::audio::bufferHasEngineEnergy(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
 
   float* outLeft = outputBus.getWritePointer(0);
   float* outRight = outputBus.getNumChannels() > 1 ? outputBus.getWritePointer(1) : outLeft;
