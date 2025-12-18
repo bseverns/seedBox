@@ -639,13 +639,21 @@ void SeedboxAudioProcessorEditor::resized() {
     shortcutsLabel_.setBounds(body.removeFromLeft(std::min(520, body.getWidth())));
     displayLabel_.setBounds(body);
 
-    if (audioSelector_ && audioSelector_->isVisible()) {
-      const auto selectorBounds = inner.removeFromBottom(200);
-      audioSelector_->setBounds(selectorBounds);
-    }
-    if (audioSelectorHint_.isVisible()) {
+    const bool hasDeviceManager = processor_.deviceManager() != nullptr;
+    const bool selectorVisible = audioSelector_ && audioSelector_->isVisible();
+    const bool selectorSpaceNeeded =
+        audioSelectorHint_.isVisible() || (hasDeviceManager && processor_.appState().mode() == AppState::Mode::SETTINGS);
+
+    if (selectorSpaceNeeded) {
       const auto hintArea = inner.removeFromBottom(32);
-      audioSelectorHint_.setBounds(hintArea);
+      if (audioSelectorHint_.isVisible()) {
+        audioSelectorHint_.setBounds(hintArea);
+      }
+
+      auto selectorBounds = inner.removeFromBottom(220);
+      if (selectorVisible) {
+        audioSelector_->setBounds(selectorBounds);
+      }
     }
 
     if (homePage_) homePage_->setBounds(inner);
@@ -908,6 +916,7 @@ void SeedboxAudioProcessorEditor::updateVisiblePage() {
   if (swingPage_) swingPage_->setVisible(mode == AppState::Mode::SWING);
   if (audioSelector_) audioSelector_->setVisible(mode == AppState::Mode::SETTINGS);
   audioSelectorHint_.setVisible(mode == AppState::Mode::SETTINGS && audioSelector_ == nullptr);
+  resized();
 }
 
 void SeedboxAudioProcessorEditor::refreshAllPages() {

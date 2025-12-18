@@ -22,7 +22,7 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 
 ## How to hear audio (monitoring + test tone priority)
 
-- **Standalone:** launch the app, open the Audio/MIDI settings block on the SETTINGS page, and pick a stereo input + output. With inputs enabled, the processor copies input → output every block _unless_ the test tone or engines are actively generating sound. Test tone/engines always win; passthrough fills the gap when they are silent. Mono inputs get mirrored to stereo automatically.
+- **Standalone:** launch the app, flip to the SETTINGS page, and pick a stereo input + output in the inline Audio/MIDI selector. The headphone jack popup is still around for a quick restart or summary, but the selector now lives in the page body for faster onboarding. With inputs enabled, the processor copies input → output every block _unless_ the test tone or engines are actively generating sound. Test tone/engines always win; passthrough fills the gap when they are silent. Mono inputs get mirrored to stereo automatically.
 - **VST3:** drop the plugin on a DAW track, make sure the track is record/monitor-enabled, and confirm the VST3 reports a stereo input bus. Monitoring is always on in the plugin as well; the same “engine or test tone beats passthrough” rule applies.
 - **Quick sanity:** flip test tone on, hear the synthesized whine, then disable it and speak/play into the selected input. You should immediately hear dry input unless the engines are busy.
 
@@ -33,7 +33,7 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 - **ENGINE** – Engine dropdown, granular source slider, and the live engine knob grid. Knobs write straight into the focused seed (tone/density/probability/etc. depending on engine). Helper bullets summarize the macro mapping for the selected engine.
 - **PERF** – Tempo slider + tap-tempo button, transport latch toggle, and the home BPM/clock/focus readouts. Treat it as your performance desk.
 - **SWING** – Swing macro plus quantize scale/root selectors. Swing shares space with PERF so tempo nudging and groove sculpting can happen together.
-- **SETTINGS** – External clock and "follow external" toggles, the AudioDeviceSelector (standalone only) with device/channel picks, and a clock source readout.
+- **SETTINGS** – External clock and "follow external" toggles, the inline AudioDeviceSelector (standalone only) with device/channel picks, and a clock source readout. The headphone jack popup still exists for quick restart/summary, but the full picker now rides on this page so students don't have to chase a hidden menu.
 - **UTIL** – Debug meters toggle plus a panic/reset button. The helper text panel remains visible here so you still get a cheatsheet while debugging.
 
 ## Quick desktop sanity checks
