@@ -449,10 +449,7 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   engines_.euclid().renderAudio(ctx);
   engines_.burst().renderAudio(ctx);
 
-  const auto hasEngineSignal = [&buffer]() {
-    return std::any_of(buffer.left, buffer.left + buffer.frames, [](float v) { return v != 0.0f; }) ||
-           std::any_of(buffer.right, buffer.right + buffer.frames, [](float v) { return v != 0.0f; });
-  }();
+  const bool hasEngineSignal = hal::audio::bufferHasEngineEnergy(buffer.left, buffer.right, buffer.frames);
 
 #if SEEDBOX_HW && QUIET_MODE
   // Classroom rigs built in quiet mode keep their codecs muted; we still tick
