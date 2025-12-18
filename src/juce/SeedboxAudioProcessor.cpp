@@ -130,8 +130,13 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     for (int ch = 0; ch < numInputs; ++ch) {
       juce::FloatVectorOperations::copy(inputScratch_.getWritePointer(ch), inputBus.getReadPointer(ch), numSamples);
     }
+    const float* inLeft = inputScratch_.getReadPointer(0);
+    const bool hasRight = inputScratch_.getNumChannels() > 1;
+    const float* inRight = hasRight ? inputScratch_.getReadPointer(1) : nullptr;
+    app_.setDryInputFromHost(inLeft, inRight, static_cast<std::size_t>(numSamples));
   } else {
     inputScratch_.setSize(0, 0, false, false, true);
+    app_.setDryInputFromHost(nullptr, nullptr, 0);
   }
 
   renderScratch_.setSize(std::max(2, numOutputs), numSamples, false, false, true);

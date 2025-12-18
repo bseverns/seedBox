@@ -430,11 +430,49 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
 
 void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   ++audioCallbackCount_;
-  if (!buffer.left || !buffer.right) {
+  if (!buffer.left || !buffer.right || buffer.frames == 0) {
     return;
   }
+
+  Engine::RenderContext ctx{buffer.left, buffer.right, buffer.frames};
+
+  // Start from silence, then let the engines (or a test tone) paint over the
+  // scratch pad. If they stay quiet we fall back to the cached host input so
+  // the JUCE builds mirror the “engine/test tone beats passthrough” contract in
+  // SeedboxAudioProcessor::processBlock.
   std::fill(buffer.left, buffer.left + buffer.frames, 0.0f);
   std::fill(buffer.right, buffer.right + buffer.frames, 0.0f);
+
+  engines_.sampler().renderAudio(ctx);
+  engines_.granular().renderAudio(ctx);
+  engines_.resonator().renderAudio(ctx);
+  engines_.euclid().renderAudio(ctx);
+  engines_.burst().renderAudio(ctx);
+
+  const auto hasEngineSignal = [&buffer]() {
+    return std::any_of(buffer.left, buffer.left + buffer.frames, [](float v) { return v != 0.0f; }) ||
+           std::any_of(buffer.right, buffer.right + buffer.frames, [](float v) { return v != 0.0f; });
+  }();
+
+#if SEEDBOX_HW && QUIET_MODE
+  // Classroom rigs built in quiet mode keep their codecs muted; we still tick
+  // the callback counter above so timing-sensitive tests can probe the audio
+  // heartbeat without blasting speakers.
+  if (!hasEngineSignal) {
+    return;
+  }
+#endif
+
+  if (!hasEngineSignal && !dryInputLeft_.empty()) {
+    const std::size_t copyFrames = std::min<std::size_t>(buffer.frames, dryInputLeft_.size());
+    const float* dryLeft = dryInputLeft_.data();
+    const float* dryRight = (!dryInputRight_.empty() && dryInputRight_.size() >= copyFrames)
+                                ? dryInputRight_.data()
+                                : dryLeft;
+
+    std::copy(dryLeft, dryLeft + copyFrames, buffer.left);
+    std::copy(dryRight, dryRight + copyFrames, buffer.right);
+  }
 }
 
 void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp) {
@@ -1455,6 +1493,30 @@ void AppState::setLiveCaptureVariation(uint8_t variationSteps) {
   // small and explicit makes the reseed maths traceable in class instead of
   // hiding behind a giant PRNG spray.
   liveCaptureVariation_ = static_cast<uint8_t>(variationSteps % kShortCaptureSlots);
+}
+
+void AppState::setDryInputFromHost(const float* left, const float* right, std::size_t frames) {
+#if SEEDBOX_HW && QUIET_MODE
+  (void)left;
+  (void)right;
+  (void)frames;
+  dryInputLeft_.clear();
+  dryInputRight_.clear();
+  return;
+#endif
+
+  if (!left || frames == 0) {
+    dryInputLeft_.clear();
+    dryInputRight_.clear();
+    return;
+  }
+
+  dryInputLeft_.assign(left, left + frames);
+  if (right) {
+    dryInputRight_.assign(right, right + frames);
+  } else {
+    dryInputRight_.assign(dryInputLeft_.begin(), dryInputLeft_.end());
+  }
 }
 
 void AppState::updateClockDominance() {
