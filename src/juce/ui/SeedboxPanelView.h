@@ -6,20 +6,26 @@
 #include <functional>
 #include <optional>
 
+namespace juce {
+class AudioDeviceManager;
+}
+
 #include "juce/SeedboxAudioProcessor.h"
 
 namespace seedbox::juce_bridge {
 
 class SeedboxPanelView : public juce::Component {
  public:
-  explicit SeedboxPanelView(SeedboxAudioProcessor& processor);
+  explicit SeedboxPanelView(SeedboxAudioProcessor& processor, juce::AudioDeviceManager* audioManager = nullptr);
   ~SeedboxPanelView() override;
 
   void paint(juce::Graphics& g) override;
   void resized() override;
 
   void refresh();
+  void setAudioManager(juce::AudioDeviceManager* audioManager);
   void setModifierStates(bool toneHeld, bool shiftHeld, bool altHeld);
+  void syncKeyboardModifiers(bool toneHeld, bool shiftHeld, bool altHeld);
   void nudgeActiveControl(double delta);
 
  private:
@@ -122,6 +128,7 @@ class SeedboxPanelView : public juce::Component {
 
   juce::Slider* lastActive_{nullptr};
   double lastTapMs_{0.0};
+  juce::AudioDeviceManager* audioManager_{nullptr};
 };
 
 }  // namespace seedbox::juce_bridge

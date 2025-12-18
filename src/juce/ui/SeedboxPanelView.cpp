@@ -186,7 +186,8 @@ void SeedboxPanelView::JackIcon::mouseUp(const juce::MouseEvent& event) {
   }
 }
 
-SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor_(processor) {
+SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::AudioDeviceManager* audioManager)
+    : processor_(processor), audioManager_(audioManager != nullptr ? audioManager : processor.deviceManager()) {
   setLookAndFeel(&lookAndFeel_);
 
   auto setupKnob = [&](LabeledKnob& target, const juce::String& name, const juce::String& helper) {
@@ -336,7 +337,8 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
   }));
   jackIcons_.add(new JackIcon("Headphone", [this]() {
     juce::PopupMenu menu;
-    if (auto* dm = processor_.deviceManager()) {
+    auto* dm = audioManager_ != nullptr ? audioManager_ : processor_.deviceManager();
+    if (dm != nullptr) {
       menu.addItem("Audio I/O...", true, false, [this, dm]() {
         const int numInputs = processor_.getTotalNumInputChannels();
         const int numOutputs = processor_.getTotalNumOutputChannels();
@@ -350,7 +352,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor) : processor
       menu.addSeparator();
       menu.addItem("Restart audio engine", true, false, [dm]() { dm->restartLastAudioDevice(); });
     } else {
-      menu.addItem("Host controls audio", false, true, nullptr);
+      menu.addItem("Host controls audio (no device manager)", false, true, nullptr);
     }
     return menu;
   }));
@@ -484,10 +486,23 @@ void SeedboxPanelView::refresh() {
   applySensitivity();
 }
 
+void SeedboxPanelView::setAudioManager(juce::AudioDeviceManager* audioManager) { audioManager_ = audioManager; }
+
 void SeedboxPanelView::setModifierStates(bool toneHeld, bool shiftHeld, bool altHeld) {
   setToneHeld(toneHeld, true);
   setShiftHeld(shiftHeld, true);
   setAltHeld(altHeld, true);
+}
+
+void SeedboxPanelView::syncKeyboardModifiers(bool toneHeld, bool shiftHeld, bool altHeld) {
+  toneHeldByKeyboard_ = toneHeld;
+  shiftHeldByKeyboard_ = shiftHeld;
+  altHeldByKeyboard_ = altHeld;
+
+  shiftButton_.setToggleState(shiftActive(), juce::dontSendNotification);
+  altButton_.setToggleState(altActive(), juce::dontSendNotification);
+
+  applySensitivity();
 }
 
 void SeedboxPanelView::setShiftHeld(bool held, bool keyboard) {
@@ -510,6 +525,7 @@ void SeedboxPanelView::setToneHeld(bool held, bool keyboard) {
   toneHeldByKeyboard_ = keyboard ? held : toneHeldByKeyboard_;
   toneHeldByButton_ = keyboard ? toneHeldByButton_ : held;
   hal::nativeBoardSetButton(hal::Board::ButtonID::EncoderToneTilt, toneActive());
+  applySensitivity();
 }
 
 void SeedboxPanelView::applySensitivity() {
@@ -521,6 +537,7 @@ void SeedboxPanelView::applySensitivity() {
   setInterval(densityKnob_.knob, fine);
   setInterval(toneKnob_.knob, shiftActive() ? 0.005 : 0.01);
   setInterval(fxKnob_.knob, shiftActive() ? 0.005 : 0.01);
+  toneKnob_.label.setColour(juce::Label::textColourId, toneActive() ? accentColour() : juce::Colours::whitesmoke);
 }
 
 void SeedboxPanelView::handleTap(bool longPress) {
