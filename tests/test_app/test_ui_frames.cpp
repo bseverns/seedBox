@@ -3,6 +3,7 @@
 #include <string>
 #include <unity.h>
 #include "app/AppState.h"
+#include "engine/EngineRouter.h"
 #include "ui/AsciiOledView.h"
 
 namespace {
@@ -53,5 +54,29 @@ void test_ascii_renderer_tracks_engine_swaps() {
   TEST_ASSERT_GREATER_OR_EQUAL_UINT(2, static_cast<unsigned>(view.frames().size()));
   TEST_ASSERT_FALSE(std::strcmp(first.c_str(), view.latest().c_str()) == 0);
   TEST_ASSERT_NOT_NULL(strstr(view.latest().c_str(), "GRA"));
+}
+
+void test_debug_meter_toggle_updates_metrics_and_mode() {
+  AppState app;
+  app.initSim();
+
+  const auto focus = app.focusSeed();
+  app.setSeedEngine(focus, EngineRouter::kResonatorId);
+
+  AppState::DisplaySnapshot baseline{};
+  UiState baselineUi{};
+  app.captureDisplaySnapshot(baseline, baselineUi);
+
+  const std::string baselineMetrics(baseline.metrics);
+
+  app.setDebugMetersEnabledFromHost(true);
+
+  AppState::DisplaySnapshot debugSnap{};
+  UiState debugUi{};
+  app.captureDisplaySnapshot(debugSnap, debugUi);
+
+  TEST_ASSERT_EQUAL(UiState::Mode::kSystem, debugUi.mode);
+  TEST_ASSERT_NOT_EQUAL(0, std::strcmp(baseline.metrics, debugSnap.metrics));
+  TEST_ASSERT_NOT_NULL(strstr(debugSnap.metrics, "F"));
 }
 

@@ -22,6 +22,7 @@ void test_global_lock_blocks_reseed_changes();
 void test_quantize_control_snaps_pitch_to_scale();
 void test_ascii_frame_matches_boot_snapshot();
 void test_ascii_renderer_tracks_engine_swaps();
+void test_debug_meter_toggle_updates_metrics_and_mode();
 void test_ui_gallery_snapshots();
 void test_live_input_prime_tags_seeds_as_live();
 void test_live_input_prime_respects_all_engine_assignments();
@@ -63,6 +64,7 @@ int main(int, char**) {
   RUN_TEST(test_quantize_control_snaps_pitch_to_scale);
   RUN_TEST(test_ascii_frame_matches_boot_snapshot);
   RUN_TEST(test_ascii_renderer_tracks_engine_swaps);
+  RUN_TEST(test_debug_meter_toggle_updates_metrics_and_mode);
   RUN_TEST(test_ui_gallery_snapshots);
   RUN_TEST(test_live_input_prime_tags_seeds_as_live);
   RUN_TEST(test_live_input_prime_respects_all_engine_assignments);

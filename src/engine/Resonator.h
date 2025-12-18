@@ -37,9 +37,7 @@ public:
   uint8_t activeVoices() const;
   SEEDBOX_MAYBE_UNUSED const char* presetName(uint8_t bank) const;
 
-#if SEEDBOX_HW
   SEEDBOX_MAYBE_UNUSED float fanoutProbeLevel() const;
-#endif
 
   struct VoiceState {
     bool active{false};

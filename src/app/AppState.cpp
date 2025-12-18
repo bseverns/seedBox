@@ -1493,15 +1493,6 @@ void AppState::setLiveCaptureVariation(uint8_t variationSteps) {
 }
 
 void AppState::setDryInputFromHost(const float* left, const float* right, std::size_t frames) {
-#if SEEDBOX_HW && QUIET_MODE
-  (void)left;
-  (void)right;
-  (void)frames;
-  dryInputLeft_.clear();
-  dryInputRight_.clear();
-  return;
-#endif
-
   if (!left || frames == 0) {
     dryInputLeft_.clear();
     dryInputRight_.clear();
@@ -2105,8 +2096,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     return;
   }
 
-#if SEEDBOX_HW && !QUIET_MODE
-  if (debugMetersEnabled_ && s.engine == 2) {
+  const bool debugMetersActive = debugMetersEnabled_ && s.engine == EngineRouter::kResonatorId;
+  if (debugMetersActive) {
     const float fanout = engines_.resonator().fanoutProbeLevel();
     writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
   } else {
@@ -2114,11 +2105,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
                       formatScratch(scratch, "D%.2fP%.2fN%03u", density, probability,
                                      static_cast<unsigned>(nowSamples % 1000u)));
   }
-#else
-  writeDisplayField(out.metrics,
-                    formatScratch(scratch, "D%.2fP%.2fN%03u", density, probability,
-                                   static_cast<unsigned>(nowSamples % 1000u)));
-#endif
 
   const float mutate = std::clamp(s.mutateAmt, 0.0f, 1.0f);
   const float jitterMs = std::clamp(s.jitterMs, 0.0f, 999.9f);

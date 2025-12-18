@@ -350,14 +350,17 @@ void ResonatorBank::mapVoiceToGraph(uint8_t voiceIndex, VoiceInternal& voicePlan
 #endif
 }
 
-#if SEEDBOX_HW
 float ResonatorBank::fanoutProbeLevel() const {
+#if SEEDBOX_HW
   if (voiceFanoutProbe_.available()) {
     return voiceFanoutProbe_.read();
   }
   return 0.0f;
-}
+  
+#else
+  return 0.0f;
 #endif
+}
 
 const ResonatorBank::ModalPreset& ResonatorBank::resolvePreset(uint8_t bank) const {
   if (bank >= presets_.size()) {
