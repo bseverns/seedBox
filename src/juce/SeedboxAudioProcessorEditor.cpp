@@ -529,7 +529,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   setWantsKeyboardFocus(true);
   grabKeyboardFocus();
 
-  showAdvanced_ = useLegacyUi_;
+  showAdvanced_ = true;
 
   if (!useLegacyUi_) {
     setSize(960, 720);
@@ -545,6 +545,11 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
         "Show the legacy HOME/SEEDS/ENGINE/PERF/SWING/SETTINGS/UTIL stack without rebuilding with SEEDBOX_LEGACY_UI.");
     advancedToggle_.onClick = [this]() { setAdvancedVisible(!showAdvanced_); };
     addAndMakeVisible(advancedToggle_);
+
+    advancedHint_.setText("Advanced pages are live by default—toggle to tuck them away.", juce::dontSendNotification);
+    advancedHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+    advancedHint_.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(advancedHint_);
   } else {
     setSize(820, 760);
   }
@@ -660,6 +665,7 @@ void SeedboxAudioProcessorEditor::resized() {
   auto bounds = getLocalBounds().reduced(8);
   auto header = bounds.removeFromTop(36);
   advancedToggle_.setBounds(header.removeFromRight(180));
+  advancedHint_.setBounds(header);
 
   if (advancedUiEnabled()) {
     const int advancedWidth = std::min(420, bounds.getWidth() / 2 + 120);

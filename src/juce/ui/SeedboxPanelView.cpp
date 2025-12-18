@@ -64,6 +64,37 @@ class AudioSelectorHost : public juce::Component {
   juce::AudioDeviceSelectorComponent selector_;
 };
 
+class AudioDeviceInfoMessage : public juce::Component {
+ public:
+  explicit AudioDeviceInfoMessage(juce::String text) {
+    copyButton_.setButtonText("Copy");
+    copyButton_.setTooltip("Copy this device summary to your clipboard.");
+    copyButton_.onClick = [msg = text, this]() {
+      juce::SystemClipboard::copyTextToClipboard(msg);
+      copyButton_.setButtonText("Copied");
+    };
+
+    message_.setJustificationType(juce::Justification::centred);
+    message_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+    message_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.4f));
+    message_.setText(std::move(text), juce::dontSendNotification);
+
+    addAndMakeVisible(message_);
+    addAndMakeVisible(copyButton_);
+    setSize(420, 140);
+  }
+
+  void resized() override {
+    auto area = getLocalBounds().reduced(12);
+    copyButton_.setBounds(area.removeFromBottom(32).removeFromRight(80));
+    message_.setBounds(area);
+  }
+
+ private:
+  juce::Label message_;
+  juce::TextButton copyButton_;
+};
+
 SeedboxPanelView::PanelLookAndFeel::PanelLookAndFeel() {
   setColour(juce::Slider::thumbColourId, accentColour());
   setColour(juce::TextButton::buttonColourId, juce::Colours::darkslategrey);
@@ -338,21 +369,38 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
   jackIcons_.add(new JackIcon("Headphone", [this]() {
     juce::PopupMenu menu;
     auto* dm = audioManager_ != nullptr ? audioManager_ : processor_.deviceManager();
+    auto* jack = jackIcons_[2];
+    const auto target = jack != nullptr ? jack->getScreenBounds() : getScreenBounds().toNearestInt();
+    juce::Component* anchor = jack != nullptr ? static_cast<juce::Component*>(jack) : static_cast<juce::Component*>(this);
     if (dm != nullptr) {
       menu.addItem("Audio I/O...", true, false, [this, dm]() {
         const int numInputs = processor_.getTotalNumInputChannels();
         const int numOutputs = processor_.getTotalNumOutputChannels();
         auto selector = std::make_unique<AudioSelectorHost>(*dm, numInputs, numOutputs);
-        auto* jack = jackIcons_[2];
-        const auto target = jack != nullptr ? jack->getScreenBounds() : getScreenBounds().toNearestInt();
-        juce::Component* anchor = jack != nullptr ? static_cast<juce::Component*>(jack)
-                                                  : static_cast<juce::Component*>(this);
         juce::CallOutBox::launchAsynchronously(std::move(selector), target, anchor);
       });
+      if (auto* device = dm->getCurrentAudioDevice()) {
+        const auto inputs = device->getActiveInputChannels().countNumberOfSetBits();
+        const auto outputs = device->getActiveOutputChannels().countNumberOfSetBits();
+        const juce::String summary = "Device: " + device->getName() + "\nInputs: " + juce::String(inputs) +
+                                    " | Outputs: " + juce::String(outputs) +
+                                    "\nSample Rate: " + juce::String(device->getCurrentSampleRate(), 1) + " Hz | Block Size: " +
+                                    juce::String(device->getCurrentBufferSizeSamples()) + " samples";
+        menu.addItem("Device summary", true, false, [anchor, target, summary]() mutable {
+          auto info = std::make_unique<AudioDeviceInfoMessage>(summary);
+          juce::CallOutBox::launchAsynchronously(std::move(info), target, anchor);
+        });
+      }
       menu.addSeparator();
       menu.addItem("Restart audio engine", true, false, [dm]() { dm->restartLastAudioDevice(); });
     } else {
-      menu.addItem("Host controls audio (no device manager)", false, true, nullptr);
+      menu.addItem("Why can't I pick audio here?", true, false, [anchor, target]() {
+        auto info = std::make_unique<AudioDeviceInfoMessage>(
+            "Host plugin builds let the DAW pick I/O.\n"
+            "Pop open your DAW's audio/device prefs to switch drivers or ports.\n"
+            "Standalone SeedBox exposes the full selector here.");
+        juce::CallOutBox::launchAsynchronously(std::move(info), target, anchor);
+      });
     }
     return menu;
   }));

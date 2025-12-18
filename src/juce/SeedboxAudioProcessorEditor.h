@@ -170,13 +170,14 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
 
   SeedboxAudioProcessor& processor_;
   const bool useLegacyUi_{SEEDBOX_LEGACY_UI != 0};
-  bool showAdvanced_{false};
+  bool showAdvanced_{true};
   std::unique_ptr<SeedboxPanelView> panelView_;
   juce::TextButton advancedToggle_{};
   juce::GroupComponent advancedFrame_{};
   juce::ComboBox modeSelector_;
   juce::Label displayLabel_;
   juce::Label shortcutsLabel_;
+  juce::Label advancedHint_;
   juce::Label audioSelectorHint_;
   std::unique_ptr<juce::AudioDeviceSelectorComponent> audioSelector_;
   std::unique_ptr<HomePageComponent> homePage_;
