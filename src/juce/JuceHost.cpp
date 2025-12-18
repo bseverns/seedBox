@@ -158,8 +158,8 @@ void JuceHost::audioDeviceAboutToStart(juce::AudioIODevice* device) {
 
 void JuceHost::audioDeviceStopped() { hal::audio::stop(); }
 
-void JuceHost::audioDeviceIOCallbackWithContext(const float* const* /*inputChannelData*/,
-                                                int /*numInputChannels*/, float* const* outputChannelData,
+void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
+                                                int numInputChannels, float* const* outputChannelData,
                                                 int numOutputChannels, int numSamples,
                                                 const juce::AudioIODeviceCallbackContext&) {
   for (int ch = 0; ch < numOutputChannels; ++ch) {
@@ -170,8 +170,43 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* /*inputChann
   std::size_t frames = static_cast<std::size_t>(std::max(0, numSamples));
   left = left ? left : scratch(scratchLeft_, frames).data();
   right = right ? right : scratch(scratchRight_, frames).data();
+
+  const bool hasInput = inputChannelData && numInputChannels > 0 && frames > 0;
+  if (hasInput && inputChannelData[0]) {
+    auto& inLeftScratch = scratch(inputScratchLeft_, frames);
+    juce::FloatVectorOperations::copy(inLeftScratch.data(), inputChannelData[0], numSamples);
+
+    const bool hasRight = numInputChannels > 1 && inputChannelData[1];
+    const float* rightInput = nullptr;
+    if (hasRight) {
+      auto& inRightScratch = scratch(inputScratchRight_, frames);
+      juce::FloatVectorOperations::copy(inRightScratch.data(), inputChannelData[1], numSamples);
+      rightInput = inRightScratch.data();
+    } else {
+      inputScratchRight_.clear();
+    }
+
+    app_.setDryInputFromHost(inLeftScratch.data(), rightInput, frames);
+  } else {
+    inputScratchLeft_.clear();
+    inputScratchRight_.clear();
+    app_.setDryInputFromHost(nullptr, nullptr, 0);
+  }
+
   hal::audio::renderHostBuffer(left, right, frames);
   app_.midi.poll();
+  const bool engineHasOutput = hal::audio::bufferHasEngineEnergy(left, right, frames);
+
+  if (!engineHasOutput && hasInput && numOutputChannels > 0) {
+    const float* inLeft = inputScratchLeft_.data();
+    const float* inRight = inputScratchRight_.empty() ? nullptr : inputScratchRight_.data();
+
+    juce::FloatVectorOperations::copy(outputChannelData[0], inLeft, numSamples);
+    if (numOutputChannels > 1) {
+      juce::FloatVectorOperations::copy(outputChannelData[1], inRight ? inRight : inLeft, numSamples);
+    }
+  }
+
   app_.tick();
 }
 
