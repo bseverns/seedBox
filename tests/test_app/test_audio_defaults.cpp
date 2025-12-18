@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 #include <unity.h>
 
@@ -33,10 +34,28 @@ void test_simulator_audio_reports_48k() {
   TEST_ASSERT_FLOAT_WITHIN(0.01f, Units::kSampleRate, hal::audio::sampleRate());
 }
 
+void test_engine_idle_floor_tracks_peak_and_rms() {
+  constexpr std::size_t kFrames = 8;
+  float silence[kFrames]{};
+  TEST_ASSERT_TRUE(hal::audio::bufferEngineIdle(silence, nullptr, kFrames));
+
+  float rightOnly[kFrames]{};
+  rightOnly[3] = 4.0e-6f;  // poke above the idle floor on the right channel only
+  TEST_ASSERT_FALSE(hal::audio::bufferEngineIdle(silence, rightOnly, kFrames));
+
+  float stereoFuzz[kFrames];
+  std::fill(std::begin(stereoFuzz), std::end(stereoFuzz), 2.0e-6f);
+  TEST_ASSERT_TRUE(hal::audio::bufferEngineIdle(stereoFuzz, stereoFuzz, kFrames));
+}
+
 #else  // SEEDBOX_HW
 
 void test_simulator_audio_reports_48k() {
   TEST_IGNORE_MESSAGE("audio sample-rate probe only applies to the simulator");
+}
+
+void test_engine_idle_floor_tracks_peak_and_rms() {
+  TEST_IGNORE_MESSAGE("engine idle floor check only applies to the simulator");
 }
 
 #endif  // !SEEDBOX_HW

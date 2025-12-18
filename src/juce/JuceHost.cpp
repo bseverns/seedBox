@@ -195,9 +195,9 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannel
 
   hal::audio::renderHostBuffer(left, right, frames);
   app_.midi.poll();
-  const bool engineHasOutput = hal::audio::bufferHasEngineEnergy(left, right, frames);
+  const bool enginesIdle = hal::audio::bufferEngineIdle(left, right, frames);
 
-  if (!engineHasOutput && hasInput && numOutputChannels > 0) {
+  if (enginesIdle && hasInput && numOutputChannels > 0) {
     const float* inLeft = inputScratchLeft_.data();
     const float* inRight = inputScratchRight_.empty() ? nullptr : inputScratchRight_.data();
 

@@ -53,27 +53,45 @@ SEEDBOX_MAYBE_UNUSED void mockSetSampleRate(float hz);
 SEEDBOX_MAYBE_UNUSED void mockPump(std::size_t frames);
 #endif  // SEEDBOX_HW
 
-// Tiny helper shared by the hardware + JUCE audio paths to decide when the
-// engines are “actually speaking.”  We treat anything above -120 dBFS (~1e-6f)
-// as intentional signal and ignore denorm-y fuzz that bubbles up from math
-// noise so passthrough works when the engines nap.
-inline bool bufferHasEngineEnergy(const float* left, const float* right, std::size_t frames,
-                                  float epsilon = 1e-6f) {
+// Tiny helpers shared by the hardware + JUCE audio paths to decide when the
+// engines are “actually speaking.”  We treat anything above roughly -110 dBFS
+// (~3e-6f) as intentional signal and ignore denorm-y fuzz that bubbles up from
+// math noise so passthrough works when the engines nap. Both RMS and peak need
+// to stay under the floor before we call the buffer “idle.”
+inline bool bufferEngineIdle(const float* left, const float* right, std::size_t frames,
+                             float epsilon = 3e-6f) {
   if (!left || frames == 0) {
-    return false;
+    return true;
   }
 
   float peak = 0.0f;
+  double sumSquares = 0.0;
+  const int channels = right ? 2 : 1;
+  const double rmsThresholdSq = static_cast<double>(epsilon) * static_cast<double>(epsilon) *
+                                static_cast<double>(frames * channels);
+
   for (std::size_t i = 0; i < frames; ++i) {
-    peak = std::max(peak, std::abs(left[i]));
+    const float l = left[i];
+    peak = std::max(peak, std::abs(l));
+    sumSquares += static_cast<double>(l) * static_cast<double>(l);
+
     if (right) {
-      peak = std::max(peak, std::abs(right[i]));
+      const float r = right[i];
+      peak = std::max(peak, std::abs(r));
+      sumSquares += static_cast<double>(r) * static_cast<double>(r);
     }
-    if (peak > epsilon) {
-      return true;
+
+    if (peak > epsilon || sumSquares > rmsThresholdSq) {
+      return false;
     }
   }
-  return false;
+
+  return peak <= epsilon && sumSquares <= rmsThresholdSq;
+}
+
+inline bool bufferHasEngineEnergy(const float* left, const float* right, std::size_t frames,
+                                  float epsilon = 3e-6f) {
+  return !bufferEngineIdle(left, right, frames, epsilon);
 }
 
 }  // namespace audio
