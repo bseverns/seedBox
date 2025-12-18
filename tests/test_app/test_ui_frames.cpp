@@ -3,7 +3,7 @@
 #include <string>
 #include <unity.h>
 #include "app/AppState.h"
-#include "app/EngineRouter.h"
+#include "engine/EngineRouter.h"
 #include "ui/AsciiOledView.h"
 
 namespace {
