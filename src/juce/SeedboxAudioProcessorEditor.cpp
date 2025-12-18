@@ -598,7 +598,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     if (auto* constrainer = getConstrainer()) {
       constrainer->setFixedAspectRatio(720.0 / 520.0);
     }
-    panelView_ = std::make_unique<SeedboxPanelView>(processor_);
+    panelView_ = std::make_unique<SeedboxPanelView>(processor_, processor_.deviceManager());
     addAndMakeVisible(panelView_.get());
   }
   startTimerHz(15);
@@ -673,7 +673,7 @@ void SeedboxAudioProcessorEditor::syncKeyboardButtons() {
   updateButtonState(hal::Board::ButtonID::Shift, shiftDown, shiftKeyDown_);
   updateButtonState(hal::Board::ButtonID::AltSeed, altDown, altKeyDown_);
   if (panelView_) {
-    panelView_->setModifierStates(toneDown, shiftDown, altDown);
+    panelView_->syncKeyboardModifiers(toneDown, shiftDown, altDown);
   }
 #endif
 }
