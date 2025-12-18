@@ -208,6 +208,7 @@ public:
   void setClockSourceExternalFromHost(bool external);
   void setInternalBpmFromHost(float bpm);
   void setLiveCaptureVariation(uint8_t variationSteps);
+  void setDryInputFromHost(const float* left, const float* right, std::size_t frames);
   bool applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit);
 
   MidiRouter midi;
@@ -328,5 +329,7 @@ private:
   bool lockButtonHeld_{false};
   uint32_t lockButtonPressTimestamp_{0};
   float swingPercent_{0.0f};
+  std::vector<float> dryInputLeft_{};
+  std::vector<float> dryInputRight_{};
 };
 
