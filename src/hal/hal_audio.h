@@ -58,8 +58,13 @@ SEEDBOX_MAYBE_UNUSED void mockPump(std::size_t frames);
 // (~3e-6f) as intentional signal and ignore denorm-y fuzz that bubbles up from
 // math noise so passthrough works when the engines nap. Both RMS and peak need
 // to stay under the floor before we call the buffer “idle.”
+inline constexpr float kEngineIdleEpsilon = 1e-5f;
+inline constexpr float kEnginePassthroughFloor = 1e-4f;
+inline constexpr double kEngineIdleRmsSlack = 2.0;
+
 inline bool bufferEngineIdle(const float* left, const float* right, std::size_t frames,
-                             float epsilon = 3e-6f) {
+                             float epsilon = kEngineIdleEpsilon,
+                             double rmsSlack = kEngineIdleRmsSlack) {
   if (!left || frames == 0) {
     return true;
   }
@@ -68,7 +73,7 @@ inline bool bufferEngineIdle(const float* left, const float* right, std::size_t 
   double sumSquares = 0.0;
   const int channels = right ? 2 : 1;
   const double rmsThresholdSq = static_cast<double>(epsilon) * static_cast<double>(epsilon) *
-                                static_cast<double>(frames * channels);
+                                static_cast<double>(frames * channels) * rmsSlack;
 
   for (std::size_t i = 0; i < frames; ++i) {
     const float l = left[i];
@@ -90,8 +95,9 @@ inline bool bufferEngineIdle(const float* left, const float* right, std::size_t 
 }
 
 inline bool bufferHasEngineEnergy(const float* left, const float* right, std::size_t frames,
-                                  float epsilon = 3e-6f) {
-  return !bufferEngineIdle(left, right, frames, epsilon);
+                                  float epsilon = kEngineIdleEpsilon,
+                                  double rmsSlack = kEngineIdleRmsSlack) {
+  return !bufferEngineIdle(left, right, frames, epsilon, rmsSlack);
 }
 
 }  // namespace audio
