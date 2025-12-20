@@ -18,7 +18,7 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 - **Buttons:** Tap (long-press toggles transport latch), Shift + Alt as momentary modifiers, Reseed (Alt saves a quick preset), Lock (Alt recalls the quick preset) tied to the per-seed lock state.
 - **OLED:** Monospace snapshot of the firmware display, refreshed ~15 Hz so you still see page hints/metrics.
 - **Jacks:** Decorative circles with light-touch helpers (MIDI clock follow/clock source toggles, audio device nudge) to mimic the panel art.
-- **Shortcuts:** Space = latch transport, `T` = tap, `1`–`4` focus seeds, `E` cycle engines, arrows nudge the last touched control. Shift/Alt keys still mirror the hardware modifiers.
+- **Shortcuts:** Space = latch transport, `T` = tap tempo, `O` mirrors the Tone/Tilt button, `1`–`4` focus seeds, `E` cycle engines, arrows nudge the last touched control. Shift/Alt keys still mirror the hardware modifiers.
 
 ## How to hear audio (monitoring + test tone priority)
 
@@ -45,11 +45,12 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 ## Keyboard shortcuts (desktop stand-in for panel combos)
 
 - Spacebar toggles the transport latch/run flag.
-- `T` taps tempo (and still drives the Tone Tilt soft button for folks practicing hardware muscle memory).
+- `T` taps tempo only — no more surprise Tone/Tilt toggles while you chase a beat.
+- `O` mirrors the Tone/Tilt button so you can still hammer Tone + modifiers from the keyboard.
 - `1`–`4` jump focus to the matching seed.
 - `E` cycles engines without mousing the dropdown.
 - Arrow keys nudge the currently visible control (engine knobs get first dibs, then tempo/swing) in small increments.
-- Hold `T`, `S`, or `A` to mirror the Tone/Shift/Alt buttons from the panel — helpful when you want to mash combos while typing.
+- Hold `O`, `S`, or `A` to mirror the Tone/Shift/Alt buttons from the panel — helpful when you want to mash combos while typing.
 
 ## Persistence: what sticks and where
 
@@ -60,7 +61,8 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 ## Keyboard shortcuts (desktop stand-in for panel combos)
 
 - Spacebar toggles the transport latch/run flag.
-- `T` taps tempo (and still drives the Tone Tilt soft button for folks practicing hardware muscle memory).
+- `T` taps tempo only — no more surprise Tone/Tilt toggles while you chase a beat.
+- `O` mirrors the Tone/Tilt button so you can still hammer Tone + modifiers from the keyboard.
 - `1`–`4` jump focus to the matching seed.
 - `E` cycles engines without mousing the dropdown.
 - Arrow keys nudge the currently visible control (engine knobs get first dibs, then tempo/swing) in small increments.

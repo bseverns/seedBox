@@ -187,7 +187,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   std::unique_ptr<SwingPageComponent> swingPage_;
   std::unique_ptr<UtilPageComponent> utilPage_;
   std::unique_ptr<SettingsPageComponent> settingsPage_;
-  const int toneKeyCode_{'t'};
+  const int toneKeyCode_{'o'};
   const int shiftKeyCode_{'s'};
   const int altKeyCode_{'a'};
   bool toneKeyDown_{false};

@@ -590,13 +590,13 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
   displayLabel_.setFont(juce::Font(16.0f, juce::Font::plain));
   displayLabel_.setBorderSize(juce::BorderSize<int>(4));
-  displayLabel_.setTooltip("Desktop control hint: press T for Tone, S for Shift, A for Alt.");
+    displayLabel_.setTooltip("Desktop control hint: press O for Tone, S for Shift, A for Alt.");
   addAndMakeVisible(displayLabel_);
 
   shortcutsLabel_.setJustificationType(juce::Justification::centred);
   shortcutsLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   shortcutsLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.3f));
-  shortcutsLabel_.setText("Shortcuts: Space=Latch, T=Tap, 1-4=Focus seed, E=Cycle engine, Arrows=Nudge",
+  shortcutsLabel_.setText("Shortcuts: Space=Latch, T=Tap, O=Tone/Tilt, 1-4=Focus seed, E=Cycle engine, Arrows=Nudge",
                           juce::dontSendNotification);
   shortcutsLabel_.setFont(juce::Font(13.0f));
   addAndMakeVisible(shortcutsLabel_);
