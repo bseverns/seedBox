@@ -282,6 +282,7 @@ private:
   PatternScheduler scheduler_{};
   ClockProvider* clock_{nullptr};
   EngineRouter engines_{};
+  bool enginesReady_{false};
   std::vector<uint8_t> seedEngineSelections_{};
   SeedLock seedLock_{};
   SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};

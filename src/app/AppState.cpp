@@ -397,6 +397,7 @@ void AppState::configureMidiRouting() {
 
 void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   engines_.init(mode);
+  enginesReady_ = true;
   engines_.granular().setMaxActiveVoices(hardwareMode ? 36 : 12);
   engines_.granular().armLiveInput(hardwareMode);
   populateSdClips(engines_.granular());
@@ -1539,7 +1540,7 @@ void AppState::setSeedPrimeBypassFromHost(bool enabled) {
     const float bpm = (seedPrimeMode_ == SeedPrimeMode::kTapTempo) ? currentTapTempoBpm() : 120.f;
     scheduler_.setBpm(bpm);
     scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
-    const bool hardwareModeFlag = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
+    const bool hardwareModeFlag = (enginesReady_ && engines_.granular().mode() == GranularEngine::Mode::kHardware);
     scheduler_.setSampleClockFn(hardwareModeFlag ? &hal::audio::sampleClock : nullptr);
     seeds_.assign(kSeedSlotCount, Seed{});
     seedEngineSelections_.assign(kSeedSlotCount, 0);
