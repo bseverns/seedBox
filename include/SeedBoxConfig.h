@@ -32,6 +32,13 @@
 #define QUIET_MODE 1
 #endif
 
+// Seed prime bypass flips off the "always four slots" safety net. When set the
+// firmware only primes the currently focused seed, leaving the others empty so
+// educators can show how the reseed gate alone drives population.
+#ifndef SEED_PRIME_BYPASS
+#define SEED_PRIME_BYPASS 0
+#endif
+
 // Golden fixtures opt-in. When true, tests may write comparison blobs into
 // `artifacts/` so reviewers can diff logs and renders. Documented in README as
 // "ENABLE_GOLDEN".
@@ -59,6 +66,7 @@ constexpr bool kHardwareBuild = (SEEDBOX_HW != 0);
 constexpr bool kSimBuild = (SEEDBOX_SIM != 0);
 constexpr bool kJuceBuild = (SEEDBOX_JUCE != 0);
 constexpr bool kQuietMode = (QUIET_MODE != 0);
+constexpr bool kSeedPrimeBypass = (SEED_PRIME_BYPASS != 0);
 constexpr bool kGoldenArtifacts = (ENABLE_GOLDEN != 0);
 constexpr bool kClockDebug = (SEEDBOX_DEBUG_CLOCK_SOURCE != 0);
 constexpr bool kUiDebug = (SEEDBOX_DEBUG_UI != 0);
@@ -71,6 +79,8 @@ static_assert(SEEDBOX_JUCE == 0 || SEEDBOX_JUCE == 1,
               "SEEDBOX_JUCE must be 0 or 1");
 static_assert(QUIET_MODE == 0 || QUIET_MODE == 1,
               "QUIET_MODE must be 0 or 1");
+static_assert(SEED_PRIME_BYPASS == 0 || SEED_PRIME_BYPASS == 1,
+              "SEED_PRIME_BYPASS must be 0 or 1");
 static_assert(ENABLE_GOLDEN == 0 || ENABLE_GOLDEN == 1,
               "ENABLE_GOLDEN must be 0 or 1");
 static_assert(SEEDBOX_DEBUG_CLOCK_SOURCE == 0 ||
@@ -98,6 +108,8 @@ inline constexpr FlagSummary kFlagMatrix[] = {
      "JUCE desktop build. Talks to host audio/MIDI instead of Arduino headers."},
     {"QUIET_MODE", kQuietMode,
      "Mute extra logs + hardware callbacks. Keeps lab sessions polite."},
+    {"SEED_PRIME_BYPASS", kSeedPrimeBypass,
+     "Skip auto-priming four seeds; only the focused slot gets a genome."},
     {"ENABLE_GOLDEN", kGoldenArtifacts,
      "Emit regression fixtures into artifacts/ for review."},
     {"SEEDBOX_DEBUG_CLOCK_SOURCE", kClockDebug,
@@ -122,6 +134,7 @@ inline constexpr FlagSummary kFlagMatrix[] = {
 #define SeedBoxConfig_kSimBuild ((SEEDBOX_SIM) != 0)
 #define SeedBoxConfig_kJuceBuild ((SEEDBOX_JUCE) != 0)
 #define SeedBoxConfig_kQuietMode ((QUIET_MODE) != 0)
+#define SeedBoxConfig_kSeedPrimeBypass ((SEED_PRIME_BYPASS) != 0)
 #define SeedBoxConfig_kGoldenArtifacts ((ENABLE_GOLDEN) != 0)
 #define SeedBoxConfig_kClockDebug ((SEEDBOX_DEBUG_CLOCK_SOURCE) != 0)
 #define SeedBoxConfig_kUiDebug ((SEEDBOX_DEBUG_UI) != 0)
@@ -134,6 +147,8 @@ SEEDBOX_STATIC_ASSERT(SEEDBOX_JUCE == 0 || SEEDBOX_JUCE == 1,
                       "SEEDBOX_JUCE must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(QUIET_MODE == 0 || QUIET_MODE == 1,
                       "QUIET_MODE must be 0 or 1");
+SEEDBOX_STATIC_ASSERT(SEED_PRIME_BYPASS == 0 || SEED_PRIME_BYPASS == 1,
+                      "SEED_PRIME_BYPASS must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(ENABLE_GOLDEN == 0 || ENABLE_GOLDEN == 1,
                       "ENABLE_GOLDEN must be 0 or 1");
 SEEDBOX_STATIC_ASSERT(SEEDBOX_DEBUG_CLOCK_SOURCE == 0 ||
@@ -161,6 +176,8 @@ static const SeedBoxConfig_FlagSummary SeedBoxConfig_kFlagMatrix[] = {
      "JUCE desktop build. Talks to host audio/MIDI instead of Arduino headers."},
     {"QUIET_MODE", SeedBoxConfig_kQuietMode,
      "Mute extra logs + hardware callbacks. Keeps lab sessions polite."},
+    {"SEED_PRIME_BYPASS", SeedBoxConfig_kSeedPrimeBypass,
+     "Skip auto-priming four seeds; only the focused slot gets a genome."},
     {"ENABLE_GOLDEN", SeedBoxConfig_kGoldenArtifacts,
      "Emit regression fixtures into artifacts/ for review."},
     {"SEEDBOX_DEBUG_CLOCK_SOURCE", SeedBoxConfig_kClockDebug,

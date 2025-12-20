@@ -126,7 +126,11 @@ download and poke us. Punk-rock trust, but verified.
 
 All three paths flow through `AppState::primeSeeds`, so the scheduler, UI, and
 tests see the same genomes, and any locked seed keeps its previous sound no
-matter which source you pivot to.
+matter which source you pivot to. Want to ditch the guard rails? Toggle the
+**Seed Prime Bypass** (Alt press on the SETTINGS page or `-D SEED_PRIME_BYPASS=1`
+in CMake/PlatformIO) to leave every non-focused slot empty and let the reseed
+gate paint a single seed at a time — a great trick for teaching how the genomes
+evolve without the safety net keeping four voices warmed up.【F:src/app/AppState.cpp†L893-L908】【F:tests/test_app/test_seed_prime_bypass.cpp†L5-L37】
 
 Once a seed exists, those engines (now mapped directly in the diagram) grab the
 pieces they care about and honor the shared `Engine` contract spelled out in
@@ -196,7 +200,8 @@ like a zine.
 
 SeedBox now boots with `QUIET_MODE=1`. That means:
 
-- Seeds stay unprimed until you explicitly compile with quiet mode off.
+- Seeds still prime deterministically; pair it with `SEED_PRIME_BYPASS` if you
+  want a totally empty seed table while keeping the speakers muted.
 - Storage backends (`StoreEeprom`, `StoreSd`) refuse to write, keeping
   classrooms safe from surprise EEPROM/SD scribbles. They still answer `list`
   and `load` so lessons can browse presets even while the write protect light is
@@ -363,6 +368,7 @@ same switches so you know when to flip them mid-session.
 | `SEEDBOX_HW` | `src/`, `include/` | Enables Teensy-only IO paths so the firmware talks to real hardware. Leave it off for `native`. |
 | `SEEDBOX_SIM` | Desktop builds, tests | Marks the host build so hardware glue stays stubbed. Keep it `ON` for JUCE/simulator shims or flip it `OFF` when you want the host build to mirror hardware wiring. |
 | `QUIET_MODE` | `src/util/`, tests | Silences verbose logging when you want clean terminal output or audio renders in `out/`. |
+| `SEED_PRIME_BYPASS` | `src/app/AppState.cpp`, tests | Skips the “top up four slots” safety net so reseeds only paint the focused seed. Great for demos that walk through the genome math one slot at a time. |
 | `ENABLE_GOLDEN` | tests | Writes comparison data to `artifacts/` so regressions show up as diffable golden files. |
 | `SEEDBOX_DEBUG_CLOCK_SOURCE` | `src/app/AppState.cpp`, clock docs | Dumps transport decisions over Serial so you can teach clock hand-offs in real time. |
 | `SEEDBOX_DEBUG_UI` | UI experiments (future) | Reserved hook for UI overlays + teaching aids. Wire prototypes here before hard-coding prints elsewhere. |

@@ -127,6 +127,7 @@ public:
   void seedPageReseed(uint32_t masterSeed, SeedPrimeMode mode);
   void setSeedPrimeMode(SeedPrimeMode mode);
   SeedPrimeMode seedPrimeMode() const { return seedPrimeMode_; }
+  bool seedPrimeBypassEnabled() const { return seedPrimeBypassEnabled_; }
   void armGranularLiveInput(bool enabled);
   GranularEngine::GrainVoice debugGranularVoice(uint8_t index) const;
 #if !SEEDBOX_HW
@@ -207,6 +208,7 @@ public:
   void setFollowExternalClockFromHost(bool enabled);
   void setClockSourceExternalFromHost(bool external);
   void setInternalBpmFromHost(float bpm);
+  void setSeedPrimeBypassFromHost(bool enabled);
   void setLiveCaptureVariation(uint8_t variationSteps);
   void setDryInputFromHost(const float* left, const float* right, std::size_t frames);
   bool applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit);
@@ -280,6 +282,7 @@ private:
   PatternScheduler scheduler_{};
   ClockProvider* clock_{nullptr};
   EngineRouter engines_{};
+  bool enginesReady_{false};
   std::vector<uint8_t> seedEngineSelections_{};
   SeedLock seedLock_{};
   SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};
@@ -296,6 +299,7 @@ private:
   uint32_t masterSeed_{0x5EEDB0B1u};
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
+  bool seedPrimeBypassEnabled_{SeedBoxConfig::kSeedPrimeBypass};
   bool externalClockDominant_{false};
   bool followExternalClockEnabled_{false};
   bool debugMetersEnabled_{false};
