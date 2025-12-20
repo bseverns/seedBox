@@ -2096,9 +2096,11 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     return;
   }
 
-  const bool debugMetersActive = debugMetersEnabled_ && s.engine == EngineRouter::kResonatorId;
-  if (debugMetersActive) {
-    const float fanout = engines_.resonator().fanoutProbeLevel();
+  if (debugMetersEnabled_) {
+    float fanout = 0.0f;
+    if (s.engine == EngineRouter::kResonatorId) {
+      fanout = engines_.resonator().fanoutProbeLevel();
+    }
     writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
   } else {
     writeDisplayField(out.metrics,
