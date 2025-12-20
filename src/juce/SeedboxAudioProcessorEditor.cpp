@@ -777,7 +777,7 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
 
   if (lower == 't') {
     handleTapTempo();
-    return handleButtonKey(code, true);
+    return true;
   }
 
   if (lower >= '1' && lower <= '4') {
