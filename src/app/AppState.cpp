@@ -464,7 +464,7 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   engines_.burst().renderAudio(ctx);
 
   constexpr float kPassthroughFloor = hal::audio::kEnginePassthroughFloor;
-  const bool enginesIdle =
+  const bool enginesIdle [[maybe_unused]] =
       hal::audio::bufferEngineIdle(buffer.left, buffer.right, buffer.frames,
                                    hal::audio::kEngineIdleEpsilon, hal::audio::kEngineIdleRmsSlack);
 
