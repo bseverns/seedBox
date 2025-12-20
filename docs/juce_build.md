@@ -18,6 +18,12 @@ same build flags PlatformIO uses so the DAW story matches the firmware truth.
      -DSEEDBOX_VERSION="$(git rev-parse --short HEAD)"
    ```
 
+   > Shell gotchas: keep the trailing `\` characters flush against the newline.
+   > A stray space after the backslash makes zsh try to run `-DQUIET_MODE=...`
+   > as a command (that “command not found” you might have seen). If you ever
+   > see CMake claim it is forcing flags you did not set, nuke `build/juce` and
+   > re-run the configure step so a stale cache cannot lie to you.
+
 3. **Build the standalone app.**
 
    ```bash
