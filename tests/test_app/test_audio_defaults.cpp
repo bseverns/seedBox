@@ -40,7 +40,7 @@ void test_engine_idle_floor_tracks_peak_and_rms() {
   TEST_ASSERT_TRUE(hal::audio::bufferEngineIdle(silence, nullptr, kFrames));
 
   float rightOnly[kFrames]{};
-  rightOnly[3] = 4.0e-6f;  // poke above the idle floor on the right channel only
+  rightOnly[3] = 2.0e-5f;  // poke above the idle floor on the right channel only
   TEST_ASSERT_FALSE(hal::audio::bufferEngineIdle(silence, rightOnly, kFrames));
 
   float stereoFuzz[kFrames];

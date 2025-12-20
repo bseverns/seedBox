@@ -157,20 +157,29 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   float* renderRight = renderScratch_.getNumChannels() > 1 ? renderScratch_.getWritePointer(1) : renderLeft;
   hal::audio::renderHostBuffer(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
   app_.midi.poll();
-  const bool enginesIdle =
-      hal::audio::bufferEngineIdle(renderLeft, renderRight, static_cast<std::size_t>(numSamples));
+  const bool enginesAudible = hal::audio::bufferHasEngineEnergy(
+      renderLeft, renderRight, static_cast<std::size_t>(numSamples),
+      hal::audio::kEnginePassthroughFloor, hal::audio::kEngineIdleRmsSlack);
 
   float* outLeft = outputBus.getWritePointer(0);
   float* outRight = outputBus.getNumChannels() > 1 ? outputBus.getWritePointer(1) : outLeft;
 
-  if (!enginesIdle) {
+  const bool dryAudible = numInputs > 0 && inputScratch_.getNumSamples() == numSamples &&
+                          hal::audio::bufferHasEngineEnergy(
+                              inputScratch_.getReadPointer(0),
+                              inputScratch_.getNumChannels() > 1 ? inputScratch_.getReadPointer(1)
+                                                                 : nullptr,
+                              static_cast<std::size_t>(numSamples),
+                              hal::audio::kEnginePassthroughFloor, hal::audio::kEngineIdleRmsSlack);
+
+  if (enginesAudible || !dryAudible) {
     juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
     if (outputBus.getNumChannels() > 1) {
       juce::FloatVectorOperations::copy(outRight, renderScratch_.getReadPointer(1), numSamples);
     } else {
       juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
     }
-  } else if (numInputs > 0 && inputScratch_.getNumSamples() == numSamples) {
+  } else {
     const float* inLeft = inputScratch_.getReadPointer(0);
     const bool hasRight = inputScratch_.getNumChannels() > 1;
     const float* inRight = hasRight ? inputScratch_.getReadPointer(1) : inLeft;
@@ -182,8 +191,6 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
       // duplicate mono/left into single bus when hosts give us one channel
       juce::FloatVectorOperations::copy(outLeft, inLeft, numSamples);
     }
-  } else {
-    outputBus.clear();
   }
 
   app_.tick();
