@@ -20,6 +20,7 @@ void test_init_sim_attaches_default_store();
 void test_seed_lock_survives_reseed_and_engine_swap();
 void test_global_lock_blocks_reseed_changes();
 void test_quantize_control_snaps_pitch_to_scale();
+void test_gate_reseed_respects_division_and_locks();
 void test_ascii_frame_matches_boot_snapshot();
 void test_ascii_renderer_tracks_engine_swaps();
 void test_debug_meter_toggle_updates_metrics_and_mode();
@@ -63,6 +64,7 @@ int main(int, char**) {
   RUN_TEST(test_seed_lock_survives_reseed_and_engine_swap);
   RUN_TEST(test_global_lock_blocks_reseed_changes);
   RUN_TEST(test_quantize_control_snaps_pitch_to_scale);
+  RUN_TEST(test_gate_reseed_respects_division_and_locks);
   RUN_TEST(test_ascii_frame_matches_boot_snapshot);
   RUN_TEST(test_ascii_renderer_tracks_engine_swaps);
   RUN_TEST(test_debug_meter_toggle_updates_metrics_and_mode);
