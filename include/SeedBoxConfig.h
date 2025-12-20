@@ -82,8 +82,6 @@ static_assert(!(kHardwareBuild && kSimBuild),
               "SEEDBOX_HW and SEEDBOX_SIM cannot both be enabled");
 static_assert(!(kHardwareBuild && kJuceBuild),
               "SEEDBOX_HW and SEEDBOX_JUCE cannot both be enabled");
-static_assert(!(kSimBuild && kJuceBuild),
-              "SEEDBOX_SIM and SEEDBOX_JUCE cannot both be enabled at once");
 
 struct FlagSummary {
     const char *name;
@@ -147,8 +145,6 @@ SEEDBOX_STATIC_ASSERT(!((SEEDBOX_HW != 0) && (SEEDBOX_SIM != 0)),
                       "SEEDBOX_HW and SEEDBOX_SIM cannot both be enabled");
 SEEDBOX_STATIC_ASSERT(!((SEEDBOX_HW != 0) && (SEEDBOX_JUCE != 0)),
                       "SEEDBOX_HW and SEEDBOX_JUCE cannot both be enabled");
-SEEDBOX_STATIC_ASSERT(!((SEEDBOX_SIM != 0) && (SEEDBOX_JUCE != 0)),
-                      "SEEDBOX_SIM and SEEDBOX_JUCE cannot both be enabled");
 
 typedef struct {
     const char *name;

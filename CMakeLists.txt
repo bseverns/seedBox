@@ -33,14 +33,6 @@ option(ARDUINOJSON_USE_DOUBLE "Match PlatformIO's double-precision JSON" ON)
 set(SEEDBOX_PROJECT_ROOT_HINT "${CMAKE_SOURCE_DIR}" CACHE STRING "Optional path hint for test/fixture lookups")
 set(SEEDBOX_VERSION "dev" CACHE STRING "Version stamp applied to JUCE targets")
 
-# Keep JUCE builds from also advertising simulator mode. Default to the
-# hardware-leaning flags when JUCE is on so the plugins/app mirror the
-# firmware wiring without double-booking the simulator toggles.
-if(SEEDBOX_JUCE AND SEEDBOX_SIM)
-  message(STATUS "SEEDBOX_JUCE is ON; forcing SEEDBOX_SIM=OFF so JUCE targets stay hardware-true.")
-  set(SEEDBOX_SIM OFF CACHE BOOL "Enable simulator-friendly shims" FORCE)
-endif()
-
 function(bool_to_flag value out)
   if(${value})
     set(${out} 1 PARENT_SCOPE)
@@ -70,6 +62,8 @@ set(SEEDBOX_COMPILE_DEFINITIONS
   SEEDBOX_PROJECT_ROOT_HINT=\"${SEEDBOX_PROJECT_ROOT_HINT}\"
   SEEDBOX_VERSION=\"${SEEDBOX_VERSION}\"
 )
+
+message(STATUS "SeedBox flags -> HW:${SEEDBOX_HW_VALUE} SIM:${SEEDBOX_SIM_VALUE} JUCE:${SEEDBOX_JUCE_VALUE} QUIET:${QUIET_MODE_VALUE} GOLDEN:${ENABLE_GOLDEN_VALUE}")
 
 file(GLOB_RECURSE SEEDBOX_CORE_SOURCES CONFIGURE_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/*.cpp
