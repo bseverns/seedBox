@@ -519,6 +519,10 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
       hal::audio::bufferEngineIdle(buffer.left, buffer.right, buffer.frames,
                                    hal::audio::kEngineIdleEpsilon, hal::audio::kEngineIdleRmsSlack);
 
+#if !(SEEDBOX_HW && QUIET_MODE)
+  (void)enginesIdle;
+#endif
+
 #if SEEDBOX_HW && QUIET_MODE
   // Classroom rigs built in quiet mode keep their codecs muted; we still tick
   // the callback counter above so timing-sensitive tests can probe the audio
@@ -2145,7 +2149,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const float sampleRate = hal::audio::sampleRate();
   const std::size_t block = hal::audio::framesPerBlock();
   const bool ledOn = hal::io::readDigital(kStatusLedPin);
-  const uint32_t nowSamples = scheduler_.nowSamples();
 
   UiState localUi{};
   UiState* uiOut = ui ? ui : &localUi;
@@ -2158,6 +2161,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const bool globalLocked = seedLock_.globalLocked();
   const bool focusLocked = hasSeeds ? seedLock_.seedLocked(focusIndex) : false;
   const bool anyLockActive = globalLocked || focusLocked;
+  const char* gateLabel = gateDivisionLabel(gateDivision_);
 
   uiOut->mode = UiState::Mode::kPerformance;
   if (mode_ == Mode::SWING) {
@@ -2237,7 +2241,6 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const float probability = std::clamp(s.probability, 0.0f, 1.0f);
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
   const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
-  const char* gateLabel = gateDivisionLabel(gateDivision_);
   const char gateState = gateEdgePending_ ? '^' : (inputGateHot_ ? '!' : '-');
 
   if (mode_ == Mode::PERF) {
