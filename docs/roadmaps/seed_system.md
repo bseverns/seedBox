@@ -19,6 +19,37 @@ All four paths flow through `AppState::primeSeeds`, so reseeding from the Seed
 page or a MIDI hook stays deterministic. Locked seeds keep their previous genome
 no matter which source we pivot to.
 
+## Live-input gate (tempo-locked reseeds)
+
+The seed table now listens for live-input energy and rewrites the focused slot
+on a quantized gate. Three moving parts, all deliberately tiny so you can walk a
+class through the math:
+
+1. **State lives in `AppState`.** We track `inputGateLevel_`, `inputGatePeak_`,
+   `inputGateHot_`, and `lastGateTick_`, plus a `gateDivision_` enum covering
+   `1/1`, `1/2`, `1/4`, and full bars. Host code can poke the values via
+   `setInputGateDivisionFromHost(...)` or tweak the RMS/peak floor with
+   `setInputGateFloorFromHost(...)`; the Seed page UI exposes the same thing via
+   Shift + Density (hold and twist) so hardware and JUCE stay in sync.
+2. **Energy probe rides the dry input path.** `setDryInputFromHost` (JUCE) and
+   the hardware audio callback both compute per-block RMS/peak and mark the gate
+   "hot" if either crosses the floor (`inputGateFloor_` defaults to the engine
+   passthrough floor so denorm fuzz never trips it). Hot → cold transitions
+   don't immediately clear the edge; we keep a `gateEdgePending_` flag until a
+   tempo tick consumes it.
+3. **Quantize to the transport, then reseed.** `handleGateTick()` runs once per
+   scheduler tick (24 PPQN). When a gate edge is pending and the chosen division
+   interval has elapsed (`gateDivisionTicks()` fans out to 1 beat, half-beats,
+   sixteenths, or 4-beat bars), we call
+   `seedPageReseed(RNG::xorshift(masterSeed_), seedPrimeMode_)` to rewrite the
+   table. Locked slots or a global lock short-circuit the request so notebooks
+   stay reproducible.
+
+Players get live feedback: the metrics line now shows `G` + division + a gate
+glyph (`^` when queued, `!` when hot, `-` when idle) and the Seed page hint
+calls out the current division. It's deliberately lo-fi — think stage notes,
+not a DAW meter.
+
 ## Momentary live-capture button (short sample bank jams)
 
 Think of this as a two-second Polaroid shutter: slap a button, bottle the live

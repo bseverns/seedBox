@@ -99,6 +99,59 @@ const char* primeModeLabel(AppState::SeedPrimeMode mode) {
   }
 }
 
+const char* gateDivisionLabel(AppState::GateDivision div) {
+  switch (div) {
+    case AppState::GateDivision::kOneOverTwo: return "1/2";
+    case AppState::GateDivision::kOneOverFour: return "1/4";
+    case AppState::GateDivision::kBars: return "BAR";
+    case AppState::GateDivision::kOneOverOne:
+    default: return "1/1";
+  }
+}
+
+uint32_t gateDivisionTicksFor(AppState::GateDivision div) {
+  constexpr uint32_t kTicksPerBeat = 24u;
+  switch (div) {
+    case AppState::GateDivision::kOneOverTwo: return kTicksPerBeat / 2u;
+    case AppState::GateDivision::kOneOverFour: return kTicksPerBeat / 4u;
+    case AppState::GateDivision::kBars: return kTicksPerBeat * 4u;
+    case AppState::GateDivision::kOneOverOne:
+    default: return kTicksPerBeat;
+  }
+}
+
+struct EnergyProbe {
+  float rms{0.0f};
+  float peak{0.0f};
+};
+
+EnergyProbe measureEnergy(const float* left, const float* right, std::size_t frames) {
+  EnergyProbe probe{};
+  if (!left || frames == 0) {
+    return probe;
+  }
+
+  double sumSquares = 0.0;
+  float peak = 0.0f;
+  const double samples = static_cast<double>(frames) * (right ? 2.0 : 1.0);
+  for (std::size_t i = 0; i < frames; ++i) {
+    const float l = left[i];
+    peak = std::max(peak, std::fabs(l));
+    sumSquares += static_cast<double>(l) * static_cast<double>(l);
+    if (right) {
+      const float r = right[i];
+      peak = std::max(peak, std::fabs(r));
+      sumSquares += static_cast<double>(r) * static_cast<double>(r);
+    }
+  }
+
+  probe.peak = peak;
+  if (samples > 0.0) {
+    probe.rms = static_cast<float>(std::sqrt(sumSquares / samples));
+  }
+  return probe;
+}
+
 template <size_t N>
 void writeDisplayField(char (&dst)[N], std::string_view text) {
   static_assert(N > 0, "Display field must have space for a terminator");
@@ -434,6 +487,18 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
     return;
   }
 
+  if (!dryInputLeft_.empty()) {
+    const std::size_t probeFrames = std::min<std::size_t>(buffer.frames, dryInputLeft_.size());
+    const float* dryLeft = dryInputLeft_.data();
+    const float* dryRight = (!dryInputRight_.empty() && dryInputRight_.size() >= probeFrames)
+                                ? dryInputRight_.data()
+                                : dryLeft;
+    const EnergyProbe probe = measureEnergy(dryLeft, dryRight, probeFrames);
+    updateInputGateState(probe.rms, probe.peak);
+  } else {
+    updateInputGateState(0.0f, 0.0f);
+  }
+
   Engine::RenderContext ctx{buffer.left, buffer.right, buffer.frames};
 
   // Start from silence, then let the engines (or a test tone) paint over the
@@ -573,6 +638,7 @@ void AppState::tick() {
       selectClockProvider(&internalClock_);
     }
     clock_->onTick();
+    handleGateTick();
   }
   stepPresetCrossfade();
   ++frame_;
@@ -747,6 +813,15 @@ void AppState::handleSeedsEvent(const InputEvents::Event& evt) {
       setFocusSeed(static_cast<uint8_t>(next));
       displayDirty_ = true;
     }
+  }
+
+  if (evt.type == InputEvents::Type::EncoderHoldTurn &&
+      evt.encoder == hal::Board::EncoderID::Density &&
+      eventHasButton(evt, hal::Board::ButtonID::Shift)) {
+    if (evt.encoderDelta != 0) {
+      stepGateDivision(static_cast<int>(evt.encoderDelta));
+    }
+    return;
   }
 
   if (evt.encoderDelta == 0) {
@@ -1169,6 +1244,9 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     scheduler_.addSeed(seed);
   }
 
+  lastGateTick_ = scheduler_.ticks();
+  gateEdgePending_ = false;
+
   seedEngineSelections_.assign(seeds_.size(), 0);
   for (std::size_t i = 0; i < seeds_.size(); ++i) {
     const uint8_t desired = (i < previousSelections.size()) ? previousSelections[i] : seeds_[i].engine;
@@ -1331,6 +1409,7 @@ void AppState::onExternalClockTick() {
 #endif
   if (clock_ == &midiClockIn_ || externalClockDominant_) {
     midiClockIn_.onTick();
+    handleGateTick();
   }
 }
 
@@ -1502,10 +1581,17 @@ void AppState::setLiveCaptureVariation(uint8_t variationSteps) {
   liveCaptureVariation_ = static_cast<uint8_t>(variationSteps % kShortCaptureSlots);
 }
 
+void AppState::setInputGateDivisionFromHost(GateDivision division) {
+  stepGateDivision(static_cast<int>(division) - static_cast<int>(gateDivision_));
+}
+
+void AppState::setInputGateFloorFromHost(float floor) { inputGateFloor_ = std::max(1e-6f, floor); }
+
 void AppState::setDryInputFromHost(const float* left, const float* right, std::size_t frames) {
   if (!left || frames == 0) {
     dryInputLeft_.clear();
     dryInputRight_.clear();
+    updateInputGateState(0.0f, 0.0f);
     return;
   }
 
@@ -1515,6 +1601,10 @@ void AppState::setDryInputFromHost(const float* left, const float* right, std::s
   } else {
     dryInputRight_.assign(dryInputLeft_.begin(), dryInputLeft_.end());
   }
+
+  const float* probeRight = dryInputRight_.empty() ? nullptr : dryInputRight_.data();
+  const EnergyProbe probe = measureEnergy(dryInputLeft_.data(), probeRight, frames);
+  updateInputGateState(probe.rms, probe.peak);
 }
 
 void AppState::updateClockDominance() {
@@ -1522,6 +1612,65 @@ void AppState::updateClockDominance() {
   // actively running.  This line is the truth table behind the entire sync
   // story, so yeah, spell it out.
   externalClockDominant_ = followExternalClockEnabled_ || externalTransportRunning_;
+}
+
+void AppState::handleGateTick() {
+  const uint64_t tick = scheduler_.ticks();
+  const uint64_t division = static_cast<uint64_t>(gateDivisionTicks());
+  if (!gateEdgePending_ || division == 0u) {
+    return;
+  }
+
+  const uint64_t elapsed = (tick >= lastGateTick_) ? (tick - lastGateTick_) : 0u;
+  if (elapsed < division) {
+    return;
+  }
+
+  if (seeds_.empty() || seedLock_.globalLocked()) {
+    gateEdgePending_ = false;
+    lastGateTick_ = tick;
+    return;
+  }
+
+  const std::size_t focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+  if (seedLock_.seedLocked(focusIndex)) {
+    gateEdgePending_ = false;
+    lastGateTick_ = tick;
+    return;
+  }
+
+  const uint32_t reseedValue = RNG::xorshift(masterSeed_);
+  seedPageReseed(reseedValue, seedPrimeMode_);
+  gateEdgePending_ = false;
+  lastGateTick_ = scheduler_.ticks();
+}
+
+void AppState::stepGateDivision(int delta) {
+  constexpr int kDivCount = 4;
+  int next = static_cast<int>(gateDivision_) + delta;
+  next %= kDivCount;
+  if (next < 0) {
+    next += kDivCount;
+  }
+  const GateDivision target = static_cast<GateDivision>(next);
+  if (gateDivision_ != target) {
+    gateDivision_ = target;
+    lastGateTick_ = scheduler_.ticks();
+    gateEdgePending_ = false;
+    displayDirty_ = true;
+  }
+}
+
+uint32_t AppState::gateDivisionTicks() const { return gateDivisionTicksFor(gateDivision_); }
+
+void AppState::updateInputGateState(float rms, float peak) {
+  inputGateLevel_ = rms;
+  inputGatePeak_ = peak;
+  const bool hot = (rms >= inputGateFloor_) || (peak >= inputGateFloor_);
+  if (hot && !inputGateHot_) {
+    gateEdgePending_ = true;
+  }
+  inputGateHot_ = hot;
 }
 
 void AppState::applyMn42ModeBits(uint8_t value) {
@@ -2055,13 +2204,13 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
         break;
       default:
         writeUiField(uiOut->pageHints[0], "Tone S:src ALT:d");
-        const auto primeHint = formatScratch(scratch, "S+A:p Tap:%s", primeModeLabel(seedPrimeMode_));
+        const auto primeHint = formatScratch(scratch, "Tap:%s G%s", primeModeLabel(seedPrimeMode_), gateLabel);
         writeUiField(uiOut->pageHints[1], primeHint);
         break;
     }
   } else {
-    writeUiField(uiOut->pageHints[0], "Tone S:src ALT:d");
-    const auto primeHint = formatScratch(scratch, "S+A:p Tap:%s", primeModeLabel(seedPrimeMode_));
+    writeUiField(uiOut->pageHints[0], "Gate:Shift+Den");
+    const auto primeHint = formatScratch(scratch, "Tap:%s G%s", primeModeLabel(seedPrimeMode_), gateLabel);
     writeUiField(uiOut->pageHints[1], primeHint);
   }
 
@@ -2088,6 +2237,8 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   const float probability = std::clamp(s.probability, 0.0f, 1.0f);
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));
   const unsigned prngByte = schedulerSeed ? static_cast<unsigned>(schedulerSeed->prng & 0xFFu) : 0u;
+  const char* gateLabel = gateDivisionLabel(gateDivision_);
+  const char gateState = gateEdgePending_ ? '^' : (inputGateHot_ ? '!' : '-');
 
   if (mode_ == Mode::PERF) {
     const auto stats = granularStats_;
@@ -2111,11 +2262,11 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     if (s.engine == EngineRouter::kResonatorId) {
       fanout = engines_.resonator().fanoutProbeLevel();
     }
-    writeDisplayField(out.metrics, formatScratch(scratch, "D%.2fP%.2fF%.2f", density, probability, fanout));
+    writeDisplayField(out.metrics,
+                      formatScratch(scratch, "D%.1fP%.1fF%.1f%c", density, probability, fanout, gateState));
   } else {
     writeDisplayField(out.metrics,
-                      formatScratch(scratch, "D%.2fP%.2fN%03u", density, probability,
-                                     static_cast<unsigned>(nowSamples % 1000u)));
+                      formatScratch(scratch, "D%.1fP%.1fG%s%c", density, probability, gateLabel, gateState));
   }
 
   const float mutate = std::clamp(s.mutateAmt, 0.0f, 1.0f);
@@ -2307,6 +2458,8 @@ void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
   setFocusSeed(preset.focusSeed);
   seedsPrimed_ = haveSeeds;
   setSeedPreset(preset.masterSeed, preset.seeds);
+  lastGateTick_ = scheduler_.ticks();
+  gateEdgePending_ = false;
   displayDirty_ = true;
 }
 

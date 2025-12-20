@@ -22,6 +22,7 @@
 #include "io/Store.h"
 #include "app/UiState.h"
 #include "hal/Board.h"
+#include "hal/hal_audio.h"
 #include "hal/hal_io.h"
 #include "app/InputEvents.h"
 #include "app/Clock.h"
@@ -53,6 +54,7 @@ public:
   static constexpr std::uint32_t kPresetCrossfadeTicks = 48;
 
   enum class SeedPrimeMode : uint8_t { kLfsr = 0, kTapTempo, kPreset, kLiveInput };
+  enum class GateDivision : uint8_t { kOneOverOne = 0, kOneOverTwo, kOneOverFour, kBars };
   struct SeedNudge {
     float pitchSemitones{0.f};
     float densityDelta{0.f};
@@ -208,6 +210,8 @@ public:
   void setClockSourceExternalFromHost(bool external);
   void setInternalBpmFromHost(float bpm);
   void setLiveCaptureVariation(uint8_t variationSteps);
+  void setInputGateDivisionFromHost(GateDivision division);
+  void setInputGateFloorFromHost(float floor);
   void setDryInputFromHost(const float* left, const float* right, std::size_t frames);
   bool applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit);
 
@@ -238,6 +242,10 @@ private:
   std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
   std::vector<Seed> buildPresetSeeds(std::size_t count);
   std::vector<Seed> buildLiveInputSeeds(uint32_t masterSeed, std::size_t count);
+  void stepGateDivision(int delta);
+  void handleGateTick();
+  void updateInputGateState(float rms, float peak);
+  uint32_t gateDivisionTicks() const;
   float currentTapTempoBpm() const;
   void applyQuantizeControl(uint8_t value);
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
@@ -317,6 +325,13 @@ private:
   Page currentPage_{Page::kSeeds};
   uint8_t quantizeScaleIndex_{0};
   uint8_t quantizeRoot_{0};
+  float inputGateFloor_{hal::audio::kEnginePassthroughFloor};
+  float inputGateLevel_{0.0f};
+  float inputGatePeak_{0.0f};
+  bool inputGateHot_{false};
+  bool gateEdgePending_{false};
+  uint64_t lastGateTick_{0};
+  GateDivision gateDivision_{GateDivision::kBars};
   struct PresetCrossfade {
     std::vector<Seed> from;
     std::vector<Seed> to;
