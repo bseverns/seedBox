@@ -47,6 +47,7 @@ constexpr std::string_view kDefaultPresetSlot = "default";
 constexpr uint8_t kShortCaptureSlots = 4;
 constexpr int kEuclidStepNudge = 1;
 constexpr int kBurstSpacingStepSamples = 240;  // ~5ms at 48k.
+constexpr std::size_t kSeedSlotCount = 4;
 
 constexpr hal::io::PinNumber kReseedButtonPin = 2;
 constexpr hal::io::PinNumber kLockButtonPin = 3;
@@ -406,7 +407,20 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
                                                         : static_cast<ClockProvider*>(&internalClock_);
   selectClockProvider(provider);
   applySwingPercent(swingPercent_);
-  reseed(masterSeed_);
+  if (seedPrimeBypassEnabled_) {
+    scheduler_ = PatternScheduler{};
+    const float bpm = (seedPrimeMode_ == SeedPrimeMode::kTapTempo) ? currentTapTempoBpm() : 120.f;
+    scheduler_.setBpm(bpm);
+    scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
+    const bool hardwareModeFlag = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
+    scheduler_.setSampleClockFn(hardwareModeFlag ? &hal::audio::sampleClock : nullptr);
+    seeds_.assign(kSeedSlotCount, Seed{});
+    seedEngineSelections_.assign(kSeedSlotCount, 0);
+    seedsPrimed_ = false;
+    setFocusSeed(focusSeed_);
+  } else {
+    reseed(masterSeed_);
+  }
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
   captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
@@ -565,7 +579,7 @@ void AppState::tick() {
     reseed(nextSeed);
     reseedRequested_ = false;
   }
-  if (!seedsPrimed_) {
+  if (!seedsPrimed_ && !seedPrimeBypassEnabled_) {
     reseed(masterSeed_);
   }
   if (!externalClockDominant_) {
@@ -908,6 +922,12 @@ void AppState::handleSettingsEvent(const InputEvents::Event& evt) {
     followExternalClockEnabled_ = !followExternalClockEnabled_;
     updateClockDominance();
     displayDirty_ = true;
+    return;
+  }
+
+  if (evt.type == InputEvents::Type::ButtonPress && evt.primaryButton == hal::Board::ButtonID::AltSeed) {
+    setSeedPrimeBypassFromHost(!seedPrimeBypassEnabled_);
+    return;
   }
 }
 
@@ -1102,35 +1122,64 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   const std::vector<Seed> previousSeeds = seeds_;
   const uint8_t previousFocus = focusSeed_;
 
-  constexpr std::size_t kSeedCount = 4;
-  seedLock_.resize(kSeedCount);
-  seedLock_.trim(kSeedCount);
+  seedLock_.resize(kSeedSlotCount);
+  seedLock_.trim(kSeedSlotCount);
 
   std::vector<Seed> generated;
-  if (!seedLock_.globalLocked() || previousSeeds.empty()) {
+  if (seedPrimeBypassEnabled_) {
+    generated.assign(kSeedSlotCount, Seed{});
+    std::vector<Seed> focusOnly;
     switch (seedPrimeMode_) {
       case SeedPrimeMode::kTapTempo:
-        generated = buildTapTempoSeeds(masterSeed_, kSeedCount, currentTapTempoBpm());
+        focusOnly = buildTapTempoSeeds(masterSeed_, 1, currentTapTempoBpm());
         break;
       case SeedPrimeMode::kPreset:
-        generated = buildPresetSeeds(kSeedCount);
+        focusOnly = buildPresetSeeds(1);
         break;
       case SeedPrimeMode::kLiveInput:
-        generated = buildLiveInputSeeds(masterSeed_, kSeedCount);
+        focusOnly = buildLiveInputSeeds(masterSeed_, 1);
         break;
       case SeedPrimeMode::kLfsr:
       default:
-        generated = buildLfsrSeeds(masterSeed_, kSeedCount);
+        focusOnly = buildLfsrSeeds(masterSeed_, 1);
+        break;
+    }
+    if (focusOnly.empty()) {
+      focusOnly = buildLfsrSeeds(masterSeed_, 1);
+    }
+    if (!focusOnly.empty()) {
+      const std::size_t targetIndex = std::min<std::size_t>(focusSeed_, kSeedSlotCount - 1);
+      Seed focused = focusOnly.front();
+      focused.id = static_cast<uint32_t>(targetIndex);
+      if (focused.prng == 0) {
+        focused.prng = RNG::xorshift(masterSeed_);
+      }
+      generated[targetIndex] = focused;
+    }
+  } else if (!seedLock_.globalLocked() || previousSeeds.empty()) {
+    switch (seedPrimeMode_) {
+      case SeedPrimeMode::kTapTempo:
+        generated = buildTapTempoSeeds(masterSeed_, kSeedSlotCount, currentTapTempoBpm());
+        break;
+      case SeedPrimeMode::kPreset:
+        generated = buildPresetSeeds(kSeedSlotCount);
+        break;
+      case SeedPrimeMode::kLiveInput:
+        generated = buildLiveInputSeeds(masterSeed_, kSeedSlotCount);
+        break;
+      case SeedPrimeMode::kLfsr:
+      default:
+        generated = buildLfsrSeeds(masterSeed_, kSeedSlotCount);
         break;
     }
     if (generated.empty()) {
-      generated = buildLfsrSeeds(masterSeed_, kSeedCount);
+      generated = buildLfsrSeeds(masterSeed_, kSeedSlotCount);
     }
-    if (generated.size() < kSeedCount) {
-      generated.resize(kSeedCount);
+    if (generated.size() < kSeedSlotCount) {
+      generated.resize(kSeedSlotCount);
     }
-    if (generated.size() > kSeedCount) {
-      generated.resize(kSeedCount);
+    if (generated.size() > kSeedSlotCount) {
+      generated.resize(kSeedSlotCount);
     }
     for (std::size_t i = 0; i < generated.size(); ++i) {
       if (seedLock_.seedLocked(i) && i < previousSeeds.size()) {
@@ -1144,14 +1193,14 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     }
   } else {
     generated = previousSeeds;
-    if (generated.size() < kSeedCount) {
-      const auto topUp = buildLfsrSeeds(masterSeed_, kSeedCount);
-      for (std::size_t i = generated.size(); i < kSeedCount && i < topUp.size(); ++i) {
+    if (generated.size() < kSeedSlotCount) {
+      const auto topUp = buildLfsrSeeds(masterSeed_, kSeedSlotCount);
+      for (std::size_t i = generated.size(); i < kSeedSlotCount && i < topUp.size(); ++i) {
         generated.push_back(topUp[i]);
       }
     }
-    if (generated.size() > kSeedCount) {
-      generated.resize(kSeedCount);
+    if (generated.size() > kSeedSlotCount) {
+      generated.resize(kSeedSlotCount);
     }
     for (std::size_t i = 0; i < generated.size(); ++i) {
       generated[i].id = static_cast<uint32_t>(i);
@@ -1166,15 +1215,23 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
 
   for (const Seed& seed : seeds_) {
-    scheduler_.addSeed(seed);
+    if (seed.prng != 0) {
+      scheduler_.addSeed(seed);
+    }
   }
 
   seedEngineSelections_.assign(seeds_.size(), 0);
   for (std::size_t i = 0; i < seeds_.size(); ++i) {
+    seeds_[i].id = static_cast<uint32_t>(i);
+    if (seeds_[i].prng == 0) {
+      seedEngineSelections_[i] = seeds_[i].engine;
+      continue;
+    }
     const uint8_t desired = (i < previousSelections.size()) ? previousSelections[i] : seeds_[i].engine;
     setSeedEngine(static_cast<uint8_t>(i), desired);
   }
 
+  const bool hasSeedContent = std::any_of(seeds_.begin(), seeds_.end(), [](const Seed& s) { return s.prng != 0; });
   if (!seeds_.empty()) {
     const std::size_t maxIndex = seeds_.size() - 1;
     const uint8_t targetFocus = previousSeeds.empty()
@@ -1185,7 +1242,7 @@ void AppState::primeSeeds(uint32_t masterSeed) {
     focusSeed_ = 0;
   }
 
-  seedsPrimed_ = true;
+  seedsPrimed_ = hasSeedContent;
   externalTransportRunning_ = false;
   transportLatchedRunning_ = false;
   transportGateHeld_ = false;
@@ -1315,7 +1372,7 @@ float AppState::currentTapTempoBpm() const {
 }
 
 void AppState::onExternalClockTick() {
-  if (!seedsPrimed_) {
+  if (!seedsPrimed_ && !seedPrimeBypassEnabled_) {
     primeSeeds(masterSeed_);
   }
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
@@ -1469,6 +1526,28 @@ void AppState::setClockSourceExternalFromHost(bool external) {
 void AppState::setInternalBpmFromHost(float bpm) {
   const float sanitized = std::clamp(bpm, 20.0f, 999.0f);
   scheduler_.setBpm(sanitized);
+  displayDirty_ = true;
+}
+
+void AppState::setSeedPrimeBypassFromHost(bool enabled) {
+  if (seedPrimeBypassEnabled_ == enabled) {
+    return;
+  }
+  seedPrimeBypassEnabled_ = enabled;
+  if (seedPrimeBypassEnabled_) {
+    scheduler_ = PatternScheduler{};
+    const float bpm = (seedPrimeMode_ == SeedPrimeMode::kTapTempo) ? currentTapTempoBpm() : 120.f;
+    scheduler_.setBpm(bpm);
+    scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
+    const bool hardwareModeFlag = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
+    scheduler_.setSampleClockFn(hardwareModeFlag ? &hal::audio::sampleClock : nullptr);
+    seeds_.assign(kSeedSlotCount, Seed{});
+    seedEngineSelections_.assign(kSeedSlotCount, 0);
+    seedsPrimed_ = false;
+    setFocusSeed(focusSeed_);
+  } else {
+    reseed(masterSeed_);
+  }
   displayDirty_ = true;
 }
 
@@ -1918,6 +1997,12 @@ void AppState::setSeedEngine(uint8_t seedIndex, uint8_t engineId) {
   }
 
   Seed& seed = seeds_[idx];
+  if (seed.prng == 0) {
+    seed.engine = sanitized;
+    seedEngineSelections_[idx] = sanitized;
+    displayDirty_ = true;
+    return;
+  }
   seed.engine = sanitized;
   seedEngineSelections_[idx] = sanitized;
   engines_.assignSeed(idx, sanitized);
@@ -2001,9 +2086,9 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   UiState localUi{};
   UiState* uiOut = ui ? ui : &localUi;
 
-  const bool hasSeeds = !seeds_.empty();
+  const bool hasSeeds = std::any_of(seeds_.begin(), seeds_.end(), [](const Seed& s) { return s.prng != 0; });
   std::size_t focusIndex = 0;
-  if (hasSeeds) {
+  if (hasSeeds && !seeds_.empty()) {
     focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
   }
   const bool globalLocked = seedLock_.globalLocked();
@@ -2034,6 +2119,11 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   if (mode_ == Mode::SWING) {
     writeUiField(uiOut->pageHints[0], "Tap: exit swing");
     writeUiField(uiOut->pageHints[1], "Seed:5% Den:1%");
+  } else if (mode_ == Mode::SETTINGS) {
+    const auto bypassHint = formatScratch(scratch, "Alt:prime %s", seedPrimeBypassEnabled_ ? "skip" : "fill");
+    const auto followHint = formatScratch(scratch, "Tap:%s clock", followExternalClockEnabled_ ? "ext" : "int");
+    writeUiField(uiOut->pageHints[0], bypassHint);
+    writeUiField(uiOut->pageHints[1], followHint);
   } else if (currentPage_ == Page::kStorage) {
     writeUiField(uiOut->pageHints[0], "GPIO: recall");
     writeUiField(uiOut->pageHints[1], "Hold GPIO: save");
@@ -2066,11 +2156,11 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   }
 
   if (!hasSeeds) {
-    if constexpr (SeedBoxConfig::kQuietMode) {
-      writeDisplayField(out.status, formatScratch(scratch, "%s quiet", modeLabel(mode_)));
-    } else {
-      writeDisplayField(out.status, formatScratch(scratch, "%s empty", modeLabel(mode_)));
+    const char* mood = SeedBoxConfig::kQuietMode ? "quiet" : "empty";
+    if (seedPrimeBypassEnabled_) {
+      mood = "bypass";
     }
+    writeDisplayField(out.status, formatScratch(scratch, "%s %s", modeLabel(mode_), mood));
     writeDisplayField(out.metrics, formatScratch(scratch, "SR%.1fkB%02zu", sampleRate / 1000.f, block));
     writeDisplayField(out.nuance,
                       formatScratch(scratch, "AC%05lluF%05lu",

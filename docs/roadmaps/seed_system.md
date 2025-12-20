@@ -17,7 +17,11 @@ We now treat "seed" as a thing with lineage:
 
 All four paths flow through `AppState::primeSeeds`, so reseeding from the Seed
 page or a MIDI hook stays deterministic. Locked seeds keep their previous genome
-no matter which source we pivot to.
+no matter which source we pivot to. When you want to pull the training wheels
+off, flip the **Seed Prime Bypass** toggle (Alt on the SETTINGS page or
+`SEED_PRIME_BYPASS=1`) so only the focused slot gets a genome and every other
+slot stays intentionally empty — a good lab trick for showing students how the
+reseed gate alone repopulates the table.【F:src/app/AppState.cpp†L893-L908】
 
 ## Momentary live-capture button (short sample bank jams)
 
@@ -134,3 +138,7 @@ Unity tests keep us honest:
     then reseeds to show we restore the preset's granular source/slot combo and
     lock state verbatim — the seed atlas's curated genomes stay canonical.
     【F:tests/test_app/test_seed_prime_modes.cpp†L135-L198】
+- `test_seed_prime_bypass_leaves_slots_empty_and_ignores_locks` flips the new
+  bypass flag, reseeds twice, and asserts only the focused slot ever gains a
+  PRNG while locks get ignored — proof that the safety net is actually optional
+  when you want to teach bare reseed math.【F:tests/test_app/test_seed_prime_bypass.cpp†L5-L37】
