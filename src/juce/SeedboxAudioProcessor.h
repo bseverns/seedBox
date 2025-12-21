@@ -100,6 +100,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void applyPendingPresetIfAny();
   void syncSeedStateFromApp();
   void applySeedStateToApp();
+  void applyGateSettingsFromParameters();
   juce::ValueTree getOrCreateSeedNode(int idx);
   juce::ValueTree findSeedNode(int idx) const;
   void setSeedProp(int idx, const juce::Identifier& key, const juce::var& value);

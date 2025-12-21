@@ -188,6 +188,16 @@ SeedsPageComponent::SeedsPageComponent(SeedboxAudioProcessor& processor) : PageC
   focusSeedAttachment_ = std::make_unique<juce::ComboBoxParameterAttachment>(
       *processor_.parameters().getParameter("focusSeed"), focusSeedSelector_);
 
+  gateDivisionSelector_.addItem("1/1", 1);
+  gateDivisionSelector_.addItem("1/2", 2);
+  gateDivisionSelector_.addItem("1/4", 3);
+  gateDivisionSelector_.addItem("Bar", 4);
+  gateDivisionSelector_.setJustificationType(juce::Justification::centred);
+  gateDivisionSelector_.setTooltip("Quantize the live-input reseed gate to beats/partials/bars.");
+  addAndMakeVisible(gateDivisionSelector_);
+  gateDivisionAttachment_ = std::make_unique<juce::ComboBoxParameterAttachment>(
+      *processor_.parameters().getParameter("gateDivision"), gateDivisionSelector_);
+
   seedToneSlider_.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   seedToneSlider_.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
   seedToneSlider_.setRange(0.0, 1.0, 0.01);
@@ -212,6 +222,15 @@ SeedsPageComponent::SeedsPageComponent(SeedboxAudioProcessor& processor) : PageC
   };
   addAndMakeVisible(seedProbabilitySlider_);
 
+  gateFloorSlider_.setSliderStyle(juce::Slider::LinearHorizontal);
+  gateFloorSlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 18);
+  gateFloorSlider_.setRange(1e-6, 0.25, 0.000001);
+  gateFloorSlider_.setSkewFactor(0.35, false);
+  gateFloorSlider_.setTooltip("Energy floor for live-input reseeds. Lower = more sensitive.");
+  addAndMakeVisible(gateFloorSlider_);
+  gateFloorAttachment_ = std::make_unique<juce::SliderParameterAttachment>(
+      *processor_.parameters().getParameter("gateFloor"), gateFloorSlider_);
+
   randomizeSeedButton_.setButtonText("Randomize Focused Seed");
   randomizeSeedButton_.onClick = [this]() {
     processor_.appState().seedPageReseed(processor_.appState().masterSeed(), AppState::SeedPrimeMode::kLfsr);
@@ -226,12 +245,16 @@ void SeedsPageComponent::refresh() {
   if (seeds.empty()) {
     seedToneSlider_.setEnabled(false);
     seedProbabilitySlider_.setEnabled(false);
+    gateDivisionSelector_.setEnabled(false);
+    gateFloorSlider_.setEnabled(false);
     return;
   }
   const auto idx = std::min<std::size_t>(seeds.size() - 1, static_cast<std::size_t>(focus));
   const Seed& seed = seeds[idx];
   seedToneSlider_.setEnabled(true);
   seedProbabilitySlider_.setEnabled(true);
+  gateDivisionSelector_.setEnabled(true);
+  gateFloorSlider_.setEnabled(true);
   seedToneSlider_.setValue(seed.tone, juce::dontSendNotification);
   seedProbabilitySlider_.setValue(seed.probability, juce::dontSendNotification);
 }
@@ -239,6 +262,9 @@ void SeedsPageComponent::refresh() {
 void SeedsPageComponent::resized() {
   auto area = getLocalBounds().reduced(12);
   focusSeedSelector_.setBounds(area.removeFromTop(48));
+  auto gateRow = area.removeFromTop(36);
+  gateDivisionSelector_.setBounds(gateRow.removeFromLeft(gateRow.getWidth() / 3));
+  gateFloorSlider_.setBounds(gateRow);
   auto knobRow = area.removeFromTop(180);
   seedToneSlider_.setBounds(knobRow.removeFromLeft(knobRow.getWidth() / 2));
   seedProbabilitySlider_.setBounds(knobRow);

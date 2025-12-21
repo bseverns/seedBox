@@ -29,6 +29,8 @@ constexpr auto kParamClockSourceExternal = "clockSourceExternal";
 constexpr auto kParamFollowExternalClock = "followExternalClock";
 constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
+constexpr auto kParamGateDivision = "gateDivision";
+constexpr auto kParamGateFloor = "gateFloor";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 constexpr auto kStatePanelPreset = "panelPreset";
@@ -51,12 +53,13 @@ const juce::Identifier kPropResonatorBank{"resonatorBank"};
 const juce::Identifier kPropResonatorFeedback{"resonatorFeedback"};
 const juce::Identifier kPropResonatorDamping{"resonatorDamping"};
 
-constexpr std::array<const char*, 11> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
+constexpr std::array<const char*, 13> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
                                                         kParamSeedEngine,     kParamSwingPercent,
                                                         kParamQuantizeScale,  kParamQuantizeRoot,
                                                         kParamTransportLatch, kParamClockSourceExternal,
                                                         kParamFollowExternalClock, kParamDebugMeters,
-                                                        kParamGranularSourceStep};
+                                                        kParamGranularSourceStep, kParamGateDivision,
+                                                        kParamGateFloor};
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
@@ -96,6 +99,7 @@ void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     app_.initJuceHost(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
     applyPendingPresetIfAny();
     applySeedStateToApp();
+    applyGateSettingsFromParameters();
     syncSeedStateFromApp();
   } else {
     hal::audio::configureHostStream(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
@@ -377,6 +381,19 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
     return;
   }
 
+  if (parameterID == kParamGateDivision) {
+    const auto division = static_cast<AppState::GateDivision>(static_cast<int>(newValue));
+    app_.setInputGateDivisionFromHost(division);
+    parameterState_[kParamGateDivision] = newValue;
+    return;
+  }
+
+  if (parameterID == kParamGateFloor) {
+    app_.setInputGateFloorFromHost(newValue);
+    parameterState_[kParamGateFloor] = newValue;
+    return;
+  }
+
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::createParameterLayout() {
@@ -413,6 +430,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
   // Discrete source index delta sent to app_.seedPageCycleGranularSource() when the UI nudge changes.
   params.push_back(std::make_unique<juce::AudioParameterInt>(kParamGranularSourceStep, "Granular Source Step", -8, 8,
                                                             0));
+
+  juce::StringArray gateDivisions{"1/1", "1/2", "1/4", "BAR"};
+  params.push_back(std::make_unique<juce::AudioParameterChoice>(
+      kParamGateDivision, "Input Gate Division", gateDivisions,
+      static_cast<int>(AppState::GateDivision::kBars)));
+
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      kParamGateFloor, "Input Gate Floor",
+      juce::NormalisableRange<float>{1e-6f, 0.25f, 0.0f, 0.35f, false}, hal::audio::kEnginePassthroughFloor));
   return {params.begin(), params.end()};
 }
 
@@ -532,6 +558,15 @@ void SeedboxAudioProcessor::applySeedStateToApp() {
     applyFloat(kPropResonatorDamping, seed.resonator.damping, 0.0f, 1.0f,
                [](Seed& s, float v) { s.resonator.damping = v; });
   }
+}
+
+void SeedboxAudioProcessor::applyGateSettingsFromParameters() {
+  const float divisionRaw = parameters_.getRawParameterValue(kParamGateDivision)->load();
+  const auto division = static_cast<AppState::GateDivision>(static_cast<int>(divisionRaw));
+  app_.setInputGateDivisionFromHost(division);
+
+  const float gateFloor = parameters_.getRawParameterValue(kParamGateFloor)->load();
+  app_.setInputGateFloorFromHost(gateFloor);
 }
 
 SeedboxAudioProcessor::ProcessorMidiBackend::ProcessorMidiBackend(MidiRouter& router, MidiRouter::Port port)
