@@ -21,6 +21,49 @@ SeedBox is built so you can audition synth ideas anywhere: it ships as firmware 
 | `scripts/` | Tooling for golden fixtures, KiCad, native helpers | Use these instead of hand-rolling one-off CLI scripts |
 | `examples/` | Runnable lessons for automation, quiet-mode grooves, quantizer labs | Fastest way to see seeds in action without flashing hardware |
 
+### Map at a glance
+
+```mermaid
+flowchart LR
+  Repo[(Repo root)] --> Docs["docs/ \n storyboards"]
+  Repo --> Source["src/ \n engines"]
+  Repo --> Include["include/ \n contracts"]
+  Repo --> Tests["tests/ \n truth serum"]
+  Repo --> Scripts["scripts/ \n pit crew"]
+  Tests -->|golden logs| Artifacts["artifacts/ (ignored)"]
+  Source -->|renders| Out["out/ (ignored)"]
+
+  subgraph Audio["audio engines (src/engine)"]
+    direction TB
+    Sampler["Sampler\\n4-slot voice pool\\nlocks native + hw"]
+    Granular["Granular\\nSD/live grains\\nwindow + spray"]
+    Resonator["Resonator\\nmodal banks\\nfeedback tilt"]
+    Euclid["Euclid\\nbeat masks\\nno audio"]
+    Burst["Burst\\ntrigger swarms\\nclock-locked"]
+    Sampler --> Granular --> Resonator --> Euclid --> Burst
+  end
+
+  Source --> Sampler
+  Source --> Granular
+  Source --> Resonator
+  Source --> Euclid
+  Source --> Burst
+  Audio --> Tests
+```
+
+### Folder cheat sheet
+
+The first docs to read from each folder:
+
+| Folder | First doc to read |
+| --- | --- |
+| `docs/` | [Builder primer](../builder_bootstrap.md) |
+| `src/` | [Source tour](../../src/README.md) |
+| `include/` | [Interface notes](../../include/README.md) |
+| `tests/` | [Test guide](../../tests/README.md) + [golden recipe](../../tests/README.md#toggle-able-test-flags) |
+| `scripts/` | [Script cheat sheet](../../scripts/README.md) |
+| `examples/` | [Sprout lab notes](../../examples/01_sprout/README.md) |
+
 ## Habit-forming workflows
 1. **Trace a gesture in tests:** Open `tests/test_app/test_scripted_front_panel_walkthrough.cpp` alongside `src/app/AppState.cpp`. Watch each `InputEvent` morph into reseeds, locks, and page hops.
 2. **Render golden audio often:** `pio test -e native_golden` regenerates fixtures so reviewers diff actual sound, not guesses.
