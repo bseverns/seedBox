@@ -52,10 +52,14 @@ class SeedsPageComponent : public PageComponent {
 
  private:
   juce::ComboBox focusSeedSelector_;
+  juce::ComboBox gateDivisionSelector_;
   juce::Slider seedToneSlider_;
   juce::Slider seedProbabilitySlider_;
+  juce::Slider gateFloorSlider_;
   juce::TextButton randomizeSeedButton_;
   std::unique_ptr<juce::ComboBoxParameterAttachment> focusSeedAttachment_;
+  std::unique_ptr<juce::ComboBoxParameterAttachment> gateDivisionAttachment_;
+  std::unique_ptr<juce::SliderParameterAttachment> gateFloorAttachment_;
 };
 
 class EnginePageComponent : public PageComponent {

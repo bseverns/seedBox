@@ -29,7 +29,7 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 ## Page tour (what each mode actually surfaces)
 
 - **HOME** – Master seed knob (automatable), transport latch toggle, BPM readout + clock source, focused-seed readout, and the OLED snapshot. Great for a “just jam” landing pad.
-- **SEEDS** – Master seed plus focus selector and a "Randomize focused seed" button that reseeds the current slot. Use this to audition genomes without touching the engine lane.
+- **SEEDS** – Master seed plus focus selector and a "Randomize focused seed" button that reseeds the current slot. Gate controls live here too: a beat/bar division dropdown for the live-input reseed gate and a logarithmic "Gate floor" slider so you can decide how hot the input needs to be before a reseed is queued. Use this page to audition genomes without touching the engine lane _and_ to tune the reseed cadence/sensitivity when you’re teaching the gate.
 - **ENGINE** – Engine dropdown, granular source slider, and the live engine knob grid. Knobs write straight into the focused seed (tone/density/probability/etc. depending on engine). Helper bullets summarize the macro mapping for the selected engine.
 - **PERF** – Tempo slider + tap-tempo button, transport latch toggle, and the home BPM/clock/focus readouts. Treat it as your performance desk.
 - **SWING** – Swing macro plus quantize scale/root selectors. Swing shares space with PERF so tempo nudging and groove sculpting can happen together.
