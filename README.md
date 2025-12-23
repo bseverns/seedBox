@@ -28,7 +28,7 @@ SeedBox is a tiny music lab wrapped in C++. It runs as Teensy 4.0 firmware **and
 ## Where to read next
 - **Orientation zine:** [`docs/onboarding/newcomer_map.md`](docs/onboarding/newcomer_map.md) maps the repo, shows the engine cabinet, and links the first doc in each folder.
 - **Seed primes, proved:** [`docs/seeds/prime_modes.md`](docs/seeds/prime_modes.md) walks through LFSR, tap-tempo, and preset primes plus the tests that lock them down.
-- **Tutorials + galleries:** Peek at [`docs/tutorials/`](docs/tutorials) for live input and quantizer walks, or at [`docs/ui_ascii_gallery.md`](docs/ui_ascii_gallery.md) for UI snapshots.
+- **Tutorials + galleries:** Peek at [`docs/tutorials/`](docs/tutorials) for live input, quantizer, Euclid/Burst rhythm labs, and HAL poking sessions, or at [`docs/ui_ascii_gallery.md`](docs/ui_ascii_gallery.md) for UI snapshots.
 - **Examples that make noise:** [`examples/`](examples) double as lesson plans; start with [`examples/01_sprout/README.md`](examples/01_sprout/README.md).
 - **Hardware helpers:** Wiring, calibration, and panel cheat sheets live under [`docs/hardware/`](docs/hardware) and [`docs/panel_cheat_sheet.md`](docs/panel_cheat_sheet.md).
 - **Ethos + safety:** See [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and [`docs/ethics.md`](docs/ethics.md).

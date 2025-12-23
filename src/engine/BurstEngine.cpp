@@ -36,6 +36,8 @@ std::uint32_t readU32(const Engine::StateBuffer& in, std::size_t index) {
 void BurstEngine::prepare(const Engine::PrepareContext& ctx) {
   generationSeed_ = ctx.masterSeed;
   lastSeedId_ = 0;
+  // Pending triggers stay resident between seeds; clearing here keeps the
+  // scheduler honest when a test fixture swaps from noisy to quiet seeds.
   pending_.clear();
 }
 
@@ -69,6 +71,8 @@ void BurstEngine::onSeed(const Engine::SeedContext& ctx) {
     pending_.push_back(when);
     when += spacingSamples_;
   }
+  // `lastSeedId_` mirrors the Euclid engine so the router and UI have a stable
+  // label for the last trigger cloud emitted by this engine.
   lastSeedId_ = ctx.seed.id;
 }
 

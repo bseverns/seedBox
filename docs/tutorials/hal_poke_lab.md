@@ -150,3 +150,34 @@ pio test -e native --filter test_app/test_app.cpp
 The run boots the simulator board, feeds scripted button presses, and proves the
 mock HAL API behaved the same way your doc claims it does. When the Teensy rig is
 packed away, this loop keeps the muscle memory fresh.
+
+## 6. Sketch your own micro harness
+
+If you need a ten-line proof for class, drop the following into a scratch
+`main.cpp` and compile with the native env. It pumps a handful of frames, toggles
+one pin, and dumps the sample clock plus pin level so everyone can see the HAL
+state machine respond:
+
+```c++
+#include "hal/hal_audio.h"
+#include "hal/hal_io.h"
+
+int main() {
+  hal::audio::init(nullptr, nullptr);
+  hal::audio::start();
+  hal::audio::mockPump(64);
+
+  const hal::io::DigitalConfig pins[] = {{2, true, true}};
+  hal::io::init(pins, std::size(pins));
+  hal::io::mockSetDigitalInput(2, true, 1234);
+  hal::io::poll();
+
+  std::printf("clock=%u level=%d\n", hal::audio::sampleClock(),
+              hal::io::digitalRead(2));
+  return 0;
+}
+```
+
+That one-liner `printf` is the HAL twin of the live-input and quantizer guides: a
+quick, deterministic readout you can hand to students when you want them poking
+the stack without hunting for a full app scaffold.
