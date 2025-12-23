@@ -121,3 +121,18 @@ ENABLE_GOLDEN=1 scripts/offline_native_golden.sh --engine Euclid
 
 Now you’ve got documentation-grade artefacts plus the code receipts to prove
 exactly how the groove is minted. No mysticism, just deterministic rhythm science.
+
+## 6. Minimalist classroom loop
+
+Want a projector-friendly loop without diving into Unity tests? Pipe the mask
+log through `tee` and let students annotate the output live:
+
+```bash
+pio test -e native --filter test_engine/test_euclid_burst.cpp::test_euclid_mask -v \
+  | tee out/euclid_mask_walk.log
+```
+
+This uses the same fixture as the assertions but streams every step/rotation to
+stdout so the class can shout out where the downbeat lands. It’s the rhythm
+equivalent of the live-input and quantizer walkthroughs — totally repeatable,
+hardware-free, and easy to remix mid-lesson.

@@ -51,6 +51,9 @@ void EuclidEngine::prepare(const Engine::PrepareContext& ctx) {
   generationSeed_ = ctx.masterSeed;
   cursor_ = 0;
   lastSeedId_ = 0;
+  // The mask lives entirely in RAM and is rebuilt from the param trio so
+  // students can reseed or tweak rotation without paying for heap churn or
+  // risking a race with the audio thread.
   rebuildMask();
 }
 
