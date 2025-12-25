@@ -399,6 +399,35 @@ void AppState::initJuceHost(float sampleRate, std::size_t framesPerBlock) {
   configureMidiRouting();
   hal::audio::init(&AppState::audioCallbackTrampoline, this);
   hal::audio::configureHostStream(sampleRate, framesPerBlock);
+  // JUCE-only boot path: load a default preset before the host spins audio so
+  // the very first render has a deterministic, teachable seed table. We try
+  // storage first (so saved presets win), then fall back to a built-in preset
+  // snapshot generated from the current master seed.
+  seedbox::Preset bootPreset{};
+  bool loadedFromStore = false;
+  if (store_) {
+    std::vector<std::uint8_t> bytes;
+    if (store_->load(kDefaultPresetSlot, bytes) && seedbox::Preset::deserialize(bytes, bootPreset)) {
+      loadedFromStore = true;
+    }
+  }
+  if (!loadedFromStore) {
+    bootPreset.slot = std::string(kDefaultPresetSlot);
+    bootPreset.masterSeed = masterSeed_;
+    bootPreset.focusSeed = focusSeed_;
+    bootPreset.clock.bpm = scheduler_.bpm();
+    bootPreset.seeds = buildLfsrSeeds(bootPreset.masterSeed, kSeedSlotCount);
+  }
+  if (bootPreset.seeds.empty()) {
+    const uint32_t fallbackSeed = bootPreset.masterSeed ? bootPreset.masterSeed : masterSeed_;
+    bootPreset.seeds = buildLfsrSeeds(fallbackSeed, kSeedSlotCount);
+  }
+  if (!bootPreset.seeds.empty()) {
+    masterSeed_ = bootPreset.masterSeed ? bootPreset.masterSeed : masterSeed_;
+    focusSeed_ = bootPreset.focusSeed;
+    setSeedPreset(masterSeed_, bootPreset.seeds);
+    setSeedPrimeMode(SeedPrimeMode::kPreset);
+  }
   hal::audio::start();
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kSim, false);
@@ -1409,6 +1438,8 @@ std::vector<Seed> AppState::buildLiveInputSeeds(uint32_t masterSeed, std::size_t
 std::vector<Seed> AppState::buildPresetSeeds(std::size_t count) {
   std::vector<Seed> seeds;
   if (presetBuffer_.seeds.empty()) {
+    // If the JUCE boot path hasn't injected a preset buffer yet, we fall back
+    // to LFSR seeds so the app still makes noise instead of silence.
     return buildLfsrSeeds(masterSeed_, count);
   }
   seeds.reserve(count);

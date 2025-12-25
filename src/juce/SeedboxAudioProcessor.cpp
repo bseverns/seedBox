@@ -97,6 +97,8 @@ void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
   if (!prepared_) {
     prepared_ = true;
     app_.initJuceHost(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
+    // Prime the scheduler from the JUCE boot preset before the first audio block.
+    app_.reseed(app_.masterSeed());
     applyPendingPresetIfAny();
     applySeedStateToApp();
     applyGateSettingsFromParameters();
