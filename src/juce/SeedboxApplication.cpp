@@ -25,11 +25,29 @@ void SeedboxApplication::initialise(const juce::String&) {
 
   player_->setProcessor(processor_.get());
 
-  deviceManager_->initialise(/*numInputChannels*/ 2, /*numOutputChannels*/ 2, nullptr, true, {}, nullptr);
+  juce::String lastDeviceInitFailure;
+  const auto initError =
+      deviceManager_->initialise(/*numInputChannels*/ 2, /*numOutputChannels*/ 2, nullptr, true, {}, nullptr);
+  if (initError.isNotEmpty()) {
+    juce::AlertWindow::showMessageBoxAsync(
+        juce::AlertWindow::WarningIcon,
+        "SeedBox Audio Init",
+        "Audio device init failed:\n" + initError + "\n\nAttempting fallback (0 inputs / 2 outputs).");
+    lastDeviceInitFailure = initError;
+
+    const auto fallbackError =
+        deviceManager_->initialise(/*numInputChannels*/ 0, /*numOutputChannels*/ 2, nullptr, true, {}, nullptr);
+    if (fallbackError.isNotEmpty()) {
+      lastDeviceInitFailure = fallbackError;
+    }
+  }
   deviceManager_->addAudioCallback(player_.get());
   deviceManager_->addMidiInputDeviceCallback({}, player_.get());
 
   mainWindow_ = std::make_unique<MainWindow>(getApplicationName(), *processor_);
+  if (lastDeviceInitFailure.isNotEmpty()) {
+    mainWindow_->setDeviceInitFailure(lastDeviceInitFailure);
+  }
   bool restoredWindow = false;
   if (auto* settings = appProperties_->getUserSettings()) {
     const int lastMode = settings->getIntValue("lastMode", static_cast<int>(AppState::Mode::HOME));
@@ -73,6 +91,13 @@ SeedboxApplication::MainWindow::MainWindow(const juce::String& name, SeedboxAudi
   setUsingNativeTitleBar(true);
   setResizable(true, false);
   setContentOwned(processor_.createEditor(), true);
+  editor_ = dynamic_cast<SeedboxAudioProcessorEditor*>(getContentComponent());
+}
+
+void SeedboxApplication::MainWindow::setDeviceInitFailure(const juce::String& errorMessage) {
+  if (editor_ != nullptr) {
+    editor_->setLastDeviceInitError(errorMessage);
+  }
 }
 
 void SeedboxApplication::MainWindow::closeButtonPressed() { juce::JUCEApplication::getInstance()->systemRequestedQuit(); }

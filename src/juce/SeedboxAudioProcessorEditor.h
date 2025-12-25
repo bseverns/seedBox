@@ -157,6 +157,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   void resized() override;
   bool keyPressed(const juce::KeyPress& key) override;
   bool keyStateChanged(bool isKeyDown) override;
+  void setLastDeviceInitError(const juce::String& errorMessage);
 
  private:
   void timerCallback() override;
@@ -183,6 +184,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   juce::Label shortcutsLabel_;
   juce::Label advancedHint_;
   juce::Label audioSelectorHint_;
+  juce::Label audioInitWarning_;
   std::unique_ptr<juce::AudioDeviceSelectorComponent> audioSelector_;
   std::unique_ptr<HomePageComponent> homePage_;
   std::unique_ptr<SeedsPageComponent> seedsPage_;
@@ -198,6 +200,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   bool shiftKeyDown_{false};
   bool altKeyDown_{false};
   double lastTapMs_{0.0};
+  juce::String lastDeviceInitError_;
 };
 
 }  // namespace seedbox::juce_bridge

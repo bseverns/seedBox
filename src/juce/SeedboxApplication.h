@@ -9,6 +9,7 @@
 namespace seedbox::juce_bridge {
 
 class SeedboxAudioProcessor;
+class SeedboxAudioProcessorEditor;
 
 // Standalone JUCEApplication that mirrors the Arduino setup/loop lifecycle.
 // Audio and MIDI flow through JUCE devices into the existing hal + AppState
@@ -29,10 +30,12 @@ class SeedboxApplication : public juce::JUCEApplication {
   class MainWindow : public juce::DocumentWindow {
    public:
     MainWindow(const juce::String& name, SeedboxAudioProcessor& processor);
+    void setDeviceInitFailure(const juce::String& errorMessage);
     void closeButtonPressed() override;
 
    private:
     SeedboxAudioProcessor& processor_;
+    SeedboxAudioProcessorEditor* editor_{nullptr};
   };
 
   std::unique_ptr<SeedboxAudioProcessor> processor_;
