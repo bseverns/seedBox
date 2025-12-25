@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 #include "engine/Stereo.h"
 
@@ -21,12 +22,56 @@ constexpr uint8_t kRamPreloadCount = Sampler::kMaxVoices;
 #if SEEDBOX_HW
 constexpr float msFromSeconds(float seconds) { return seconds * 1000.0f; }
 #endif
+
+constexpr float kFallbackSampleRate = 48000.0f;
+constexpr float kFallbackBaseHz = 440.0f;
+constexpr float kFallbackVoiceGain = 0.18f;
+constexpr float kTwoPi = 6.2831853071795864769f;
+
+float phaseFromPrng(uint32_t prng) {
+  const float normalized = static_cast<float>(prng & 0xFFFF) / 65535.0f;
+  return normalized * kTwoPi;
+}
+
+float sampleRateOrFallback(float sampleRate) {
+  return sampleRate > 0.0f ? sampleRate : kFallbackSampleRate;
+}
+
+float envelopeOneShot(float t, float attack, float decay, float sustain, float release) {
+  if (t <= 0.0f) {
+    return 0.0f;
+  }
+  if (attack > 0.0f && t < attack) {
+    return t / attack;
+  }
+
+  const float attackEnd = attack;
+  const float decayEnd = attack + decay;
+  if (decay > 0.0f && t < decayEnd) {
+    const float normalized = (t - attackEnd) / decay;
+    return 1.0f - (1.0f - sustain) * normalized;
+  }
+
+  const float releaseStart = decayEnd;
+  const float releaseEnd = decayEnd + release;
+  if (release > 0.0f && t < releaseEnd) {
+    const float normalized = (t - releaseStart) / release;
+    return sustain * (1.0f - normalized);
+  }
+
+  return 0.0f;
+}
+
+float totalOneShotSeconds(float attack, float decay, float release) {
+  return std::max(0.0f, attack) + std::max(0.0f, decay) + std::max(0.0f, release);
+}
 }
 
 Engine::Type Sampler::type() const noexcept { return Engine::Type::kSampler; }
 
 void Sampler::init() {
   nextHandle_ = 1;
+  renderSample_ = 0;
   // Reset every voice slot back to a blank template. This mirrors what happens
   // when you power-cycle the synth — no lingering envelope states or stale
   // sample handles survive a call to `init`.
@@ -77,7 +122,7 @@ void Sampler::init() {
 }
 
 void Sampler::prepare(const Engine::PrepareContext& ctx) {
-  (void)ctx;
+  sampleRate_ = sampleRateOrFallback(static_cast<float>(ctx.sampleRate));
   init();
 }
 
@@ -94,7 +139,53 @@ void Sampler::onSeed(const Engine::SeedContext& ctx) {
 }
 
 void Sampler::renderAudio(const Engine::RenderContext& ctx) {
+#if SEEDBOX_HW
   (void)ctx;
+  return;
+#else
+  if (!ctx.left || !ctx.right || ctx.frames == 0) {
+    return;
+  }
+
+  const float sr = sampleRateOrFallback(sampleRate_);
+  for (std::size_t i = 0; i < ctx.frames; ++i) {
+    const std::uint64_t sampleIndex = renderSample_ + static_cast<std::uint64_t>(i);
+    float leftMix = 0.0f;
+    float rightMix = 0.0f;
+
+    for (auto& voice : voices_) {
+      if (!voice.active) {
+        continue;
+      }
+
+      if (sampleIndex < voice.startSample) {
+        continue;
+      }
+
+      const float t = static_cast<float>(sampleIndex - voice.startSample) / sr;
+      const float amplitude =
+          envelopeOneShot(t, voice.envA, voice.envD, voice.envS, voice.envR);
+      const float lifespan = totalOneShotSeconds(voice.envA, voice.envD, voice.envR);
+      if (amplitude <= 0.0f) {
+        if (t >= lifespan) {
+          voice.active = false;
+        }
+        continue;
+      }
+
+      const float freq = kFallbackBaseHz * voice.playbackRate;
+      const float phase = voice.phaseOffset + kTwoPi * freq * t;
+      const float sample = std::sin(phase) * amplitude * kFallbackVoiceGain;
+      leftMix += sample * voice.leftGain;
+      rightMix += sample * voice.rightGain;
+    }
+
+    ctx.left[i] += leftMix;
+    ctx.right[i] += rightMix;
+  }
+
+  renderSample_ += ctx.frames;
+#endif
 }
 
 Engine::StateBuffer Sampler::serializeState() const {
@@ -177,6 +268,7 @@ void Sampler::configureVoice(VoiceInternal& voice, uint8_t index, const Seed& se
   voice.tone = clamp01(seed.tone);
   voice.spread = clamp01(seed.spread);
   voice.usesSdStreaming = (seed.sampleIdx >= kRamPreloadCount);
+  voice.phaseOffset = phaseFromPrng(seed.prng);
 
   // Constant-power width law: `spread` 0 => centered, 1 => hard pan. Future
   // versions can feed a polarity flag to swing left; for now we focus on the

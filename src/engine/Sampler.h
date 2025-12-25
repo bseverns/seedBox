@@ -105,6 +105,9 @@ private:
     bool usesSdStreaming{false};
     float leftGain{0.0f};
     float rightGain{0.0f};
+    // Deterministic phase offset for the fallback oscillator. We stash it here
+    // so software rendering can be repeatable without lugging in RNG state.
+    float phaseOffset{0.0f};
   };
 
   // Voice bookkeeping helpers.  `allocateVoice` picks a slot, `configureVoice`
@@ -119,6 +122,8 @@ private:
   std::array<VoiceInternal, kMaxVoices> voices_{};
   uint32_t nextHandle_{1};
   std::vector<Seed> seedCache_{};
+  float sampleRate_{48000.0f};
+  std::uint64_t renderSample_{0};
 
 #if SEEDBOX_HW
   struct HardwareVoice {
