@@ -329,6 +329,20 @@ jobs:
               --local-user 4473F115745A1A61 \
               --detach-sign artifacts/seedbox-macos-universal.tar.gz
 
+      - name: Generate ARM64 archive hash
+        run: shasum -a 256 artifacts/seedbox-macos-arm64.tar.gz > artifacts/seedbox-macos-arm64.tar.gz.sha256
+
+      - name: Sign macOS ARM64 archive
+        if: ${{ env.GPG_PRIVATE_KEY != '' }}
+        env:
+          GPG_PASSPHRASE: ${{ env.GPG_PASSPHRASE }}
+        run: |
+          gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE}" \
+              --local-user 4473F115745A1A61 \
+              --detach-sign artifacts/seedbox-macos-arm64.tar.gz
+
       - name: Upload macOS universal bundle
         uses: actions/upload-artifact@v4
         with:
@@ -353,6 +367,21 @@ jobs:
         with:
           name: seedbox-macos-universal
           path: artifacts/seedbox-macos-universal.tar.gz.sig
+          if-no-files-found: error
+
+      - name: Upload macOS ARM64 hash
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-macos-arm64
+          path: artifacts/seedbox-macos-arm64.tar.gz.sha256
+          if-no-files-found: error
+
+      - name: Upload macOS ARM64 signature
+        if: ${{ env.GPG_PRIVATE_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-macos-arm64
+          path: artifacts/seedbox-macos-arm64.tar.gz.sig
           if-no-files-found: error
 
   linux-host:
