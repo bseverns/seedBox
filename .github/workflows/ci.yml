@@ -246,8 +246,67 @@ jobs:
           fi
           rsync -a "$APP_BUNDLE" "artifacts/macos/SeedBox Standalone.app"
 
+      - name: Stage macOS arm64 artifacts
+        run: |
+          mkdir -p artifacts/macos-arm64
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
+          if [[ -z "$VST3_BUNDLE" ]]; then
+            echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
+            find build/juce/SeedboxVST3_artefacts -maxdepth 6 -print
+            exit 1
+          fi
+          VST3_BINARY=$(find "$VST3_BUNDLE" -path "*/Contents/MacOS/*" -type f -print -quit)
+          if [[ -z "$VST3_BINARY" ]]; then
+            echo "Could not locate a binary under $VST3_BUNDLE/Contents/MacOS" >&2
+            find "$VST3_BUNDLE" -maxdepth 6 -print
+            exit 1
+          fi
+          rsync -a "$VST3_BUNDLE" artifacts/macos-arm64/
+          ARM64_VST3_BINARY=$(find "artifacts/macos-arm64/SeedBox.vst3" -path "*/Contents/MacOS/*" -type f -print -quit)
+          if [[ -z "$ARM64_VST3_BINARY" ]]; then
+            echo "Could not locate arm64 VST3 binary target under artifacts/macos-arm64" >&2
+            find "artifacts/macos-arm64/SeedBox.vst3" -maxdepth 6 -print
+            exit 1
+          fi
+          lipo -thin arm64 "$VST3_BINARY" -output "$ARM64_VST3_BINARY"
+          VST3_ARM64_INFO=$(lipo -info "$ARM64_VST3_BINARY")
+          echo "$VST3_ARM64_INFO"
+          if [[ "$VST3_ARM64_INFO" != *"Non-fat file:"*"arm64"* ]]; then
+            echo "Expected arm64-only VST3 binary, got: $VST3_ARM64_INFO" >&2
+            exit 1
+          fi
+          APP_BUNDLE=$(find build/juce/SeedboxApp_artefacts -path "*SeedBox Standalone.app" -maxdepth 5 -print -quit)
+          if [[ -z "$APP_BUNDLE" ]]; then
+            echo "SeedBox Standalone.app not found under build/juce/SeedboxApp_artefacts" >&2
+            find build/juce/SeedboxApp_artefacts -maxdepth 5 -print
+            exit 1
+          fi
+          APP_BINARY=$(find "$APP_BUNDLE" -path "*/Contents/MacOS/*" -type f -print -quit)
+          if [[ -z "$APP_BINARY" ]]; then
+            echo "Could not locate a binary under $APP_BUNDLE/Contents/MacOS" >&2
+            find "$APP_BUNDLE" -maxdepth 6 -print
+            exit 1
+          fi
+          rsync -a "$APP_BUNDLE" "artifacts/macos-arm64/SeedBox Standalone.app"
+          ARM64_APP_BINARY=$(find "artifacts/macos-arm64/SeedBox Standalone.app" -path "*/Contents/MacOS/*" -type f -print -quit)
+          if [[ -z "$ARM64_APP_BINARY" ]]; then
+            echo "Could not locate arm64 app binary target under artifacts/macos-arm64/SeedBox Standalone.app" >&2
+            find "artifacts/macos-arm64/SeedBox Standalone.app" -maxdepth 6 -print
+            exit 1
+          fi
+          lipo -thin arm64 "$APP_BINARY" -output "$ARM64_APP_BINARY"
+          APP_ARM64_INFO=$(lipo -info "$ARM64_APP_BINARY")
+          echo "$APP_ARM64_INFO"
+          if [[ "$APP_ARM64_INFO" != *"Non-fat file:"*"arm64"* ]]; then
+            echo "Expected arm64-only app binary, got: $APP_ARM64_INFO" >&2
+            exit 1
+          fi
+
       - name: Archive macOS artifacts
         run: tar -czf artifacts/seedbox-macos-universal.tar.gz -C artifacts macos
+
+      - name: Archive macOS arm64 artifacts
+        run: tar -czf artifacts/seedbox-macos-arm64.tar.gz -C artifacts macos-arm64
 
       - name: Note missing signing key (macOS)
         if: ${{ env.GPG_PRIVATE_KEY == '' }}
@@ -277,6 +336,15 @@ jobs:
           path: |
             artifacts/macos
             artifacts/seedbox-macos-universal.tar.gz
+          if-no-files-found: error
+
+      - name: Upload macOS arm64 bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedbox-macos-arm64
+          path: |
+            artifacts/macos-arm64
+            artifacts/seedbox-macos-arm64.tar.gz
           if-no-files-found: error
 
       - name: Upload macOS signature
