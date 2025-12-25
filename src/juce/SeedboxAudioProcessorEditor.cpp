@@ -630,6 +630,12 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   audioSelectorHint_.setJustificationType(juce::Justification::centredLeft);
   audioSelectorHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
 
+  audioInitWarning_.setJustificationType(juce::Justification::centredLeft);
+  audioInitWarning_.setColour(juce::Label::textColourId, juce::Colours::orange);
+  audioInitWarning_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.25f));
+  audioInitWarning_.setVisible(false);
+  addAndMakeVisible(audioInitWarning_);
+
   homePage_ = std::make_unique<HomePageComponent>(processor_);
   seedsPage_ = std::make_unique<SeedsPageComponent>(processor_);
   enginePage_ = std::make_unique<EnginePageComponent>(processor_);
@@ -663,6 +669,11 @@ void SeedboxAudioProcessorEditor::resized() {
     auto inner = area.reduced(8);
     auto header = inner.removeFromTop(44);
     modeSelector_.setBounds(header.removeFromLeft(std::min(260, header.getWidth())));
+
+    if (audioInitWarning_.isVisible()) {
+      auto warningArea = inner.removeFromTop(52);
+      audioInitWarning_.setBounds(warningArea);
+    }
 
     auto body = inner.removeFromBottom(48);
     shortcutsLabel_.setBounds(body.removeFromLeft(std::min(520, body.getWidth())));
@@ -905,6 +916,7 @@ void SeedboxAudioProcessorEditor::setAdvancedVisible(bool visible) {
     modeSelector_.toFront(false);
     displayLabel_.toFront(false);
     shortcutsLabel_.toFront(false);
+    audioInitWarning_.toFront(false);
     audioSelectorHint_.toFront(false);
     if (audioSelector_) audioSelector_->toFront(false);
     if (homePage_) homePage_->toFront(false);
@@ -923,6 +935,7 @@ void SeedboxAudioProcessorEditor::updateVisiblePage() {
   modeSelector_.setVisible(advancedVisible);
   shortcutsLabel_.setVisible(advancedVisible);
   displayLabel_.setVisible(advancedVisible);
+  audioInitWarning_.setVisible(advancedVisible && lastDeviceInitError_.isNotEmpty());
   audioSelectorHint_.setVisible(false);
   if (!advancedVisible) {
     if (homePage_) homePage_->setVisible(false);
@@ -976,6 +989,15 @@ void SeedboxAudioProcessorEditor::buildAudioSelector() {
       std::max(1, numOutputs), false, false, true, false);
   addAndMakeVisible(audioSelector_.get());
   audioSelector_->setVisible(advancedUiEnabled() && processor_.appState().mode() == AppState::Mode::SETTINGS);
+}
+
+void SeedboxAudioProcessorEditor::setLastDeviceInitError(const juce::String& errorMessage) {
+  lastDeviceInitError_ = errorMessage;
+  if (lastDeviceInitError_.isNotEmpty()) {
+    audioInitWarning_.setText("Audio init hiccup: " + lastDeviceInitError_ + " | Open SETTINGS to pick a device.",
+                              juce::dontSendNotification);
+  }
+  updateVisiblePage();
 }
 
 }  // namespace seedbox::juce_bridge
