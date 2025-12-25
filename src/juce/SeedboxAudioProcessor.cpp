@@ -31,6 +31,7 @@ constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
 constexpr auto kParamGateDivision = "gateDivision";
 constexpr auto kParamGateFloor = "gateFloor";
+constexpr auto kParamForceIdlePassthrough = "forceIdlePassthrough";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 constexpr auto kStatePanelPreset = "panelPreset";
@@ -53,13 +54,13 @@ const juce::Identifier kPropResonatorBank{"resonatorBank"};
 const juce::Identifier kPropResonatorFeedback{"resonatorFeedback"};
 const juce::Identifier kPropResonatorDamping{"resonatorDamping"};
 
-constexpr std::array<const char*, 13> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
+constexpr std::array<const char*, 14> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
                                                         kParamSeedEngine,     kParamSwingPercent,
                                                         kParamQuantizeScale,  kParamQuantizeRoot,
                                                         kParamTransportLatch, kParamClockSourceExternal,
                                                         kParamFollowExternalClock, kParamDebugMeters,
                                                         kParamGranularSourceStep, kParamGateDivision,
-                                                        kParamGateFloor};
+                                                        kParamGateFloor, kParamForceIdlePassthrough};
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
@@ -166,6 +167,8 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   const bool enginesAudible = hal::audio::bufferHasEngineEnergy(
       renderLeft, renderRight, static_cast<std::size_t>(numSamples),
       hal::audio::kEnginePassthroughFloor, hal::audio::kEngineIdleRmsSlack);
+  const bool forceIdlePassthrough =
+      parameters_.getRawParameterValue(kParamForceIdlePassthrough)->load() >= 0.5f;
 
   float* outLeft = outputBus.getWritePointer(0);
   float* outRight = outputBus.getNumChannels() > 1 ? outputBus.getWritePointer(1) : outLeft;
@@ -178,7 +181,8 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
                               static_cast<std::size_t>(numSamples),
                               hal::audio::kEnginePassthroughFloor, hal::audio::kEngineIdleRmsSlack);
 
-  if (enginesAudible || !dryAudible) {
+  const bool idlePassthroughRequested = forceIdlePassthrough && !enginesAudible;
+  if (enginesAudible || !dryAudible || idlePassthroughRequested) {
     juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
     if (outputBus.getNumChannels() > 1) {
       juce::FloatVectorOperations::copy(outRight, renderScratch_.getReadPointer(1), numSamples);
@@ -396,6 +400,11 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
     return;
   }
 
+  if (parameterID == kParamForceIdlePassthrough) {
+    parameterState_[kParamForceIdlePassthrough] = newValue;
+    return;
+  }
+
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::createParameterLayout() {
@@ -441,6 +450,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       kParamGateFloor, "Input Gate Floor",
       juce::NormalisableRange<float>{1e-6f, 0.25f, 0.0f, 0.35f, false}, hal::audio::kEnginePassthroughFloor));
+  params.push_back(std::make_unique<juce::AudioParameterBool>(kParamForceIdlePassthrough,
+                                                              "Force Idle Passthrough", false));
   return {params.begin(), params.end()};
 }
 
