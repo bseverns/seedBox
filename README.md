@@ -1,4 +1,4 @@
-# SeedBox — punky seed lab for sound + code curious humans
+# SeedBox — lab for sound + code curious humans
 
 SeedBox is a tiny music lab wrapped in C++. It runs as Teensy 4.0 firmware **and** as a laptop simulator, so you can sketch rhythms, mangle grains, or teach DSP without solder anxiety. Think of this repo as half studio notebook, half teaching zine: the code makes noise, and the docs explain why.
 
