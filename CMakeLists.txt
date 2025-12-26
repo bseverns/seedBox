@@ -5,12 +5,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "14.4" CACHE STRING "Minimum macOS deployment target for JUCE ScreenCaptureKit support" FORCE)
+endif()
+
 include(FetchContent)
 
 FetchContent_Declare(
   JUCE
   GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-  GIT_TAG 7.0.12
+  GIT_TAG 29396c22c93392d6738e021b83196283d6e4d850
   GIT_SHALLOW TRUE
 )
 FetchContent_Declare(
