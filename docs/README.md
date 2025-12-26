@@ -82,8 +82,9 @@ the defaults straight from [`include/SeedBoxConfig.h`](../include/SeedBoxConfig.
   where those files land so teammates can replay them.
 - `SEEDBOX_DEBUG_CLOCK_SOURCE` unlocks the serial narration for transport
   decisions when you're debugging sync.
-- `SEEDBOX_DEBUG_UI` is the playground for future overlays and class demos —
-  document how you use it so others can riff.
+- `SEEDBOX_DEBUG_UI` flips on the JUCE debug HUD overlay (live state readouts)
+  and reserves the hardware OLED overlay slot for later — document your reads
+  so others can riff.
 
 Need receipts? `python scripts/describe_seedbox_config.py --format=markdown`
 prints the authoritative table straight from the header so your doc never drifts.

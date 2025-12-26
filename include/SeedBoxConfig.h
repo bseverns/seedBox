@@ -52,8 +52,9 @@
 #define SEEDBOX_DEBUG_CLOCK_SOURCE 0
 #endif
 
-// UI instrumentation placeholder. Wire new UI debug overlays into this switch
-// so native + hardware builds share the same control surface story.
+// UI instrumentation switch. In JUCE builds this flips on a debug HUD overlay
+// with live state readouts; on hardware it is still the reserved slot for the
+// future OLED overlay story.
 #ifndef SEEDBOX_DEBUG_UI
 #define SEEDBOX_DEBUG_UI 0
 #endif
@@ -115,7 +116,7 @@ inline constexpr FlagSummary kFlagMatrix[] = {
     {"SEEDBOX_DEBUG_CLOCK_SOURCE", kClockDebug,
      "Serial prints for transport decisions. Trace MIDI clock hand-offs."},
     {"SEEDBOX_DEBUG_UI", kUiDebug,
-     "Future UI instrumentation hook. Overlay debug glyphs when true."},
+     "JUCE-only HUD overlay for live UI state; hardware overlay still pending."},
 };
 
 }  // namespace SeedBoxConfig
@@ -183,7 +184,7 @@ static const SeedBoxConfig_FlagSummary SeedBoxConfig_kFlagMatrix[] = {
     {"SEEDBOX_DEBUG_CLOCK_SOURCE", SeedBoxConfig_kClockDebug,
      "Serial prints for transport decisions. Trace MIDI clock hand-offs."},
     {"SEEDBOX_DEBUG_UI", SeedBoxConfig_kUiDebug,
-     "Future UI instrumentation hook. Overlay debug glyphs when true."},
+     "JUCE-only HUD overlay for live UI state; hardware overlay still pending."},
 };
 
 #undef SEEDBOX_STATIC_ASSERT
