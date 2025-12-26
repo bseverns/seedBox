@@ -228,6 +228,25 @@ jobs:
           fi
           lipo -info "$APP_BINARY"
 
+      - name: Verify macOS bundle signatures
+        run: |
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
+          if [[ -z "$VST3_BUNDLE" ]]; then
+            echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
+            find build/juce/SeedboxVST3_artefacts -maxdepth 6 -print
+            exit 1
+          fi
+          APP_BUNDLE=$(find build/juce/SeedboxApp_artefacts -path "*SeedBox Standalone.app" -maxdepth 5 -print -quit)
+          if [[ -z "$APP_BUNDLE" ]]; then
+            echo "SeedBox Standalone.app not found under build/juce/SeedboxApp_artefacts" >&2
+            find build/juce/SeedboxApp_artefacts -maxdepth 5 -print
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$VST3_BUNDLE"
+          spctl -a -vv "$VST3_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+          spctl -a -vv "$APP_BUNDLE"
+
       - name: Stage macOS artifacts
         run: |
           mkdir -p artifacts/macos
