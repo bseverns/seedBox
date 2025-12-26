@@ -188,7 +188,6 @@ jobs:
           cmake -S . -B build/juce \
             -G Ninja \
             -DSEEDBOX_SIM=ON \
-            -DQUIET_MODE=OFF \
             -DSEEDBOX_VERSION="${{ github.sha }}" \
             -DJUCE_VST3_CAN_REPLACE_VST2=OFF \
             -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -536,7 +535,6 @@ jobs:
           cmake -S . -B build/juce \
             -G Ninja \
             -DSEEDBOX_SIM=ON \
-            -DQUIET_MODE=OFF \
             -DSEEDBOX_VERSION="${{ github.sha }}" \
             -DJUCE_VST3_CAN_REPLACE_VST2=OFF \
             -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -638,7 +636,6 @@ jobs:
           cmake -S . -B build/juce `
             -G "Ninja" `
             -DSEEDBOX_SIM=ON `
-            -DQUIET_MODE=OFF `
             -DSEEDBOX_VERSION="${{ github.sha }}" `
             -DJUCE_VST3_CAN_REPLACE_VST2=OFF `
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}

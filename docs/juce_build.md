@@ -14,9 +14,14 @@ same build flags PlatformIO uses so the DAW story matches the firmware truth.
    ```bash
    cmake -S . -B build/juce \
      -DSEEDBOX_SIM=ON \
-     -DQUIET_MODE=ON \
+     -DQUIET_MODE=OFF \
      -DSEEDBOX_VERSION="$(git rev-parse --short HEAD)"
    ```
+
+   Defaults already keep `QUIET_MODE=OFF` and `SEEDBOX_DEBUG_UI=OFF`, so the
+   line above is mostly there to make intent loud and obvious while you learn.
+   Quiet mode is a firmware safety belt; on desktop we want audio and MIDI to
+   breathe unless you explicitly shut the valves.
 
    > Shell gotchas: keep the trailing `\` characters flush against the newline.
    > A stray space after the backslash makes zsh try to run `-DQUIET_MODE=...`
@@ -56,7 +61,7 @@ exactly like `pio test -e native`:
 | --- | --- | --- | --- |
 | `SEEDBOX_JUCE` | `-D SEEDBOX_JUCE=1` | `ON` | Flags the JUCE build path and keeps the Arduino-only headers on the bench. |
 | `SEEDBOX_SIM` | `-D SEEDBOX_SIM=1` | `ON` | Enables the native board + audio shims used by tests and the DAW bridge. |
-| `QUIET_MODE` | `-D QUIET_MODE=1` | `ON` | Keeps serial/MIDI spam muted so hosts do not get flooded. |
+| `QUIET_MODE` | `-D QUIET_MODE=1` | `OFF` | Keeps serial/MIDI spam muted so hosts do not get flooded. Turn it on if you want the studio rig to stay politely silent. |
 | `SEEDBOX_VERSION` | `-D SEEDBOX_VERSION="${PIO_SRC_REV}"` | `"dev"` | Propagates a version stamp into presets and debug logs. |
 | `SEEDBOX_PROJECT_ROOT_HINT` | `-D SEEDBOX_PROJECT_ROOT_HINT` | repo root | Lets tests and fixtures resolve paths the same way PlatformIO does. |
 | `ENABLE_GOLDEN` | `-D ENABLE_GOLDEN=1` | `OFF` | Opt-in for writing golden artifacts from host builds. |
