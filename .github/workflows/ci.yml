@@ -150,6 +150,20 @@ jobs:
               --local-user 4473F115745A1A61 \
               --detach-sign artifacts/native_golden.tar.gz
 
+      - name: Log native golden artifact sizes
+        if: ${{ matrix.name == 'native' }}
+        run: |
+          echo "::notice::Uploading artifact: native-golden-fixtures"
+          for item in \
+            artifacts/native_golden \
+            artifacts/native_golden.tar.gz \
+            artifacts/native_golden.tar.gz.sig; do
+            if [ -e "$item" ]; then
+              du -sh "$item"
+            else
+              echo "::notice::Missing expected upload file: $item"
+            fi
+          done
       - name: Upload native golden artifacts
         if: ${{ matrix.name == 'native' }}
         uses: actions/upload-artifact@v4
@@ -465,6 +479,19 @@ jobs:
               --local-user 4473F115745A1A61 \
               --detach-sign artifacts/seedbox-macos-arm64.tar.gz
 
+      - name: Log macOS universal artifact sizes
+        run: |
+          echo "::notice::Uploading artifact: seedbox-macos-universal"
+          for item in \
+            artifacts/macos \
+            artifacts/seedbox-macos-universal.tar.gz \
+            artifacts/seedbox-macos-universal.tar.gz.sig; do
+            if [ -e "$item" ]; then
+              du -sh "$item"
+            else
+              echo "::notice::Missing expected upload file: $item"
+            fi
+          done
       - name: Upload macOS universal bundle
         uses: actions/upload-artifact@v4
         with:
@@ -475,6 +502,20 @@ jobs:
             artifacts/seedbox-macos-universal.tar.gz.sig
           if-no-files-found: error
 
+      - name: Log macOS arm64 artifact sizes
+        run: |
+          echo "::notice::Uploading artifact: seedbox-macos-arm64"
+          for item in \
+            artifacts/macos-arm64 \
+            artifacts/seedbox-macos-arm64.tar.gz \
+            artifacts/seedbox-macos-arm64.tar.gz.sha256 \
+            artifacts/seedbox-macos-arm64.tar.gz.sig; do
+            if [ -e "$item" ]; then
+              du -sh "$item"
+            else
+              echo "::notice::Missing expected upload file: $item"
+            fi
+          done
       - name: Upload macOS arm64 bundle
         uses: actions/upload-artifact@v4
         with:
