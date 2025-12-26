@@ -424,6 +424,23 @@ jobs:
             exit 1
           fi
 
+      - name: Re-sign macOS arm64 bundles
+        run: |
+          ARM64_VST3_BUNDLE="artifacts/macos-arm64/SeedBox.vst3"
+          ARM64_APP_BUNDLE="artifacts/macos-arm64/SeedBox Standalone.app"
+          if [[ ! -d "$ARM64_VST3_BUNDLE" ]]; then
+            echo "arm64 VST3 bundle not found at $ARM64_VST3_BUNDLE" >&2
+            exit 1
+          fi
+          if [[ ! -d "$ARM64_APP_BUNDLE" ]]; then
+            echo "arm64 app bundle not found at $ARM64_APP_BUNDLE" >&2
+            exit 1
+          fi
+          codesign --deep --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$ARM64_VST3_BUNDLE"
+          codesign --deep --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$ARM64_APP_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$ARM64_VST3_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$ARM64_APP_BUNDLE"
+
       - name: Archive macOS artifacts
         run: tar -czf artifacts/seedbox-macos-universal.tar.gz -C artifacts macos
 
