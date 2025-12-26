@@ -13,7 +13,9 @@
 #include "BinaryData.h"
 #include <sstream>
 
+#include "SeedBoxConfig.h"
 #include "app/AppState.h"
+#include "hal/hal_audio.h"
 #include "juce/SeedboxAudioProcessor.h"
 
 namespace seedbox::juce_bridge {
@@ -136,6 +138,40 @@ void nudgeSlider(juce::Slider& slider, double delta) {
     step = 0.1;
   }
   slider.setValue(slider.getValue() + (step * delta), juce::sendNotificationSync);
+}
+
+const char* appModeLabel(AppState::Mode mode) {
+  switch (mode) {
+    case AppState::Mode::HOME:
+      return "HOME";
+    case AppState::Mode::SEEDS:
+      return "SEEDS";
+    case AppState::Mode::ENGINE:
+      return "ENGINE";
+    case AppState::Mode::PERF:
+      return "PERF";
+    case AppState::Mode::SETTINGS:
+      return "SETTINGS";
+    case AppState::Mode::UTIL:
+      return "UTIL";
+    case AppState::Mode::SWING:
+      return "SWING";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+const char* uiModeLabel(UiState::Mode mode) {
+  switch (mode) {
+    case UiState::Mode::kPerformance:
+      return "PERFORMANCE";
+    case UiState::Mode::kEdit:
+      return "EDIT";
+    case UiState::Mode::kSystem:
+      return "SYSTEM";
+    default:
+      return "UNKNOWN";
+  }
 }
 }  // namespace
 
@@ -670,6 +706,10 @@ SeedboxAudioProcessorEditor::~SeedboxAudioProcessorEditor() { stopTimer(); }
 
 void SeedboxAudioProcessorEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colours::darkslategrey); }
 
+void SeedboxAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
+  drawDebugOverlay(g);
+}
+
 void SeedboxAudioProcessorEditor::resized() {
   auto layoutAdvanced = [this](juce::Rectangle<int> area) {
     advancedFrame_.setBounds(area);
@@ -732,6 +772,63 @@ void SeedboxAudioProcessorEditor::resized() {
 
   if (panelView_) {
     panelView_->setBounds(bounds);
+  }
+}
+
+void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
+  if (!SeedBoxConfig::kUiDebug) {
+    return;
+  }
+
+  const auto& app = processor_.appState();
+  const auto& ui = app.uiStateCache();
+  const std::size_t focusIndex = app.focusSeed();
+  juce::String engineName = "UNKNOWN";
+  if (focusIndex < app.seeds().size()) {
+    engineName = juce::String(app.engineRouterForDebug().engineShortName(app.seeds()[focusIndex].engine).data());
+  }
+
+  const char* clockName = ui.clock == UiState::ClockSource::kExternal ? "External" : "Internal";
+  const juce::String bpm = juce::String(ui.bpm, 1);
+  const juce::String swing = juce::String(ui.swing, 1);
+  const juce::String sampleRate = juce::String(hal::audio::sampleRate(), 0);
+  const juce::String frames = juce::String(static_cast<juce::int64>(hal::audio::framesPerBlock()));
+  const juce::String ticks = juce::String(static_cast<juce::int64>(app.schedulerTicks()));
+
+  std::vector<juce::String> lines;
+  lines.emplace_back("UI DEBUG OVERLAY");
+  lines.emplace_back("App mode: " + juce::String(appModeLabel(app.mode())));
+  lines.emplace_back("UI mode: " + juce::String(uiModeLabel(ui.mode)));
+  lines.emplace_back("Focus: Seed " + juce::String(static_cast<int>(focusIndex + 1)) + " (" + engineName + ")");
+  lines.emplace_back("Clock: " + juce::String(clockName) + " | BPM " + bpm + " | Swing " + swing);
+  lines.emplace_back("Audio: " + sampleRate + " Hz | " + frames + " frames");
+  lines.emplace_back("Scheduler ticks: " + ticks);
+  lines.emplace_back("Flags: JUCE=" + juce::String(SeedBoxConfig::kJuceBuild ? "ON" : "OFF") +
+                     " SIM=" + juce::String(SeedBoxConfig::kSimBuild ? "ON" : "OFF") +
+                     " HW=" + juce::String(SeedBoxConfig::kHardwareBuild ? "ON" : "OFF") +
+                     " QUIET=" + juce::String(SeedBoxConfig::kQuietMode ? "ON" : "OFF"));
+
+  g.setFont(juce::Font(12.0f, juce::Font::bold));
+  const int lineHeight = 16;
+  int widest = 0;
+  for (const auto& line : lines) {
+    widest = std::max(widest, g.getCurrentFont().getStringWidth(line));
+  }
+
+  const int padding = 10;
+  const int overlayWidth = widest + padding * 2;
+  const int overlayHeight = static_cast<int>(lines.size()) * lineHeight + padding * 2;
+  auto overlayArea = getLocalBounds().removeFromTop(overlayHeight).removeFromLeft(overlayWidth);
+
+  g.setColour(juce::Colours::black.withAlpha(0.65f));
+  g.fillRoundedRectangle(overlayArea.toFloat(), 6.0f);
+  g.setColour(juce::Colours::lawngreen);
+
+  int y = overlayArea.getY() + padding;
+  for (const auto& line : lines) {
+    g.drawText(line, overlayArea.getX() + padding, y, overlayArea.getWidth() - padding * 2, lineHeight,
+               juce::Justification::left, false);
+    y += lineHeight;
   }
 }
 

@@ -156,6 +156,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   ~SeedboxAudioProcessorEditor() override;
 
   void paint(juce::Graphics& g) override;
+  void paintOverChildren(juce::Graphics& g) override;
   void resized() override;
   bool keyPressed(const juce::KeyPress& key) override;
   bool keyStateChanged(bool isKeyDown) override;
@@ -163,6 +164,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
 
  private:
   void timerCallback() override;
+  void drawDebugOverlay(juce::Graphics& g) const;
   void refreshDisplay();
   void syncKeyboardButtons();
   bool handleButtonKey(int keyCode, bool pressed);

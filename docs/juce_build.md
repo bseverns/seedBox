@@ -63,7 +63,7 @@ exactly like `pio test -e native`:
 | `ARDUINOJSON_USE_DOUBLE` | `-D ARDUINOJSON_USE_DOUBLE=1` | `ON` | Keeps JSON parsing identical to the embedded toolchain. |
 | `SEEDBOX_HW` | `-D SEEDBOX_HW=1` | `OFF` | Pulls in Teensy-only glue; leave off for JUCE unless you like missing headers. |
 | `SEEDBOX_DEBUG_CLOCK_SOURCE` | `-D SEEDBOX_DEBUG_CLOCK_SOURCE=1` | `OFF` | Extra clock breadcrumbs when you need them. |
-| `SEEDBOX_DEBUG_UI` | `-D SEEDBOX_DEBUG_UI=1` | `OFF` | UI debug overlays; dormant by default to mirror PlatformIO defaults. |
+| `SEEDBOX_DEBUG_UI` | `-D SEEDBOX_DEBUG_UI=1` | `OFF` | Enables the JUCE UI debug HUD overlay (live state readouts). Hardware overlay still future-facing. |
 
 The helper function in `CMakeLists.txt` converts each `ON/OFF` switch into `0/1`
 defines so `SeedBoxConfig.h` stays happy.
