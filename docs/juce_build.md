@@ -46,6 +46,22 @@ Both targets live in the same build tree. The plugin now drops its bundle into
 for `Debug`, `Release`, etc.) so you always know where the payload landed even
 if JUCE’s automatic user-level copy goes missing on macOS.
 
+## CI artifact vibe check: universal vs arm64
+
+The CI pipeline uploads two macOS bundles because reality is messier than a
+single zip:
+
+- **`seedbox-macos-universal`** is the big tent. It ships a universal binary
+  bundle with *both* `x86_64` and `arm64` slices, so Intel Macs and Apple
+  Silicon can run the same artifact without a translation layer.
+- **`seedbox-macos-arm64`** is the lean street-cut. CI takes the universal
+  bundle, thins it down with `lipo -thin arm64`, and re-packages the VST3 + app
+  so you can grab a smaller, Apple Silicon-only download without carrying the
+  Intel luggage.
+
+Translation: universal is compatibility-first, arm64 is bandwidth + startup
+speed-first. Pick the vibe that matches your users.
+
 Need the short answer for actually _hearing_ things and driving the UI? Jump to
 [`src/juce/README.md`](../src/juce/README.md) for the monitoring flow, page
 tour, keyboard map, and persistence notes (test tone beats passthrough; engines
