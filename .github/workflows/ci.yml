@@ -158,14 +158,7 @@ jobs:
           path: |
             artifacts/native_golden
             artifacts/native_golden.tar.gz
-          if-no-files-found: error
-
-      - name: Upload native golden signature
-        if: ${{ matrix.name == 'native' && env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-golden-fixtures
-          path: artifacts/native_golden.tar.gz.sig
+            artifacts/native_golden.tar.gz.sig
           if-no-files-found: error
 
   macos-universal:
@@ -480,6 +473,7 @@ jobs:
           path: |
             artifacts/macos
             artifacts/seedbox-macos-universal.tar.gz
+            artifacts/seedbox-macos-universal.tar.gz.sig
           if-no-files-found: error
 
       - name: Upload macOS arm64 bundle
@@ -489,29 +483,8 @@ jobs:
           path: |
             artifacts/macos-arm64
             artifacts/seedbox-macos-arm64.tar.gz
-          if-no-files-found: error
-
-      - name: Upload macOS signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-macos-universal
-          path: artifacts/seedbox-macos-universal.tar.gz.sig
-          if-no-files-found: error
-
-      - name: Upload macOS ARM64 hash
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-macos-arm64
-          path: artifacts/seedbox-macos-arm64.tar.gz.sha256
-          if-no-files-found: error
-
-      - name: Upload macOS ARM64 signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-macos-arm64
-          path: artifacts/seedbox-macos-arm64.tar.gz.sig
+            artifacts/seedbox-macos-arm64.tar.gz.sha256
+            artifacts/seedbox-macos-arm64.tar.gz.sig
           if-no-files-found: error
 
   linux-host:
@@ -623,14 +596,7 @@ jobs:
           path: |
             artifacts/linux
             artifacts/seedbox-linux-host.tar.gz
-          if-no-files-found: error
-
-      - name: Upload Linux signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-linux-host
-          path: artifacts/seedbox-linux-host.tar.gz.sig
+            artifacts/seedbox-linux-host.tar.gz.sig
           if-no-files-found: error
 
   windows-host:
@@ -736,12 +702,5 @@ jobs:
           path: |
             artifacts/windows
             artifacts/seedbox-windows-host.zip
-          if-no-files-found: error
-
-      - name: Upload Windows signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-windows-host
-          path: artifacts/seedbox-windows-host.zip.sig
+            artifacts/seedbox-windows-host.zip.sig
           if-no-files-found: error
