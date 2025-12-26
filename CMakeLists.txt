@@ -33,7 +33,7 @@ option(QUIET_MODE "Mute serial/MIDI chatter for host builds" OFF)
 option(SEED_PRIME_BYPASS "Skip auto-priming four seeds; only focus slot fills" OFF)
 option(ENABLE_GOLDEN "Enable golden artifact emission" OFF)
 option(SEEDBOX_DEBUG_CLOCK_SOURCE "Verbose clock debug toggles" OFF)
-option(SEEDBOX_DEBUG_UI "Verbose UI debug toggles" OFF)
+option(SEEDBOX_DEBUG_UI "Verbose UI debug toggles" ON)
 option(ARDUINOJSON_USE_DOUBLE "Match PlatformIO's double-precision JSON" ON)
 set(SEEDBOX_PROJECT_ROOT_HINT "${CMAKE_SOURCE_DIR}" CACHE STRING "Optional path hint for test/fixture lookups")
 set(SEEDBOX_VERSION "dev" CACHE STRING "Version stamp applied to JUCE targets")
@@ -112,9 +112,9 @@ target_link_libraries(seedbox_core PUBLIC ArduinoJson)
 juce_add_binary_data(seedbox_assets SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/assets/juce_motd.txt)
 
 juce_add_plugin(SeedboxVST3
-  COMPANY_NAME "SeedBox"
-  PLUGIN_MANUFACTURER_CODE SdBx
-  PLUGIN_CODE SbBx
+  COMPANY_NAME "BSSoundStudio"
+  PLUGIN_MANUFACTURER_CODE BSSS
+  PLUGIN_CODE BSBX
   FORMATS VST3
   PRODUCT_NAME "SeedBox"
   VERSION ${PROJECT_VERSION}
