@@ -359,6 +359,7 @@ jobs:
 
       - name: Stage macOS artifacts
         run: |
+          rm -rf artifacts/macos
           mkdir -p artifacts/macos
           VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
           if [[ -z "$VST3_BUNDLE" ]]; then
