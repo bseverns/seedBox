@@ -438,6 +438,57 @@ jobs:
             exit 1
           fi
 
+      - name: Re-sign macOS arm64 bundles
+        if: >-
+          ${{
+            env.APPLE_SIGNING_CERT_BASE64 != '' &&
+            env.APPLE_SIGNING_CERT_PASSWORD != '' &&
+            env.APPLE_SIGNING_IDENTITY != ''
+          }}
+        env:
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}-arm64
+        run: |
+          set -euo pipefail
+
+          echo "Creating a temporary keychain for arm64 codesigning."
+          KEYCHAIN_PATH="$RUNNER_TEMP/seedbox-arm64-signing.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+          echo "Importing Developer ID Application identity for arm64 bundles."
+          CERT_PATH="$RUNNER_TEMP/seedbox-developer-id-arm64.p12"
+          echo "$APPLE_SIGNING_CERT_BASE64" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_SIGNING_CERT_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          ARM64_VST3_BUNDLE="artifacts/macos-arm64/SeedBox.vst3"
+          ARM64_APP_BUNDLE="artifacts/macos-arm64/SeedBox Standalone.app"
+          if [[ ! -d "$ARM64_VST3_BUNDLE" ]]; then
+            echo "arm64 VST3 bundle not found at $ARM64_VST3_BUNDLE" >&2
+            exit 1
+          fi
+          if [[ ! -d "$ARM64_APP_BUNDLE" ]]; then
+            echo "arm64 app bundle not found at $ARM64_APP_BUNDLE" >&2
+            exit 1
+          fi
+          codesign --deep --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$ARM64_VST3_BUNDLE"
+          codesign --deep --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$ARM64_APP_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$ARM64_VST3_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$ARM64_APP_BUNDLE"
+
+          echo "Cleaning up temporary keychain."
+          security delete-keychain "$KEYCHAIN_PATH"
+
       - name: Archive macOS artifacts
         run: tar -czf artifacts/seedbox-macos-universal.tar.gz -C artifacts macos
 
