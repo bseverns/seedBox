@@ -158,14 +158,7 @@ jobs:
           path: |
             artifacts/native_golden
             artifacts/native_golden.tar.gz
-          if-no-files-found: error
-
-      - name: Upload native golden signature
-        if: ${{ matrix.name == 'native' && env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-golden-fixtures
-          path: artifacts/native_golden.tar.gz.sig
+            artifacts/native_golden.tar.gz.sig
           if-no-files-found: error
 
   macos-universal:
@@ -329,6 +322,34 @@ jobs:
           echo "Cleaning up temporary keychain."
           security delete-keychain "$KEYCHAIN_PATH"
 
+      - name: Verify macOS bundle signatures
+        if: >-
+          ${{
+            env.APPLE_SIGNING_CERT_BASE64 != '' &&
+            env.APPLE_SIGNING_CERT_PASSWORD != '' &&
+            env.APPLE_SIGNING_IDENTITY != '' &&
+            env.APPLE_NOTARY_KEY_ID != '' &&
+            env.APPLE_NOTARY_ISSUER_ID != '' &&
+            env.APPLE_NOTARY_KEY_BASE64 != ''
+          }}
+        run: |
+          VST3_BUNDLE=$(find build/juce/SeedboxVST3_artefacts -name SeedBox.vst3 -print -quit)
+          if [[ -z "$VST3_BUNDLE" ]]; then
+            echo "VST3 bundle not found under build/juce/SeedboxVST3_artefacts" >&2
+            find build/juce/SeedboxVST3_artefacts -maxdepth 6 -print
+            exit 1
+          fi
+          APP_BUNDLE=$(find build/juce/SeedboxApp_artefacts -path "*SeedBox Standalone.app" -maxdepth 5 -print -quit)
+          if [[ -z "$APP_BUNDLE" ]]; then
+            echo "SeedBox Standalone.app not found under build/juce/SeedboxApp_artefacts" >&2
+            find build/juce/SeedboxApp_artefacts -maxdepth 5 -print
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$VST3_BUNDLE"
+          spctl -a -vv "$VST3_BUNDLE"
+          codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+          spctl -a -vv "$APP_BUNDLE"
+
       - name: Stage macOS artifacts
         run: |
           rm -rf artifacts/macos
@@ -452,6 +473,7 @@ jobs:
           path: |
             artifacts/macos
             artifacts/seedbox-macos-universal.tar.gz
+            artifacts/seedbox-macos-universal.tar.gz.sig
           if-no-files-found: error
 
       - name: Upload macOS arm64 bundle
@@ -461,29 +483,8 @@ jobs:
           path: |
             artifacts/macos-arm64
             artifacts/seedbox-macos-arm64.tar.gz
-          if-no-files-found: error
-
-      - name: Upload macOS signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-macos-universal
-          path: artifacts/seedbox-macos-universal.tar.gz.sig
-          if-no-files-found: error
-
-      - name: Upload macOS ARM64 hash
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-macos-arm64
-          path: artifacts/seedbox-macos-arm64.tar.gz.sha256
-          if-no-files-found: error
-
-      - name: Upload macOS ARM64 signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-macos-arm64
-          path: artifacts/seedbox-macos-arm64.tar.gz.sig
+            artifacts/seedbox-macos-arm64.tar.gz.sha256
+            artifacts/seedbox-macos-arm64.tar.gz.sig
           if-no-files-found: error
 
   linux-host:
@@ -595,14 +596,7 @@ jobs:
           path: |
             artifacts/linux
             artifacts/seedbox-linux-host.tar.gz
-          if-no-files-found: error
-
-      - name: Upload Linux signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-linux-host
-          path: artifacts/seedbox-linux-host.tar.gz.sig
+            artifacts/seedbox-linux-host.tar.gz.sig
           if-no-files-found: error
 
   windows-host:
@@ -708,12 +702,5 @@ jobs:
           path: |
             artifacts/windows
             artifacts/seedbox-windows-host.zip
-          if-no-files-found: error
-
-      - name: Upload Windows signature
-        if: ${{ env.GPG_PRIVATE_KEY != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: seedbox-windows-host
-          path: artifacts/seedbox-windows-host.zip.sig
+            artifacts/seedbox-windows-host.zip.sig
           if-no-files-found: error
