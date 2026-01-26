@@ -111,6 +111,7 @@ class SeedboxPanelView : public juce::Component {
 
   juce::OwnedArray<JackIcon> jackIcons_;
   juce::Label oledLabel_;
+  juce::Label clockStatusLabel_;
 
   juce::String engineLabel_;
   juce::Label engineNameLabel_;

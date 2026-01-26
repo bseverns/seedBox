@@ -27,11 +27,13 @@ constexpr auto kParamQuantizeRoot = "quantizeRoot";
 constexpr auto kParamTransportLatch = "transportLatch";
 constexpr auto kParamClockSourceExternal = "clockSourceExternal";
 constexpr auto kParamFollowExternalClock = "followExternalClock";
+constexpr auto kParamFollowHostTransport = "followHostTransport";
 constexpr auto kParamDebugMeters = "debugMeters";
 constexpr auto kParamGranularSourceStep = "granularSourceStep";
 constexpr auto kParamGateDivision = "gateDivision";
 constexpr auto kParamGateFloor = "gateFloor";
 constexpr auto kParamForceIdlePassthrough = "forceIdlePassthrough";
+constexpr auto kParamTestTone = "testTone";
 constexpr auto kParamPresetSlot = "presetSlot";
 constexpr auto kStatePresetData = "presetData";
 constexpr auto kStatePanelPreset = "panelPreset";
@@ -54,13 +56,15 @@ const juce::Identifier kPropResonatorBank{"resonatorBank"};
 const juce::Identifier kPropResonatorFeedback{"resonatorFeedback"};
 const juce::Identifier kPropResonatorDamping{"resonatorDamping"};
 
-constexpr std::array<const char*, 14> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
+constexpr std::array<const char*, 16> kParameterIds = {kParamMasterSeed,      kParamFocusSeed,
                                                         kParamSeedEngine,     kParamSwingPercent,
                                                         kParamQuantizeScale,  kParamQuantizeRoot,
                                                         kParamTransportLatch, kParamClockSourceExternal,
-                                                        kParamFollowExternalClock, kParamDebugMeters,
+                                                        kParamFollowExternalClock, kParamFollowHostTransport,
+                                                        kParamDebugMeters,
                                                         kParamGranularSourceStep, kParamGateDivision,
-                                                        kParamGateFloor, kParamForceIdlePassthrough};
+                                                        kParamGateFloor, kParamForceIdlePassthrough,
+                                                        kParamTestTone};
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
@@ -84,6 +88,10 @@ SeedboxAudioProcessor::~SeedboxAudioProcessor() {
   for (auto* id : kParameterIds) {
     parameters_.removeParameterListener(id, this);
   }
+}
+
+bool SeedboxAudioProcessor::followHostTransportEnabled() const {
+  return parameters_.getRawParameterValue(kParamFollowHostTransport)->load() >= 0.5f;
 }
 
 void SeedboxAudioProcessor::requestShutdown() {
@@ -150,15 +158,50 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   renderScratch_.clear();
   midiBackend_->setOutboundBuffer(&midiMessages);
 
-  std::vector<BufferedMidiMessage> incoming;
-  incoming.reserve(static_cast<std::size_t>(midiMessages.getNumEvents()));
+  const bool followHostTransport =
+      parameters_.getRawParameterValue(kParamFollowHostTransport)->load() >= 0.5f;
+  if (followHostTransport) {
+    if (auto* playHead = getPlayHead()) {
+      if (auto position = playHead->getPosition()) {
+        if (auto bpm = position->getBpm()) {
+          app_.setInternalBpmFromHost(static_cast<float>(*bpm));
+        }
+        const bool isPlaying = position->getIsPlaying();
+        if (isPlaying != hostPlaying_) {
+          hostPlaying_ = isPlaying;
+          if (hostPlaying_) {
+            app_.onExternalTransportStart();
+          } else {
+            app_.onExternalTransportStop();
+          }
+        }
+      }
+    }
+  }
+
+  const bool testToneEnabled =
+      parameters_.getRawParameterValue(kParamTestTone)->load() >= 0.5f;
+  if (testToneEnabled != testToneEnabled_) {
+    testToneEnabled_ = testToneEnabled;
+    app_.setTestToneEnabledFromHost(testToneEnabled_);
+  }
+
   for (const auto metadata : midiMessages) {
-    incoming.push_back({metadata.getMessage(), metadata.samplePosition});
+    const auto& msg = metadata.getMessage();
+    if (msg.isMidiClock()) {
+      app_.onExternalClockTick();
+    } else if (msg.isMidiStart()) {
+      app_.onExternalTransportStart();
+    } else if (msg.isMidiStop()) {
+      app_.onExternalTransportStop();
+    } else if (msg.isController()) {
+      const auto channel = static_cast<std::uint8_t>(std::max(0, msg.getChannel() - 1));
+      app_.onExternalControlChange(channel,
+                                   static_cast<std::uint8_t>(msg.getControllerNumber()),
+                                   static_cast<std::uint8_t>(msg.getControllerValue()));
+    }
   }
   midiMessages.clear();
-  for (const auto& msg : incoming) {
-    midiBackend_->queueIncoming(msg);
-  }
 
   float* renderLeft = renderScratch_.getWritePointer(0);
   float* renderRight = renderScratch_.getNumChannels() > 1 ? renderScratch_.getWritePointer(1) : renderLeft;
@@ -371,6 +414,14 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
     return;
   }
 
+  if (parameterID == kParamFollowHostTransport) {
+    parameterState_[kParamFollowHostTransport] = newValue;
+    if (newValue < 0.5f) {
+      hostPlaying_ = false;
+    }
+    return;
+  }
+
   if (parameterID == kParamDebugMeters) {
     app_.setDebugMetersEnabledFromHost(newValue >= 0.5f);
     parameterState_[kParamDebugMeters] = newValue;
@@ -405,6 +456,11 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
     return;
   }
 
+  if (parameterID == kParamTestTone) {
+    parameterState_[kParamTestTone] = newValue;
+    return;
+  }
+
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::createParameterLayout() {
@@ -436,6 +492,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
       std::make_unique<juce::AudioParameterBool>(kParamClockSourceExternal, "Clock Source External", false));
   params.push_back(
       std::make_unique<juce::AudioParameterBool>(kParamFollowExternalClock, "Follow External Clock", false));
+  params.push_back(
+      std::make_unique<juce::AudioParameterBool>(kParamFollowHostTransport, "Follow Host Transport", true));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
 
   // Discrete source index delta sent to app_.seedPageCycleGranularSource() when the UI nudge changes.
@@ -452,6 +510,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
       juce::NormalisableRange<float>{1e-6f, 0.25f, 0.0f, 0.35f, false}, hal::audio::kEnginePassthroughFloor));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamForceIdlePassthrough,
                                                               "Force Idle Passthrough", false));
+  params.push_back(std::make_unique<juce::AudioParameterBool>(kParamTestTone, "Test Tone", false));
   return {params.begin(), params.end()};
 }
 

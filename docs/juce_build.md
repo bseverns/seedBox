@@ -35,16 +35,28 @@ same build flags PlatformIO uses so the DAW story matches the firmware truth.
    cmake --build build/juce --target SeedboxApp
    ```
 
-4. **Build the VST3.**
+4. **Build the VST3 (format target, not just the plugin wrapper).**
 
    ```bash
-   cmake --build build/juce --target SeedboxVST3
+   cmake --build build/juce --target SeedboxVST3_VST3
    ```
 
 Both targets live in the same build tree. The plugin now drops its bundle into
 `build/juce/SeedboxVST3_artefacts/<CONFIG>/VST3/SeedBox.vst3` (swap `<CONFIG>`
 for `Debug`, `Release`, etc.) so you always know where the payload landed even
 if JUCE’s automatic user-level copy goes missing on macOS.
+
+If you want both artifacts in one shot:
+
+```bash
+cmake --build build/juce --target SeedboxApp SeedboxVST3_VST3
+```
+
+Sanity check the binary is present:
+
+```bash
+ls -l build/juce/SeedboxVST3_artefacts/<CONFIG>/VST3/SeedBox.vst3/Contents/MacOS/
+```
 
 ## CI artifact vibe check: universal vs arm64
 

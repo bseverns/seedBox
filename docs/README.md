@@ -91,3 +91,9 @@ prints the authoritative table straight from the header so your doc never drifts
 
 Clarity keeps the jams inclusive. Write like you're inviting someone to sit in
 on the next session.
+
+## External clock watchdog
+
+When external clock is selected but no clock ticks arrive for ~2 seconds, the
+app automatically falls back to the internal clock so audio resumes. The
+watchdog is control-rate only and does not print from the audio thread.

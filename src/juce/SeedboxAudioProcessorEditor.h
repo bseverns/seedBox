@@ -142,10 +142,12 @@ class SettingsPageComponent : public PageComponent {
   juce::ToggleButton externalClockButton_;
   juce::ToggleButton followClockButton_;
   juce::ToggleButton idlePassthroughButton_;
+  juce::ToggleButton testToneButton_;
   juce::Label audioInfo_;
   std::unique_ptr<juce::ButtonParameterAttachment> externalClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> followClockAttachment_;
   std::unique_ptr<juce::ButtonParameterAttachment> idlePassthroughAttachment_;
+  std::unique_ptr<juce::ButtonParameterAttachment> testToneAttachment_;
 };
 
 // Lightweight editor: shows the firmware's OLED snapshot and surfaces real controls

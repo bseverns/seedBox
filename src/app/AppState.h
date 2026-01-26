@@ -266,6 +266,9 @@ public:
   void setDiagnosticsEnabledFromHost(bool enabled);
   bool diagnosticsEnabled() const { return diagnosticsEnabled_; }
   DiagnosticsSnapshot diagnosticsSnapshot() const;
+  void setTestToneEnabledFromHost(bool enabled) { testToneEnabled_ = enabled; }
+  bool testToneEnabled() const { return testToneEnabled_; }
+  bool waitingForExternalClock() const { return waitingForExternalClock_; }
   void setSeedPrimeBypassFromHost(bool enabled);
   void setLiveCaptureVariation(uint8_t variationSteps);
   void setInputGateDivisionFromHost(GateDivision division);
@@ -306,6 +309,7 @@ private:
   void handleGateTick();
   void updateInputGateState(float rms, float peak);
   uint32_t gateDivisionTicks() const;
+  void updateExternalClockWatchdog();
   void applyQuantizeControl(uint8_t value);
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
   void processInputEvents();
@@ -404,6 +408,11 @@ private:
   float targetBpm_{120.f};
   OnePoleSmoother bpmSmoother_{};
   bool diagnosticsEnabled_{false};
+  bool waitingForExternalClock_{false};
+  uint32_t lastExternalClockMs_{0};
+  uint32_t externalClockWaitStartMs_{0};
+  bool testToneEnabled_{false};
+  float testTonePhase_{0.0f};
   GateDivision gateDivision_{GateDivision::kBars};
   struct PresetCrossfade {
     std::vector<Seed> from;

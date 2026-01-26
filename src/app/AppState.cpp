@@ -51,6 +51,7 @@ constexpr uint8_t kShortCaptureSlots = 4;
 constexpr int kEuclidStepNudge = 1;
 constexpr int kBurstSpacingStepSamples = 240;  // ~5ms at 48k.
 constexpr std::size_t kSeedSlotCount = 4;
+constexpr uint32_t kExternalClockTimeoutMs = 2000;
 
 constexpr hal::io::PinNumber kReseedButtonPin = 2;
 constexpr hal::io::PinNumber kLockButtonPin = 3;
@@ -662,6 +663,23 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   std::fill(buffer.left, buffer.left + buffer.frames, 0.0f);
   std::fill(buffer.right, buffer.right + buffer.frames, 0.0f);
 
+  if (testToneEnabled_) {
+    const float sampleRate = hal::audio::sampleRate() > 0.f ? hal::audio::sampleRate() : 48000.f;
+    const float frequency = 440.0f;
+    const float gain = 0.08f;
+    constexpr float kTwoPi = 6.2831853071795864769f;
+    const float phaseStep = kTwoPi * frequency / sampleRate;
+    for (std::size_t i = 0; i < buffer.frames; ++i) {
+      const float sample = std::sin(testTonePhase_) * gain;
+      buffer.left[i] += sample;
+      buffer.right[i] += sample;
+      testTonePhase_ += phaseStep;
+      if (testTonePhase_ >= kTwoPi) {
+        testTonePhase_ -= kTwoPi;
+      }
+    }
+  }
+
   engines_.sampler().renderAudio(ctx);
   engines_.granular().renderAudio(ctx);
   engines_.resonator().renderAudio(ctx);
@@ -791,6 +809,7 @@ void AppState::tick() {
   input_.update();
   processInputEvents();
   updateTempoSmoothing();
+  updateExternalClockWatchdog();
   if (swingPageRequested_) {
     swingPageRequested_ = false;
     enterSwingMode();
@@ -1782,6 +1801,10 @@ void AppState::onExternalClockTick() {
     return;
   }
 
+  lastExternalClockMs_ = board_.nowMillis();
+  waitingForExternalClock_ = false;
+  externalClockWaitStartMs_ = 0u;
+
   if (!seedsPrimed_ && !seedPrimeBypassEnabled_) {
     primeSeeds(masterSeed_);
   }
@@ -1924,6 +1947,9 @@ void AppState::setFollowExternalClockFromHost(bool enabled) {
   selectClockProvider(enabled ? static_cast<ClockProvider*>(&midiClockIn_)
                               : static_cast<ClockProvider*>(&internalClock_));
   updateClockDominance();
+  externalClockWaitStartMs_ = enabled ? board_.nowMillis() : 0u;
+  waitingForExternalClock_ = false;
+  lastExternalClockMs_ = 0u;
   displayDirty_ = true;
 }
 
@@ -1932,6 +1958,9 @@ void AppState::setClockSourceExternalFromHost(bool external) {
                                : static_cast<ClockProvider*>(&internalClock_));
   followExternalClockEnabled_ = external;
   updateClockDominance();
+  externalClockWaitStartMs_ = external ? board_.nowMillis() : 0u;
+  waitingForExternalClock_ = false;
+  lastExternalClockMs_ = 0u;
   displayDirty_ = true;
 }
 
@@ -2116,6 +2145,43 @@ void AppState::updateInputGateState(float rms, float peak) {
   inputGateHot_ = hot;
 }
 
+void AppState::updateExternalClockWatchdog() {
+  if (!followExternalClockEnabled_) {
+    waitingForExternalClock_ = false;
+    externalClockWaitStartMs_ = 0u;
+    return;
+  }
+
+  const uint32_t now = board_.nowMillis();
+  if (lastExternalClockMs_ == 0u) {
+    if (externalClockWaitStartMs_ == 0u) {
+      externalClockWaitStartMs_ = now;
+    }
+    waitingForExternalClock_ = (now - externalClockWaitStartMs_) >= kExternalClockTimeoutMs;
+    if (waitingForExternalClock_) {
+      followExternalClockEnabled_ = false;
+      selectClockProvider(&internalClock_);
+      updateClockDominance();
+      waitingForExternalClock_ = false;
+      externalClockWaitStartMs_ = 0u;
+      lastExternalClockMs_ = 0u;
+      displayDirty_ = true;
+    }
+    return;
+  }
+
+  waitingForExternalClock_ = (now - lastExternalClockMs_) >= kExternalClockTimeoutMs;
+  if (waitingForExternalClock_) {
+    followExternalClockEnabled_ = false;
+    selectClockProvider(&internalClock_);
+    updateClockDominance();
+    waitingForExternalClock_ = false;
+    externalClockWaitStartMs_ = 0u;
+    lastExternalClockMs_ = 0u;
+    displayDirty_ = true;
+  }
+}
+
 void AppState::applyMn42ModeBits(uint8_t value) {
   // MN42 packs several toggle bits into one CC.  Unpack them and update the
   // flags that control our sync + debug behaviours.
@@ -2125,6 +2191,9 @@ void AppState::applyMn42ModeBits(uint8_t value) {
     selectClockProvider(follow ? static_cast<ClockProvider*>(&midiClockIn_)
                                : static_cast<ClockProvider*>(&internalClock_));
     updateClockDominance();
+    externalClockWaitStartMs_ = follow ? board_.nowMillis() : 0u;
+    waitingForExternalClock_ = false;
+    lastExternalClockMs_ = 0u;
   }
 
   debugMetersEnabled_ = (value & seedbox::interop::mn42::mode::kExposeDebugMeters) != 0;
@@ -2673,7 +2742,11 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     if (seedPrimeBypassEnabled_) {
       mood = "bypass";
     }
-    writeDisplayField(out.status, formatScratch(scratch, "%s %s", modeLabel(mode_), mood));
+    if (waitingForExternalClock_) {
+      writeDisplayField(out.status, "WAIT EXT CLK");
+    } else {
+      writeDisplayField(out.status, formatScratch(scratch, "%s %s", modeLabel(mode_), mood));
+    }
     writeDisplayField(out.metrics, formatScratch(scratch, "SR%.1fkB%02zu", sampleRate / 1000.f, block));
     writeDisplayField(out.nuance,
                       formatScratch(scratch, "AC%05lluF%05lu",
@@ -2684,9 +2757,13 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
 
   const Seed& s = seeds_[focusIndex];
   const std::string_view shortName = engineLabel(engines_, s.engine);
-  writeDisplayField(out.status,
-                    formatScratch(scratch, "#%02u%.*s%+0.1fst%c", s.id, static_cast<int>(shortName.size()),
-                                   shortName.data(), s.pitch, ledOn ? '*' : '-'));
+  if (waitingForExternalClock_) {
+    writeDisplayField(out.status, "WAIT EXT CLK");
+  } else {
+    writeDisplayField(out.status,
+                      formatScratch(scratch, "#%02u%.*s%+0.1fst%c", s.id, static_cast<int>(shortName.size()),
+                                     shortName.data(), s.pitch, ledOn ? '*' : '-'));
+  }
   const float density = std::clamp(s.density, 0.0f, 99.99f);
   const float probability = std::clamp(s.probability, 0.0f, 1.0f);
   const Seed* schedulerSeed = debugScheduledSeed(static_cast<uint8_t>(focusIndex));

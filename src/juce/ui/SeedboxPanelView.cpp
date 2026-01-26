@@ -332,6 +332,11 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
   oledLabel_.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 14.0f, juce::Font::plain));
   addAndMakeVisible(oledLabel_);
 
+  clockStatusLabel_.setJustificationType(juce::Justification::centred);
+  clockStatusLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+  clockStatusLabel_.setFont(juce::Font(11.0f, juce::Font::plain));
+  addAndMakeVisible(clockStatusLabel_);
+
   engineNameLabel_.setJustificationType(juce::Justification::centred);
   engineNameLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   addAndMakeVisible(engineNameLabel_);
@@ -506,6 +511,7 @@ void SeedboxPanelView::layoutControls() {
   const juce::Rectangle<float> oledArea(viewOrigin.x + 290.0f * scale, viewOrigin.y + 80.0f * scale,
                                         160.0f * scale, 70.0f * scale);
   oledLabel_.setBounds(oledArea.toNearestInt());
+  clockStatusLabel_.setBounds(oledArea.translated(0.0f, oledArea.getHeight() + 6.0f).toNearestInt());
   engineNameLabel_.setBounds(fxKnob_.label.getBounds().withHeight(18).translated(0, -fxKnob_.label.getHeight()));
 }
 
@@ -515,6 +521,27 @@ void SeedboxPanelView::refresh() {
   juce::String display;
   display << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance;
   oledLabel_.setText(display, juce::dontSendNotification);
+
+  AppState::LearnFrame learn{};
+  processor_.appState().captureLearnFrame(learn);
+  const bool waiting = processor_.appState().waitingForExternalClock();
+  juce::String clockMode = "INTERNAL";
+  if (waiting) {
+    clockMode = "WAITING";
+  } else if (processor_.followHostTransportEnabled()) {
+    clockMode = "HOST";
+  } else if (processor_.appState().followExternalClockEnabled()) {
+    clockMode = "MIDI";
+  }
+
+  auto toDb = [](float value) {
+    constexpr float kFloor = 1e-6f;
+    return 20.0f * std::log10(std::max(value, kFloor));
+  };
+  const float rmsDb = toDb(learn.audio.combinedRms);
+  const float peakDb = toDb(learn.audio.combinedPeak);
+  juce::String meter = "OUT " + juce::String(rmsDb, 1) + "dB/" + juce::String(peakDb, 1) + "dB";
+  clockStatusLabel_.setText("CLK " + clockMode + " | " + meter, juce::dontSendNotification);
 
   const auto& seeds = processor_.appState().seeds();
   const std::size_t focus = seeds.empty() ? 0 : std::min<std::size_t>(processor_.appState().focusSeed(), seeds.size() - 1);

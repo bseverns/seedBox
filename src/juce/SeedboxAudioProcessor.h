@@ -62,6 +62,8 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void setPanelQuickPreset(const seedbox::Preset& preset);
   bool applyPanelQuickPreset();
   const std::optional<seedbox::Preset>& panelQuickPreset() const { return panelPreset_; }
+  bool hostTransportPlaying() const { return hostPlaying_; }
+  bool followHostTransportEnabled() const;
 
  private:
   struct BufferedMidiMessage {
@@ -119,6 +121,8 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::unordered_map<std::string, float> parameterState_{};
   std::uint8_t quantizeScaleParam_{0};
   std::uint8_t quantizeRootParam_{0};
+  bool hostPlaying_{false};
+  bool testToneEnabled_{false};
 };
 
 }  // namespace seedbox::juce_bridge

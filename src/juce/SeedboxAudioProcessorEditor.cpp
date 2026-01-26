@@ -3,9 +3,11 @@
 #if SEEDBOX_JUCE
 
 #include <juce_graphics/juce_graphics.h>
-#include <cctype>
 #include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <functional>
+#include <iomanip>
 #include <map>
 #include <utility>
 #include <vector>
@@ -561,6 +563,10 @@ SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) :
   idlePassthroughButton_.setTooltip("Keep the engine render path alive even when inputs are hot.");
   addAndMakeVisible(idlePassthroughButton_);
 
+  testToneButton_.setButtonText("Test Tone");
+  testToneButton_.setTooltip("Quick sanity check: sine tone at low gain.");
+  addAndMakeVisible(testToneButton_);
+
   audioInfo_.setJustificationType(juce::Justification::centredLeft);
   audioInfo_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   addAndMakeVisible(audioInfo_);
@@ -571,6 +577,8 @@ SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) :
       *processor_.parameters().getParameter("followExternalClock"), followClockButton_);
   idlePassthroughAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
       *processor_.parameters().getParameter("forceIdlePassthrough"), idlePassthroughButton_);
+  testToneAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
+      *processor_.parameters().getParameter("testTone"), testToneButton_);
 }
 
 void SettingsPageComponent::refresh() {
@@ -593,6 +601,7 @@ void SettingsPageComponent::resized() {
   externalClockButton_.setBounds(area.removeFromTop(36));
   followClockButton_.setBounds(area.removeFromTop(36));
   idlePassthroughButton_.setBounds(area.removeFromTop(36));
+  testToneButton_.setBounds(area.removeFromTop(36));
   audioInfo_.setBounds(area.removeFromTop(24));
 }
 
@@ -851,8 +860,28 @@ void SeedboxAudioProcessorEditor::timerCallback() {
 void SeedboxAudioProcessorEditor::refreshDisplay() {
   AppState::DisplaySnapshot snapshot{};
   processor_.appState().captureDisplaySnapshot(snapshot);
+  AppState::LearnFrame learn{};
+  processor_.appState().captureLearnFrame(learn);
+  const bool waiting = processor_.appState().waitingForExternalClock();
+  juce::String clockMode = "INTERNAL";
+  if (waiting) {
+    clockMode = "WAITING";
+  } else if (processor_.followHostTransportEnabled()) {
+    clockMode = "HOST";
+  } else if (processor_.appState().followExternalClockEnabled()) {
+    clockMode = "MIDI";
+  }
+  auto toDb = [](float value) {
+    constexpr float kFloor = 1e-6f;
+    return 20.0f * std::log10(std::max(value, kFloor));
+  };
+  const float rmsDb = toDb(learn.audio.combinedRms);
+  const float peakDb = toDb(learn.audio.combinedPeak);
+
   std::ostringstream stream;
-  stream << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance;
+  stream << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance
+         << "\nCLK " << clockMode
+         << "\nOUT " << std::fixed << std::setprecision(1) << rmsDb << "dB/" << peakDb << "dB";
   displayLabel_.setText(stream.str(), juce::dontSendNotification);
 }
 
@@ -944,6 +973,14 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
       choice->setValueNotifyingHost(normalized);
       processor_.appState().setSeedEngine(processor_.appState().focusSeed(), static_cast<std::uint8_t>(next));
       if (panelView_) panelView_->refresh();
+      return true;
+    }
+  }
+
+  if (lower == 'y') {
+    if (auto* toggle = dynamic_cast<juce::AudioParameterBool*>(processor_.parameters().getParameter("testTone"))) {
+      const bool next = !toggle->get();
+      toggle->setValueNotifyingHost(next ? 1.0f : 0.0f);
       return true;
     }
   }
