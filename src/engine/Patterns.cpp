@@ -77,8 +77,19 @@ void PatternScheduler::triggerImmediate(std::size_t seedIndex, uint32_t whenSamp
   if (seedIndex >= seeds_.size()) {
     return;
   }
+  if (immediateQueue_.size() >= kMaxQueuedTriggers) {
+    if (diagnosticsEnabled_) {
+      ++diagnostics_.immediateQueueOverflows;
+    }
+    return;
+  }
   immediateQueue_.push_back({seedIndex, whenSamples});
   dispatchQueues();
+}
+
+void PatternScheduler::clearPendingTriggers() {
+  immediateQueue_.clear();
+  quantizedQueue_.clear();
 }
 
 bool PatternScheduler::densityGate(std::size_t seedIndex, float density) {
@@ -160,6 +171,19 @@ void PatternScheduler::onTick() {
   // advances even if every seed stays quiet. Future seeds that trigger on this
   // tick share the same anchor before jitter nudges them around.
   const uint32_t tickSample = latchTickSample();
+  if (diagnosticsEnabled_) {
+    if (lastTickSample_ != 0 && samplesPerTick_ > 0.0) {
+      const double expected = samplesPerTick_;
+      const double delta = static_cast<double>(tickSample - lastTickSample_);
+      if (delta > expected * 1.5) {
+        ++diagnostics_.schedulingLag;
+      }
+      if (delta > expected * 2.5) {
+        ++diagnostics_.missedTicks;
+      }
+    }
+    lastTickSample_ = tickSample;
+  }
 #if ENABLE_GOLDEN
   tickLog_.push_back(tickSample);
 #endif
@@ -181,6 +205,7 @@ void PatternScheduler::onTick() {
   //    us right back to the original voice. Mutate plumbing lands alongside the
   //    engine trigger call.
   quantizedQueue_.clear();
+  uint32_t triggersThisTick = 0;
   for (std::size_t i = 0; i < seeds_.size(); ++i) {
     Seed& s = seeds_[i];
     if (densityGate(i, s.density)) {
@@ -201,10 +226,18 @@ void PatternScheduler::onTick() {
           scheduled = 0;
         }
         const uint32_t t = static_cast<uint32_t>(scheduled);
+        if (quantizedQueue_.size() >= kMaxQueuedTriggers) {
+          if (diagnosticsEnabled_) {
+            ++diagnostics_.quantizedQueueOverflows;
+          }
+          continue;
+        }
         quantizedQueue_.push_back({i, t});
+        ++triggersThisTick;
       }
     }
   }
   dispatchQueues();
+  lastTickTriggerCount_ = triggersThisTick;
   ++tickCount_;
 }

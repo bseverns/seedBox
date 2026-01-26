@@ -33,6 +33,7 @@ public:
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
+  void panic() override;
 
   uint8_t activeVoices() const;
   SEEDBOX_MAYBE_UNUSED const char* presetName(uint8_t bank) const;

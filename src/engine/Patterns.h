@@ -47,6 +47,8 @@ public:
   SEEDBOX_MAYBE_UNUSED void setTriggerCallback(void* ctx, void (*fn)(void*, const Seed&, uint32_t));
   uint64_t ticks() const { return tickCount_; }
 
+  SEEDBOX_MAYBE_UNUSED uint32_t lastTickTriggerCount() const { return lastTickTriggerCount_; }
+
   SEEDBOX_MAYBE_UNUSED uint32_t nowSamples() const;
 
   // Peek at the scheduler's internal copy of a seed for debugging / teaching.
@@ -54,6 +56,19 @@ public:
   SEEDBOX_MAYBE_UNUSED const Seed* seedForDebug(std::size_t index) const;
 
   void triggerImmediate(std::size_t seedIndex, uint32_t whenSamples);
+  void clearPendingTriggers();
+
+  struct Diagnostics {
+    uint32_t immediateQueueOverflows{0};
+    uint32_t quantizedQueueOverflows{0};
+    uint32_t missedTicks{0};
+    uint32_t schedulingLag{0};
+  };
+
+  void setDiagnosticsEnabled(bool enabled) { diagnosticsEnabled_ = enabled; }
+  bool diagnosticsEnabled() const { return diagnosticsEnabled_; }
+  const Diagnostics& diagnostics() const { return diagnostics_; }
+  void resetDiagnostics() { diagnostics_ = {}; }
 
 #if !defined(ENABLE_GOLDEN)
 #define ENABLE_GOLDEN 0
@@ -82,11 +97,16 @@ private:
   double sampleCursor_{0.0};
   double samplesPerTick_{0.0};
   uint32_t latchedTickSample_{0};
+  uint32_t lastTickSample_{0};
   struct QueuedTrigger {
     std::size_t seedIndex;
     uint32_t when;
   };
+  static constexpr std::size_t kMaxQueuedTriggers = 256;
   std::vector<QueuedTrigger> quantizedQueue_;
   std::vector<QueuedTrigger> immediateQueue_;
   std::vector<uint32_t> tickLog_;
+  uint32_t lastTickTriggerCount_{0};
+  Diagnostics diagnostics_{};
+  bool diagnosticsEnabled_{false};
 };

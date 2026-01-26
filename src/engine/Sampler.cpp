@@ -196,6 +196,24 @@ void Sampler::deserializeState(const Engine::StateBuffer& state) {
   (void)state;
 }
 
+void Sampler::panic() {
+  voices_.fill(VoiceInternal{});
+  nextHandle_ = 1;
+  renderSample_ = 0;
+
+#if SEEDBOX_HW
+  for (uint8_t i = 0; i < kMaxVoices; ++i) {
+    auto& hw = hwVoices_[i];
+    hw.sdPlayer.stop();
+    hw.envelope.noteOff();
+    hw.sourceMixer.gain(0, 0.0f);
+    hw.sourceMixer.gain(1, 0.0f);
+    voiceMixerLeft_.gain(i, 0.0f);
+    voiceMixerRight_.gain(i, 0.0f);
+  }
+#endif
+}
+
 uint8_t Sampler::activeVoices() const {
   return static_cast<uint8_t>(std::count_if(voices_.begin(), voices_.end(), [](const VoiceInternal& v) {
     return v.active;

@@ -25,6 +25,7 @@ public:
     kResonator,
     kEuclid,
     kBurst,
+    kToy,
     kUnknown,
   };
 
@@ -68,5 +69,5 @@ public:
   virtual void renderAudio(const RenderContext& ctx) = 0;
   virtual StateBuffer serializeState() const = 0;
   virtual void deserializeState(const StateBuffer& state) = 0;
+  virtual void panic() {}
 };
-

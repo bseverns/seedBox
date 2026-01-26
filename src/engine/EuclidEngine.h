@@ -29,6 +29,7 @@ public:
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
+  void panic() override;
 
   bool lastGate() const { return lastGate_; }
   std::uint32_t generationSeed() const { return generationSeed_; }
@@ -50,4 +51,3 @@ private:
   bool lastGate_{false};
   std::uint32_t lastSeedId_{0};
 };
-

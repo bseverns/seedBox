@@ -10,12 +10,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 #include "SeedLock.h"
 #include "Seed.h"
 #include "app/Preset.h"
+#include "util/Smoother.h"
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
 #include "util/Annotations.h"
@@ -51,7 +53,8 @@ public:
     kClock = static_cast<std::uint8_t>(seedbox::PageId::kClock),
   };
 
-  static constexpr std::uint32_t kPresetCrossfadeTicks = 48;
+  static constexpr std::uint32_t kPresetCrossfadeTicks = 24;
+  static constexpr std::uint32_t kPresetBoundaryTicksPerBar = 24 * 4;
 
   enum class SeedPrimeMode : uint8_t { kLfsr = 0, kTapTempo, kPreset, kLiveInput };
   enum class GateDivision : uint8_t { kOneOverOne = 0, kOneOverTwo, kOneOverFour, kBars };
@@ -73,6 +76,17 @@ public:
     UTIL,
     SWING,
   };
+
+  struct RandomnessPanel {
+    enum class ResetBehavior : uint8_t { Hard = 0, Soft, Drift };
+
+    float entropy{0.4f};
+    float mutationRate{0.1f};
+    float repeatBias{0.2f};
+    ResetBehavior resetBehavior{ResetBehavior::Soft};
+  };
+
+  enum class PresetBoundary : uint8_t { Step = 0, Bar };
 
   explicit AppState(hal::Board& board = hal::board());
   ~AppState();
@@ -105,12 +119,49 @@ public:
     char nuance[17];
   };
 
+  struct DiagnosticsSnapshot {
+    PatternScheduler::Diagnostics scheduler{};
+    uint64_t audioCallbackCount{0};
+  };
+
+  struct LearnFrame {
+    struct AudioMetrics {
+      float leftRms{0.0f};
+      float rightRms{0.0f};
+      float combinedRms{0.0f};
+      float leftPeak{0.0f};
+      float rightPeak{0.0f};
+      float combinedPeak{0.0f};
+      bool clip{false};
+      bool limiter{false};
+    } audio{};
+
+    struct GeneratorMetrics {
+      float bpm{0.0f};
+      UiState::ClockSource clock{UiState::ClockSource::kInternal};
+      uint64_t tick{0};
+      uint32_t step{0};
+      uint32_t bar{0};
+      uint32_t events{0};
+      uint32_t focusSeedId{0};
+      uint32_t mutationCount{0};
+      float focusMutateAmt{0.0f};
+      float density{0.0f};
+      float probability{0.0f};
+      SeedPrimeMode primeMode{SeedPrimeMode::kLfsr};
+      float tapTempoBpm{0.0f};
+      uint32_t lastTapIntervalMs{0};
+      float mutationRate{0.0f};
+    } generator{};
+  };
+
   // Populate the snapshot struct with text destined for the OLED / debug
   // display. Think of this as the "mixing console" view for teaching labs.
   void captureDisplaySnapshot(DisplaySnapshot& out) const;
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState& ui) const {
     captureDisplaySnapshot(out, &ui);
   }
+  void captureLearnFrame(LearnFrame& out) const;
 
   const UiState& uiStateCache() const { return uiStateCache_; }
 
@@ -179,7 +230,9 @@ public:
   // plumbing so the plugin can persist/restore state without opening up the
   // whole API surface.
   seedbox::Preset snapshotPresetForHost(std::string_view slot) const { return snapshotPreset(slot); }
-  void applyPresetFromHost(const seedbox::Preset& preset, bool crossfade) { applyPreset(preset, crossfade); }
+  void applyPresetFromHost(const seedbox::Preset& preset, bool crossfade) { requestPresetChange(preset, crossfade, PresetBoundary::Step); }
+  RandomnessPanel& randomnessPanel() { return randomnessPanel_; }
+  const RandomnessPanel& randomnessPanel() const { return randomnessPanel_; }
 
   // MIDI ingress points. Each handler maps 1:1 with incoming transport/clock
   // events so lessons about external sync can point here directly.
@@ -210,12 +263,16 @@ public:
   void setFollowExternalClockFromHost(bool enabled);
   void setClockSourceExternalFromHost(bool external);
   void setInternalBpmFromHost(float bpm);
+  void setDiagnosticsEnabledFromHost(bool enabled);
+  bool diagnosticsEnabled() const { return diagnosticsEnabled_; }
+  DiagnosticsSnapshot diagnosticsSnapshot() const;
   void setSeedPrimeBypassFromHost(bool enabled);
   void setLiveCaptureVariation(uint8_t variationSteps);
   void setInputGateDivisionFromHost(GateDivision division);
   void setInputGateFloorFromHost(float floor);
   void setDryInputFromHost(const float* left, const float* right, std::size_t frames);
   bool applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit);
+  float currentTapTempoBpm() const;
 
   MidiRouter midi;
 
@@ -244,11 +301,11 @@ private:
   std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
   std::vector<Seed> buildPresetSeeds(std::size_t count);
   std::vector<Seed> buildLiveInputSeeds(uint32_t masterSeed, std::size_t count);
+  void applyRepeatBias(const std::vector<Seed>& previousSeeds, std::vector<Seed>& generated);
   void stepGateDivision(int delta);
   void handleGateTick();
   void updateInputGateState(float rms, float peak);
   uint32_t gateDivisionTicks() const;
-  float currentTapTempoBpm() const;
   void applyQuantizeControl(uint8_t value);
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
   void processInputEvents();
@@ -265,6 +322,7 @@ private:
   void handleSwingEvent(const InputEvents::Event& evt);
   void handleReseedRequest();
   void triggerLiveCaptureReseed();
+  void triggerPanic();
   static const char* modeLabel(Mode mode);
   void selectClockProvider(ClockProvider* provider);
   void toggleClockProvider();
@@ -274,6 +332,11 @@ private:
   void applySwingPercent(float value);
   static void digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
                                    void* ctx);
+  void requestPresetChange(const seedbox::Preset& preset, bool crossfade, PresetBoundary boundary);
+  void maybeCommitPendingPreset(uint64_t currentTick);
+  uint64_t computeNextPresetTickForBoundary(PresetBoundary boundary) const;
+  void setTempoTarget(float bpm, bool immediate);
+  void updateTempoSmoothing();
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
@@ -321,6 +384,8 @@ private:
   DisplaySnapshot displayCache_{};
   GranularEngine::Stats granularStats_{};
   UiState uiStateCache_{};
+  RandomnessPanel randomnessPanel_{};
+  LearnFrame::AudioMetrics latestAudioMetrics_{};
   bool displayDirty_{false};
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
@@ -334,7 +399,11 @@ private:
   float inputGatePeak_{0.0f};
   bool inputGateHot_{false};
   bool gateEdgePending_{false};
+  bool panicSkipNextTick_{false};
   uint64_t lastGateTick_{0};
+  float targetBpm_{120.f};
+  OnePoleSmoother bpmSmoother_{};
+  bool diagnosticsEnabled_{false};
   GateDivision gateDivision_{GateDivision::kBars};
   struct PresetCrossfade {
     std::vector<Seed> from;
@@ -342,6 +411,13 @@ private:
     std::uint32_t remaining{0};
     std::uint32_t total{0};
   } presetCrossfade_{};
+  struct PendingPresetRequest {
+    seedbox::Preset preset{};
+    bool crossfade{false};
+    PresetBoundary boundary{PresetBoundary::Step};
+    uint64_t targetTick{0};
+  };
+  std::optional<PendingPresetRequest> pendingPresetRequest_{};
   bool storageButtonHeld_{false};
   bool storageLongPress_{false};
   uint64_t storageButtonPressFrame_{0};
@@ -351,4 +427,3 @@ private:
   std::vector<float> dryInputLeft_{};
   std::vector<float> dryInputRight_{};
 };
-

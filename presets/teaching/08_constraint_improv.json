@@ -1,0 +1,151 @@
+{
+  "slot": "teach-08-constraint",
+  "masterSeed": 577215664,
+  "focusSeed": 1,
+  "clock": {
+    "bpm": 104.0,
+    "followExternal": false,
+    "debugMeters": false,
+    "transportLatch": false
+  },
+  "page": 0,
+  "engineSelections": [1, 0, 2, 4],
+  "seeds": [
+    {
+      "id": 0,
+      "prng": 1159023841,
+      "pitch": 0.0,
+      "envA": 0.004,
+      "envD": 0.1,
+      "envS": 0.6,
+      "envR": 0.16,
+      "density": 0.75,
+      "probability": 0.8,
+      "jitterMs": 3.0,
+      "tone": 0.45,
+      "spread": 0.35,
+      "engine": 1,
+      "sampleIdx": 0,
+      "mutateAmt": 0.05,
+      "granular": {
+        "grainSizeMs": 65.0,
+        "sprayMs": 16.0,
+        "transpose": 0.0,
+        "windowSkew": 0.2,
+        "stereoSpread": 0.65,
+        "source": 0,
+        "sdSlot": 0
+      },
+      "resonator": {
+        "exciteMs": 3.5,
+        "damping": 0.36,
+        "brightness": 0.58,
+        "feedback": 0.6,
+        "mode": 0,
+        "bank": 1
+      }
+    },
+    {
+      "id": 1,
+      "prng": 1734065982,
+      "pitch": 2.0,
+      "envA": 0.003,
+      "envD": 0.08,
+      "envS": 0.6,
+      "envR": 0.14,
+      "density": 0.5,
+      "probability": 0.9,
+      "jitterMs": 2.0,
+      "tone": 0.4,
+      "spread": 0.3,
+      "engine": 0,
+      "sampleIdx": 3,
+      "mutateAmt": 0.02,
+      "granular": {
+        "grainSizeMs": 88.0,
+        "sprayMs": 12.0,
+        "transpose": 0.0,
+        "windowSkew": 0.0,
+        "stereoSpread": 0.45,
+        "source": 0,
+        "sdSlot": 0
+      },
+      "resonator": {
+        "exciteMs": 3.0,
+        "damping": 0.3,
+        "brightness": 0.5,
+        "feedback": 0.58,
+        "mode": 0,
+        "bank": 0
+      }
+    },
+    {
+      "id": 2,
+      "prng": 901238447,
+      "pitch": 5.0,
+      "envA": 0.01,
+      "envD": 0.2,
+      "envS": 0.5,
+      "envR": 0.3,
+      "density": 0.25,
+      "probability": 0.85,
+      "jitterMs": 5.5,
+      "tone": 0.3,
+      "spread": 0.25,
+      "engine": 2,
+      "sampleIdx": 1,
+      "mutateAmt": 0.03,
+      "granular": {
+        "grainSizeMs": 75.0,
+        "sprayMs": 10.0,
+        "transpose": 0.0,
+        "windowSkew": -0.2,
+        "stereoSpread": 0.4,
+        "source": 0,
+        "sdSlot": 0
+      },
+      "resonator": {
+        "exciteMs": 5.6,
+        "damping": 0.46,
+        "brightness": 0.62,
+        "feedback": 0.7,
+        "mode": 1,
+        "bank": 3
+      }
+    },
+    {
+      "id": 3,
+      "prng": 487512690,
+      "pitch": 7.0,
+      "envA": 0.005,
+      "envD": 0.12,
+      "envS": 0.55,
+      "envR": 0.2,
+      "density": 0.6,
+      "probability": 0.75,
+      "jitterMs": 3.5,
+      "tone": 0.5,
+      "spread": 0.4,
+      "engine": 4,
+      "sampleIdx": 4,
+      "mutateAmt": 0.05,
+      "granular": {
+        "grainSizeMs": 70.0,
+        "sprayMs": 14.0,
+        "transpose": 0.0,
+        "windowSkew": 0.1,
+        "stereoSpread": 0.55,
+        "source": 0,
+        "sdSlot": 0
+      },
+      "resonator": {
+        "exciteMs": 3.2,
+        "damping": 0.34,
+        "brightness": 0.56,
+        "feedback": 0.62,
+        "mode": 0,
+        "bank": 2
+      }
+    }
+  ]
+}

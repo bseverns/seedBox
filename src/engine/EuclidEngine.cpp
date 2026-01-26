@@ -145,3 +145,7 @@ void EuclidEngine::rebuildMask() {
   }
 }
 
+void EuclidEngine::panic() {
+  cursor_ = 0;
+  lastGate_ = false;
+}

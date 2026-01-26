@@ -2,12 +2,23 @@
 #include <unity.h>
 
 #include "app/AppState.h"
+#include "hal/Board.h"
 #include "io/Store.h"
 
 namespace {
 constexpr uint32_t kSeedCapture = 0x12345678u;
 constexpr uint32_t kAlternativeSeed = 0x5EEDCAFEu;
 }
+
+#include "Seed.h"
+
+namespace {
+void runTicks(AppState& app, int count) {
+  for (int i = 0; i < count; ++i) {
+    app.tick();
+  }
+}
+}  // namespace
 
 void test_preset_round_trip_via_eeprom_store() {
   AppState app;
@@ -27,6 +38,7 @@ void test_preset_round_trip_via_eeprom_store() {
 
   app.reseed(kAlternativeSeed);
   TEST_ASSERT_TRUE(app.recallPreset("alpha", false));
+  runTicks(app, 1);
   TEST_ASSERT_EQUAL_UINT32(kSeedCapture, app.masterSeed());
   const auto afterSeeds = app.seeds();
   TEST_ASSERT_EQUAL(beforeSeeds.size(), afterSeeds.size());

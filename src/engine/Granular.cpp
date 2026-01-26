@@ -263,6 +263,39 @@ void GranularEngine::deserializeState(const Engine::StateBuffer& state) {
   (void)state;
 }
 
+void GranularEngine::panic() {
+  voices_.fill(GrainVoice{});
+  stats_.reset();
+#if SEEDBOX_HW
+  for (auto& hwVoice : hwVoices_) {
+    hwVoice.sdPlayer.stop();
+    hwVoice.sourceMixer.gain(0, 0.0f);
+    hwVoice.sourceMixer.gain(1, 0.0f);
+  }
+
+  for (uint8_t group = 0; group < kMixerGroups; ++group) {
+    for (uint8_t slot = 0; slot < kMixerFanIn; ++slot) {
+      voiceMixerLeft_[group].gain(slot, 0.0f);
+      voiceMixerRight_[group].gain(slot, 0.0f);
+    }
+  }
+
+  for (uint8_t sub = 0; sub < kSubmixCount; ++sub) {
+    for (uint8_t slot = 0; slot < kMixerFanIn; ++slot) {
+      submixLeft_[sub].gain(slot, 0.0f);
+      submixRight_[sub].gain(slot, 0.0f);
+    }
+  }
+
+  for (uint8_t sub = 0; sub < kSubmixCount; ++sub) {
+    finalMixLeft_.gain(sub, 0.0f);
+    finalMixRight_.gain(sub, 0.0f);
+  }
+#else
+  simHwVoices_.fill(SimHardwareVoice{});
+#endif
+}
+
 void GranularEngine::setMaxActiveVoices(uint8_t voices) {
   maxActiveVoices_ = clampVoices(voices);
 }

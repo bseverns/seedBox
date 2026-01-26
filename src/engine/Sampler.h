@@ -79,6 +79,7 @@ public:
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
+  void panic() override;
 
   // Count how many voices are flagged active. Handy for UI + tests.
   uint8_t activeVoices() const;

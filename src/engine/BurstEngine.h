@@ -27,6 +27,7 @@ public:
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
+  void panic() override;
 
   const std::vector<std::uint32_t>& pendingTriggers() const { return pending_; }
   std::uint32_t generationSeed() const { return generationSeed_; }
@@ -40,4 +41,3 @@ private:
   std::uint32_t generationSeed_{0};
   std::uint32_t lastSeedId_{0};
 };
-

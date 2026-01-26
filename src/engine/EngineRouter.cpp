@@ -75,6 +75,8 @@ void EngineRouter::registerEngine(std::uint8_t id, std::string_view name, std::s
     case Engine::Type::kBurst:
       burst_ = static_cast<BurstEngine*>(raw);
       break;
+    case Engine::Type::kToy:
+      break;
     case Engine::Type::kUnknown:
     default:
       break;
@@ -114,6 +116,7 @@ void EngineRouter::init(Mode mode) {
   registerEngine(kResonatorId, "Resonator", "PING", std::make_unique<ResonatorBank>());
   registerEngine(kEuclidId, "Euclid", "ECL", std::make_unique<EuclidEngine>());
   registerEngine(kBurstId, "Burst", "BST", std::make_unique<BurstEngine>());
+  registerEngine(kToyId, "Toy", "TOY", std::make_unique<ToyGenerator>());
 
   const Engine::PrepareContext ctx = makePrepareContext(mode_, lastMasterSeed_);
   for (auto& [id, entry] : registry_) {
@@ -171,9 +174,18 @@ void EngineRouter::reseed(std::uint32_t masterSeed) {
     if (!engineHasUnlockedSeed(id, seedAssignments_, seedLocks_)) {
       // Skip engines whose seeds are entirely padlocked.  Students can observe
       // that only unlocked voices get a fresh coat of random paint.
-      continue;
+    continue;
+  }
+  entry.instance->prepare(ctx);
+}
+}
+
+void EngineRouter::panic() {
+  for (auto& [id, entry] : registry_) {
+    (void)id;
+    if (entry.instance) {
+      entry.instance->panic();
     }
-    entry.instance->prepare(ctx);
   }
 }
 
@@ -254,4 +266,3 @@ const std::string& EngineRouter::engineName(std::uint8_t engineId) const {
   }
   return it->second.name;
 }
-

@@ -21,6 +21,7 @@
 #include "engine/Granular.h"
 #include "engine/Resonator.h"
 #include "engine/Sampler.h"
+#include "engine/ToyGenerator.h"
 #include "util/Annotations.h"
 
 class EngineRouter {
@@ -32,6 +33,7 @@ public:
   static constexpr std::uint8_t kResonatorId = 2;
   static constexpr std::uint8_t kEuclidId = 3;
   static constexpr std::uint8_t kBurstId = 4;
+  static constexpr std::uint8_t kToyId = 5;
 
   void init(Mode mode);
 
@@ -40,6 +42,7 @@ public:
   void setSeedLock(std::size_t index, bool locked);
   void setGlobalLock(bool locked);
   void reseed(std::uint32_t masterSeed);
+  void panic();
   void onSeed(const Seed& seed);
   void triggerSeed(const Seed& seed, std::uint32_t whenSamples);
 
@@ -86,4 +89,3 @@ private:
   bool globalLock_{false};
   std::uint32_t lastMasterSeed_{0};
 };
-

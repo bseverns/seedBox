@@ -96,6 +96,7 @@ public:
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
+  void panic() override;
 
   uint8_t activeVoiceCount() const;
   SEEDBOX_MAYBE_UNUSED GrainVoice voice(uint8_t index) const;

@@ -100,3 +100,6 @@ void BurstEngine::deserializeState(const Engine::StateBuffer& state) {
   lastSeedId_ = readU32(state, 9);
 }
 
+void BurstEngine::panic() {
+  pending_.clear();
+}

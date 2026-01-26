@@ -177,6 +177,39 @@ void ResonatorBank::deserializeState(const Engine::StateBuffer& state) {
   (void)state;
 }
 
+void ResonatorBank::panic() {
+  voices_.fill(VoiceInternal{});
+  nextHandle_ = 1;
+
+#if SEEDBOX_HW
+  for (auto& hwVoice : hwVoices_) {
+    hwVoice.burstEnv.noteOff();
+    hwVoice.burstNoise.amplitude(0.0f);
+    hwVoice.mix.gain(0, 0.0f);
+    hwVoice.mix.gain(1, 0.0f);
+    for (uint8_t m = 0; m < 4; ++m) {
+      hwVoice.modalMix.gain(m, 0.0f);
+    }
+  }
+
+  for (uint8_t group = 0; group < kMixerGroups; ++group) {
+    for (uint8_t slot = 0; slot < kMixerFanIn; ++slot) {
+      voiceMixerLeft_[group].gain(slot, 0.0f);
+      voiceMixerRight_[group].gain(slot, 0.0f);
+    }
+  }
+
+  for (uint8_t sub = 0; sub < kSubmixCount; ++sub) {
+    for (uint8_t slot = 0; slot < kMixerFanIn; ++slot) {
+      submixLeft_[sub].gain(slot, 0.0f);
+      submixRight_[sub].gain(slot, 0.0f);
+    }
+    finalMixLeft_.gain(sub, 0.0f);
+    finalMixRight_.gain(sub, 0.0f);
+  }
+#endif
+}
+
 void ResonatorBank::setMaxVoices(uint8_t voices) {
   maxVoices_ = std::max<uint8_t>(1, std::min<uint8_t>(voices, kMaxVoices));
 }
