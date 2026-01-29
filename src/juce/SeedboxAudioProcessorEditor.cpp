@@ -559,6 +559,14 @@ SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) :
   followClockButton_.setTooltip("Alt + Tap = obey incoming transport.");
   addAndMakeVisible(followClockButton_);
 
+  followHostTransportButton_.setButtonText("Follow Host Transport");
+#if JucePlugin_Build_Standalone
+  followHostTransportButton_.setTooltip("Standalone builds ignore DAW transport; keep this off.");
+#else
+  followHostTransportButton_.setTooltip("Sync start/stop/BPM to the host transport.");
+#endif
+  addAndMakeVisible(followHostTransportButton_);
+
   idlePassthroughButton_.setButtonText("Force Idle Passthrough");
   idlePassthroughButton_.setTooltip("Keep the engine render path alive even when inputs are hot.");
   addAndMakeVisible(idlePassthroughButton_);
@@ -575,6 +583,8 @@ SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) :
       *processor_.parameters().getParameter("clockSourceExternal"), externalClockButton_);
   followClockAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
       *processor_.parameters().getParameter("followExternalClock"), followClockButton_);
+  followHostTransportAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
+      *processor_.parameters().getParameter("followHostTransport"), followHostTransportButton_);
   idlePassthroughAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
       *processor_.parameters().getParameter("forceIdlePassthrough"), idlePassthroughButton_);
   testToneAttachment_ = std::make_unique<juce::ButtonParameterAttachment>(
@@ -600,6 +610,7 @@ void SettingsPageComponent::resized() {
   auto area = getLocalBounds().reduced(12);
   externalClockButton_.setBounds(area.removeFromTop(36));
   followClockButton_.setBounds(area.removeFromTop(36));
+  followHostTransportButton_.setBounds(area.removeFromTop(36));
   idlePassthroughButton_.setBounds(area.removeFromTop(36));
   testToneButton_.setBounds(area.removeFromTop(36));
   audioInfo_.setBounds(area.removeFromTop(24));
@@ -627,9 +638,10 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     advancedToggle_.onClick = [this]() { setAdvancedVisible(!showAdvanced_); };
     addAndMakeVisible(advancedToggle_);
 
-    advancedHint_.setText("Advanced pages are live by default—toggle to tuck them away.", juce::dontSendNotification);
+    advancedHint_.setText("Advanced pages are live by default - toggle to tuck them away.", juce::dontSendNotification);
     advancedHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
     advancedHint_.setJustificationType(juce::Justification::centredLeft);
+    advancedHint_.setFont(juce::Font(13.0f));
     addAndMakeVisible(advancedHint_);
   } else {
     setSize(820, 760);

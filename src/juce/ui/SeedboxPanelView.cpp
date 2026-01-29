@@ -206,7 +206,10 @@ void SeedboxPanelView::JackIcon::mouseUp(const juce::MouseEvent& event) {
   if (menuBuilder_) {
     auto menu = menuBuilder_();
     if (menu.getNumItems() > 0) {
-      auto options = juce::PopupMenu::Options().withTargetComponent(this).withTargetScreenArea(getScreenBounds());
+      auto options = juce::PopupMenu::Options().withTargetComponent(this);
+      if (auto* top = getTopLevelComponent()) {
+        options = options.withParentComponent(top);
+      }
       menu.showMenuAsync(options);
       return;
     }
@@ -377,12 +380,15 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     auto* jack = jackIcons_[2];
     const auto target = jack != nullptr ? jack->getScreenBounds() : getScreenBounds().toNearestInt();
     juce::Component* anchor = jack != nullptr ? static_cast<juce::Component*>(jack) : static_cast<juce::Component*>(this);
+    auto* top = anchor != nullptr ? anchor->getTopLevelComponent() : nullptr;
+    const auto localTarget = top != nullptr ? top->getLocalArea(nullptr, target) : target;
+    juce::Component* calloutParent = top != nullptr ? top : anchor;
     if (dm != nullptr) {
-      menu.addItem("Audio I/O...", true, false, [this, dm, target, anchor]() {
+      menu.addItem("Audio I/O...", true, false, [this, dm, localTarget, calloutParent]() {
         const int numInputs = processor_.getTotalNumInputChannels();
         const int numOutputs = processor_.getTotalNumOutputChannels();
         auto selector = std::make_unique<AudioSelectorHost>(*dm, numInputs, numOutputs);
-        juce::CallOutBox::launchAsynchronously(std::move(selector), target, anchor);
+        juce::CallOutBox::launchAsynchronously(std::move(selector), localTarget, calloutParent);
       });
       if (auto* device = dm->getCurrentAudioDevice()) {
         const auto inputs = device->getActiveInputChannels().countNumberOfSetBits();
@@ -391,20 +397,20 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
                                     " | Outputs: " + juce::String(outputs) +
                                     "\nSample Rate: " + juce::String(device->getCurrentSampleRate(), 1) + " Hz | Block Size: " +
                                     juce::String(device->getCurrentBufferSizeSamples()) + " samples";
-        menu.addItem("Device summary", true, false, [anchor, target, summary]() mutable {
+        menu.addItem("Device summary", true, false, [calloutParent, localTarget, summary]() mutable {
           auto info = std::make_unique<AudioDeviceInfoMessage>(summary);
-          juce::CallOutBox::launchAsynchronously(std::move(info), target, anchor);
+          juce::CallOutBox::launchAsynchronously(std::move(info), localTarget, calloutParent);
         });
       }
       menu.addSeparator();
       menu.addItem("Restart audio engine", true, false, [dm]() { dm->restartLastAudioDevice(); });
     } else {
-      menu.addItem("Why can't I pick audio here?", true, false, [anchor, target]() {
+      menu.addItem("Why can't I pick audio here?", true, false, [calloutParent, localTarget]() {
         auto info = std::make_unique<AudioDeviceInfoMessage>(
             "Host plugin builds let the DAW pick I/O.\n"
             "Pop open your DAW's audio/device prefs to switch drivers or ports.\n"
             "Standalone SeedBox exposes the full selector here.");
-        juce::CallOutBox::launchAsynchronously(std::move(info), target, anchor);
+        juce::CallOutBox::launchAsynchronously(std::move(info), localTarget, calloutParent);
       });
     }
     return menu;

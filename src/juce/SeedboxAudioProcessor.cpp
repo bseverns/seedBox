@@ -120,15 +120,13 @@ void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
 void SeedboxAudioProcessor::releaseResources() { hal::audio::stop(); }
 
 bool SeedboxAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
-  if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()) {
+  const auto output = layouts.getMainOutputChannelSet();
+  if (!(output == juce::AudioChannelSet::mono() || output == juce::AudioChannelSet::stereo())) {
     return false;
   }
 
   const auto input = layouts.getMainInputChannelSet();
-  if (input.isDisabled() || input == juce::AudioChannelSet::mono() || input == juce::AudioChannelSet::stereo()) {
-    return true;
-  }
-  return false;
+  return input.isDisabled() || input == juce::AudioChannelSet::mono() || input == juce::AudioChannelSet::stereo();
 }
 
 void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
@@ -492,8 +490,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
       std::make_unique<juce::AudioParameterBool>(kParamClockSourceExternal, "Clock Source External", false));
   params.push_back(
       std::make_unique<juce::AudioParameterBool>(kParamFollowExternalClock, "Follow External Clock", false));
-  params.push_back(
-      std::make_unique<juce::AudioParameterBool>(kParamFollowHostTransport, "Follow Host Transport", true));
+  const bool followHostTransportDefault =
+#if JucePlugin_Build_Standalone
+      false;
+#else
+      true;
+#endif
+  params.push_back(std::make_unique<juce::AudioParameterBool>(kParamFollowHostTransport, "Follow Host Transport",
+                                                              followHostTransportDefault));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
 
   // Discrete source index delta sent to app_.seedPageCycleGranularSource() when the UI nudge changes.
