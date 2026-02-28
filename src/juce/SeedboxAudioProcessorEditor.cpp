@@ -326,7 +326,7 @@ EnginePageComponent::EnginePageComponent(SeedboxAudioProcessor& processor) : Pag
       *processor_.parameters().getParameter("seedEngine"), engineSelector_);
 
   heading_.setJustificationType(juce::Justification::centredLeft);
-  heading_.setFont(juce::Font(16.0f, juce::Font::bold));
+  heading_.setFont(juce::FontOptions(16.0f, juce::Font::bold));
   addAndMakeVisible(heading_);
 
   for (auto& knob : engineKnobs_) {
@@ -641,7 +641,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     advancedHint_.setText("Advanced pages are live by default - toggle to tuck them away.", juce::dontSendNotification);
     advancedHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
     advancedHint_.setJustificationType(juce::Justification::centredLeft);
-    advancedHint_.setFont(juce::Font(13.0f));
+    advancedHint_.setFont(juce::FontOptions(13.0f));
     addAndMakeVisible(advancedHint_);
   } else {
     setSize(820, 760);
@@ -678,7 +678,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   displayLabel_.setJustificationType(juce::Justification::centred);
   displayLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black);
   displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
-  displayLabel_.setFont(juce::Font(16.0f, juce::Font::plain));
+  displayLabel_.setFont(juce::FontOptions(16.0f, juce::Font::plain));
   displayLabel_.setBorderSize(juce::BorderSize<int>(4));
     displayLabel_.setTooltip("Desktop control hint: press O for Tone, S for Shift, A for Alt.");
   addAndMakeVisible(displayLabel_);
@@ -688,7 +688,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   shortcutsLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.3f));
   shortcutsLabel_.setText("Shortcuts: Space=Latch, T=Tap, O=Tone/Tilt, 1-4=Focus seed, E=Cycle engine, Arrows=Nudge",
                           juce::dontSendNotification);
-  shortcutsLabel_.setFont(juce::Font(13.0f));
+  shortcutsLabel_.setFont(juce::FontOptions(13.0f));
   addAndMakeVisible(shortcutsLabel_);
 
   audioSelectorHint_.setJustificationType(juce::Justification::centredLeft);
@@ -829,11 +829,11 @@ void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
                      " HW=" + juce::String(SeedBoxConfig::kHardwareBuild ? "ON" : "OFF") +
                      " QUIET=" + juce::String(SeedBoxConfig::kQuietMode ? "ON" : "OFF"));
 
-  g.setFont(juce::Font(12.0f, juce::Font::bold));
+  g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
   const int lineHeight = 16;
   int widest = 0;
   for (const auto& line : lines) {
-    widest = std::max(widest, g.getCurrentFont().getStringWidth(line));
+    widest = std::max(widest, static_cast<int>(std::ceil(juce::GlyphArrangement::getStringWidth(g.getCurrentFont(), line))));
   }
 
   const int padding = 10;

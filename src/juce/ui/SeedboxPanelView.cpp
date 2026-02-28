@@ -193,7 +193,7 @@ void SeedboxPanelView::JackIcon::paint(juce::Graphics& g) {
   g.fillEllipse(centre.x - radius * 0.15f, centre.y - radius * 0.15f, radius * 0.3f, radius * 0.3f);
 
   g.setColour(juce::Colours::whitesmoke);
-  g.setFont(juce::Font(12.0f, juce::Font::plain));
+  g.setFont(juce::FontOptions(12.0f, juce::Font::plain));
   g.drawFittedText(label_, getLocalBounds().translated(0, static_cast<int>(radius) + 6), juce::Justification::centredTop,
                    1);
 }
@@ -332,12 +332,12 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
   oledLabel_.setJustificationType(juce::Justification::centred);
   oledLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black);
   oledLabel_.setColour(juce::Label::textColourId, juce::Colours::aqua);
-  oledLabel_.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 14.0f, juce::Font::plain));
+  oledLabel_.setFont(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 14.0f, juce::Font::plain));
   addAndMakeVisible(oledLabel_);
 
   clockStatusLabel_.setJustificationType(juce::Justification::centred);
   clockStatusLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
-  clockStatusLabel_.setFont(juce::Font(11.0f, juce::Font::plain));
+  clockStatusLabel_.setFont(juce::FontOptions(11.0f, juce::Font::plain));
   addAndMakeVisible(clockStatusLabel_);
 
   engineNameLabel_.setJustificationType(juce::Justification::centred);
