@@ -322,11 +322,6 @@ uint8_t deterministicBucket(uint32_t masterSeed, std::size_t slot, uint32_t salt
   return static_cast<uint8_t>(std::min<uint32_t>(candidate, bucketCount - 1));
 }
 
-bool deterministicBool(uint32_t masterSeed, std::size_t slot, uint32_t salt, float threshold) {
-  const float normalized = deterministicNormalizedValue(masterSeed, slot, salt);
-  return normalized >= threshold;
-}
-
 seedbox::io::Store* ensureStore(seedbox::io::Store* current) {
   // Quiet mode still deserves a live store so reads work in lessons; the backend
   // itself is responsible for short-circuiting writes when QUIET_MODE stays on.
