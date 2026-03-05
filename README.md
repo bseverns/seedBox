@@ -11,9 +11,9 @@ SeedBox is a tiny music lab wrapped in C++. It runs as Teensy 4.0 firmware **and
 ### Laptop-native (no hardware)
 1. Install PlatformIO once: `pip install -U platformio`.
 2. Clone and enter: `git clone https://github.com/bseverns/seedBox.git && cd seedBox`.
-3. Grab deps: `pio pkg install`.
-4. Run the fast tests: `pio test -e native`.
-5. Fire up the simulator examples (headless reseeds, ASCII UI mirrors) in `examples/` to hear the engines without flashing a board.
+3. Run the starter bundle: `./scripts/starter_bundle.sh`.
+4. Fire up the simulator examples (headless reseeds, ASCII UI mirrors) in `examples/` to hear the engines without flashing a board.
+5. Optional: run the same flow in a pinned container (`containers/native-dev/README.md`) when local tool versions drift.
 
 ### Teensy 4.0 hardware
 1. Wire it up with the guides in [`docs/hardware/`](docs/hardware) and the BOM in [`docs/hardware_bill_of_materials.md`](docs/hardware_bill_of_materials.md).

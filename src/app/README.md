@@ -15,6 +15,10 @@ then lets `tick()` do the heavy lifting each frame: poll the board, refresh the
 input pipeline, react to queued gestures, advance the scheduler, and recache the
 OLED snapshot.【F:src/app/AppState.cpp†L268-L513】
 
+For host tooling, `AppState` now also exposes a read-only status payload via
+`captureStatusSnapshot` and `captureStatusJson`, so external UIs can poll mode,
+clock, preset, and focus-seed state without touching mutable internals.
+
 Most of the real drama lives inside `processInputEvents()`. Incoming gestures
 are grouped into mode transitions, seed-prime tweaks, clock negotiations, and
 page-specific handlers, so you can follow a single event from button debounce to

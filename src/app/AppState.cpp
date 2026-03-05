@@ -143,6 +143,110 @@ const char* gateDivisionLabel(AppState::GateDivision div) {
   }
 }
 
+const char* pageLabel(AppState::Page page) {
+  switch (page) {
+    case AppState::Page::kSeeds: return "Seeds";
+    case AppState::Page::kStorage: return "Storage";
+    case AppState::Page::kClock: return "Clock";
+    default: return "Unknown";
+  }
+}
+
+std::size_t boundedCStringLength(const char* value, std::size_t maxLen) {
+  if (!value) {
+    return 0;
+  }
+  std::size_t len = 0;
+  while (len < maxLen && value[len] != '\0') {
+    ++len;
+  }
+  return len;
+}
+
+void appendJsonEscaped(std::string& out, std::string_view value) {
+  constexpr char kHex[] = "0123456789ABCDEF";
+  for (const char ch : value) {
+    switch (ch) {
+      case '\"':
+        out += "\\\"";
+        break;
+      case '\\':
+        out += "\\\\";
+        break;
+      case '\b':
+        out += "\\b";
+        break;
+      case '\f':
+        out += "\\f";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default: {
+        const auto code = static_cast<unsigned char>(ch);
+        if (code < 0x20u) {
+          out += "\\u00";
+          out.push_back(kHex[(code >> 4u) & 0x0Fu]);
+          out.push_back(kHex[code & 0x0Fu]);
+        } else {
+          out.push_back(ch);
+        }
+        break;
+      }
+    }
+  }
+}
+
+void appendJsonStringField(std::string& out, std::string_view key, std::string_view value, bool trailingComma) {
+  out.push_back('\"');
+  out.append(key.data(), key.size());
+  out += "\":\"";
+  appendJsonEscaped(out, value);
+  out.push_back('\"');
+  if (trailingComma) {
+    out.push_back(',');
+  }
+}
+
+void appendJsonBoolField(std::string& out, std::string_view key, bool value, bool trailingComma) {
+  out.push_back('\"');
+  out.append(key.data(), key.size());
+  out += "\":";
+  out += value ? "true" : "false";
+  if (trailingComma) {
+    out.push_back(',');
+  }
+}
+
+void appendJsonUIntField(std::string& out, std::string_view key, std::uint64_t value, bool trailingComma) {
+  out.push_back('\"');
+  out.append(key.data(), key.size());
+  out += "\":";
+  out += std::to_string(value);
+  if (trailingComma) {
+    out.push_back(',');
+  }
+}
+
+void appendJsonFloatField(std::string& out, std::string_view key, float value, bool trailingComma) {
+  std::array<char, 32> scratch{};
+  std::snprintf(scratch.data(), scratch.size(), "%.3f", static_cast<double>(value));
+
+  out.push_back('\"');
+  out.append(key.data(), key.size());
+  out += "\":";
+  out += scratch.data();
+  if (trailingComma) {
+    out.push_back(',');
+  }
+}
+
 uint32_t gateDivisionTicksFor(AppState::GateDivision div) {
   constexpr uint32_t kTicksPerBeat = 24u;
   switch (div) {
@@ -2888,6 +2992,79 @@ void AppState::captureLearnFrame(LearnFrame& out) const {
   out.generator.tapTempoBpm = currentTapTempoBpm();
   out.generator.lastTapIntervalMs = tapTempoHistory_.empty() ? 0 : tapTempoHistory_.back();
   out.generator.mutationRate = randomnessPanel_.mutationRate;
+}
+
+void AppState::captureStatusSnapshot(StatusSnapshot& out) const {
+  out = StatusSnapshot{};
+  writeDisplayField(out.mode, modeLabel(mode_));
+  writeDisplayField(out.page, pageLabel(currentPage_));
+  out.masterSeed = masterSeed_;
+  out.activePresetId = activePresetId();
+  writeDisplayField(out.activePresetSlot, activePresetSlot_.empty() ? kDefaultPresetSlot : activePresetSlot_);
+  out.bpm = scheduler_.bpm();
+  out.schedulerTick = scheduler_.ticks();
+  out.externalClockDominant = externalClockDominant_;
+  out.followExternalClockEnabled = followExternalClockEnabled_;
+  out.waitingForExternalClock = waitingForExternalClock_;
+  out.quietMode = SeedBoxConfig::kQuietMode;
+  out.globalSeedLocked = seedLock_.globalLocked();
+
+  if (seeds_.empty()) {
+    out.hasFocusedSeed = false;
+    out.focusSeedIndex = focusSeed_;
+    out.focusSeedId = 0;
+    out.focusSeedEngineId = EngineRouter::kSamplerId;
+    writeDisplayField(out.focusSeedEngineName, "None");
+    out.focusSeedLocked = false;
+    return;
+  }
+
+  const std::size_t focusIndex = std::min<std::size_t>(focusSeed_, seeds_.size() - 1);
+  const Seed& focus = seeds_[focusIndex];
+  out.hasFocusedSeed = true;
+  out.focusSeedIndex = static_cast<std::uint8_t>(focusIndex);
+  out.focusSeedId = focus.id;
+  out.focusSeedEngineId = engines_.sanitizeEngineId(focus.engine);
+  writeDisplayField(out.focusSeedEngineName, engineLongName(out.focusSeedEngineId));
+  out.focusSeedLocked = seedLock_.seedLocked(focusIndex);
+}
+
+std::string AppState::captureStatusJson() const {
+  StatusSnapshot status{};
+  captureStatusSnapshot(status);
+
+  const auto mode = std::string_view(status.mode, boundedCStringLength(status.mode, sizeof(status.mode)));
+  const auto page = std::string_view(status.page, boundedCStringLength(status.page, sizeof(status.page)));
+  const auto slot =
+      std::string_view(status.activePresetSlot, boundedCStringLength(status.activePresetSlot, sizeof(status.activePresetSlot)));
+  const auto engineName =
+      std::string_view(status.focusSeedEngineName,
+                       boundedCStringLength(status.focusSeedEngineName, sizeof(status.focusSeedEngineName)));
+
+  std::string out;
+  out.reserve(512);
+  out.push_back('{');
+  appendJsonStringField(out, "mode", mode, true);
+  appendJsonStringField(out, "page", page, true);
+  appendJsonUIntField(out, "masterSeed", status.masterSeed, true);
+  appendJsonUIntField(out, "activePresetId", status.activePresetId, true);
+  appendJsonStringField(out, "activePresetSlot", slot, true);
+  appendJsonFloatField(out, "bpm", status.bpm, true);
+  appendJsonUIntField(out, "schedulerTick", status.schedulerTick, true);
+  appendJsonBoolField(out, "externalClockDominant", status.externalClockDominant, true);
+  appendJsonBoolField(out, "followExternalClockEnabled", status.followExternalClockEnabled, true);
+  appendJsonBoolField(out, "waitingForExternalClock", status.waitingForExternalClock, true);
+  appendJsonBoolField(out, "quietMode", status.quietMode, true);
+  appendJsonBoolField(out, "globalSeedLocked", status.globalSeedLocked, true);
+  appendJsonBoolField(out, "focusSeedLocked", status.focusSeedLocked, true);
+  out += "\"focusSeed\":{";
+  appendJsonBoolField(out, "present", status.hasFocusedSeed, true);
+  appendJsonUIntField(out, "index", status.focusSeedIndex, true);
+  appendJsonUIntField(out, "id", status.focusSeedId, true);
+  appendJsonUIntField(out, "engineId", status.focusSeedEngineId, true);
+  appendJsonStringField(out, "engineName", engineName, false);
+  out += "}}";
+  return out;
 }
 
 const Seed* AppState::debugScheduledSeed(uint8_t index) const {

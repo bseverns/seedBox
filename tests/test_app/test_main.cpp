@@ -43,6 +43,8 @@ void test_tap_long_press_opens_swing_editor();
 void test_perf_page_renders_granular_hud();
 void test_randomness_panel_entropy_zero_is_deterministic();
 void test_learn_frame_reports_generator_state();
+void test_status_snapshot_reports_focus_seed_and_clock_state();
+void test_status_json_contains_expected_fields();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -89,5 +91,7 @@ int main(int, char**) {
   RUN_TEST(test_perf_page_renders_granular_hud);
   RUN_TEST(test_randomness_panel_entropy_zero_is_deterministic);
   RUN_TEST(test_learn_frame_reports_generator_state);
+  RUN_TEST(test_status_snapshot_reports_focus_seed_and_clock_state);
+  RUN_TEST(test_status_json_contains_expected_fields);
   return UNITY_END();
 }

@@ -37,6 +37,8 @@ pio pkg install
 - The first command pulls in PlatformIO globally so `pio` is on your path.
 - `pio pkg install` reads `platformio.ini` and downloads all Teensy + Unity
   dependencies into `.pio/`. Re-run this after editing `platformio.ini`.
+- For the default laptop-native onboarding flow, run
+  `./scripts/starter_bundle.sh` from the repo root.
 - Stash any generated `.wav` renders in `out/` and log artifacts in `artifacts/`.
   Both are ignored by git, so no one has to review binary blobs in PRs.
 
@@ -46,6 +48,18 @@ pio pkg install
 - `teensy-loader-cli` handles uploads without the Arduino IDE. On Debian-based
   systems: `sudo apt install teensy-loader-cli`.
 - `pyenv` or `asdf` for juggling Python versions if you bounce between projects.
+
+### Containerized baseline (version-alignment escape hatch)
+
+If your host dependencies drift, use the pinned native container:
+
+```bash
+docker compose -f containers/native-dev/compose.yaml run --rm \
+  seedbox-native ./scripts/starter_bundle.sh
+```
+
+Container docs and pinned versions live in
+[`containers/native-dev/README.md`](../containers/native-dev/README.md).
 
 ## Repository rituals
 

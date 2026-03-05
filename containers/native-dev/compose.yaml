@@ -1,0 +1,10 @@
+services:
+  seedbox-native:
+    build:
+      context: ../..
+      dockerfile: containers/native-dev/Dockerfile
+    image: seedbox/native-dev:local
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+    command: bash

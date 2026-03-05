@@ -155,6 +155,27 @@ public:
     } generator{};
   };
 
+  struct StatusSnapshot {
+    char mode[12];
+    char page[12];
+    std::uint32_t masterSeed{0};
+    std::uint32_t activePresetId{0};
+    char activePresetSlot[33];
+    float bpm{0.0f};
+    std::uint64_t schedulerTick{0};
+    bool externalClockDominant{false};
+    bool followExternalClockEnabled{false};
+    bool waitingForExternalClock{false};
+    bool quietMode{false};
+    bool globalSeedLocked{false};
+    bool focusSeedLocked{false};
+    bool hasFocusedSeed{false};
+    std::uint8_t focusSeedIndex{0};
+    std::uint32_t focusSeedId{0};
+    std::uint8_t focusSeedEngineId{0};
+    char focusSeedEngineName[16];
+  };
+
   // Populate the snapshot struct with text destined for the OLED / debug
   // display. Think of this as the "mixing console" view for teaching labs.
   void captureDisplaySnapshot(DisplaySnapshot& out) const;
@@ -162,6 +183,8 @@ public:
     captureDisplaySnapshot(out, &ui);
   }
   void captureLearnFrame(LearnFrame& out) const;
+  void captureStatusSnapshot(StatusSnapshot& out) const;
+  std::string captureStatusJson() const;
 
   const UiState& uiStateCache() const { return uiStateCache_; }
 

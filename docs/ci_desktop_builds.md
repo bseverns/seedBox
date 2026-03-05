@@ -6,6 +6,9 @@ we build, which arch we aim at, and how to debug it if something pops.
 
 ## What each workflow does
 
+- **Starter bundle smoke.** Runs `./scripts/starter_bundle.sh` on Ubuntu so the
+  documented newcomer path (`pio pkg install` + `pio test -e native`) stays
+  executable in CI.
 - **macOS universal (x86_64 + arm64).** Builds both the VST3 bundle (explicitly
   drives the format-specific `SeedboxVST3_VST3` target so the actual plugin
   binary exists) and the standalone app from the same CMake tree with

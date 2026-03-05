@@ -8,6 +8,7 @@ say so loudly.
 
 | Script | Job | Notes |
 | --- | --- | --- |
+| `starter_bundle.sh` | Runs the minimum newcomer workflow (`pio pkg install` + `pio test -e native`). | Use this when onboarding: it proves the laptop-native path before touching hardware. |
 | `describe_seedbox_config.py` | Reads `include/SeedBoxConfig.h` and prints flag defaults. | CI uses it to prove the docs aren't lying about the toggles; run it locally when writing docs. |
 | `doc_spellcheck_targets.py` | Emits the Markdown files we want spell-checkers or Vale to monitor. | Pipe its output into `codespell`, `vale`, or your favourite doc linter so new guides stay honest. |
 | `gen_version.py` | Generates `include/BuildInfo.h` with git hash + build time. | PlatformIO runs it before builds so the firmware can introduce itself over serial. |
