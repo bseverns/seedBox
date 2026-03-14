@@ -3,6 +3,7 @@
 #include <unity.h>
 
 #include "app/AppState.h"
+#include "engine/EngineRouter.h"
 #include "hal/hal_audio.h"
 #include "util/Units.h"
 
@@ -48,6 +49,89 @@ void test_engine_idle_floor_tracks_peak_and_rms() {
   TEST_ASSERT_TRUE(hal::audio::bufferEngineIdle(stereoFuzz, stereoFuzz, kFrames));
 }
 
+void test_juce_host_render_changes_live_input_when_granular_seed_is_focused() {
+  constexpr std::size_t kFrames = 128;
+  AppState app;
+  app.initJuceHost(Units::kSampleRate, kFrames);
+
+  AppState::StatusSnapshot status{};
+  app.captureStatusSnapshot(status);
+  TEST_ASSERT_EQUAL_UINT8_MESSAGE(EngineRouter::kGranularId, status.focusSeedEngineId,
+                                  "JUCE boot preset did not focus the granular engine");
+
+  std::vector<float> input(kFrames, 0.0f);
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    input[i] = (i % 16u < 8u) ? 0.35f : -0.35f;
+  }
+
+  std::vector<float> left(kFrames, 0.0f);
+  std::vector<float> right(kFrames, 0.0f);
+  for (int pass = 0; pass < 4; ++pass) {
+    app.setDryInputFromHost(input.data(), nullptr, input.size());
+    hal::audio::renderHostBuffer(left.data(), right.data(), left.size());
+  }
+
+  float diff = 0.0f;
+  float energy = 0.0f;
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    diff += std::abs(left[i] - input[i]);
+    energy += std::abs(left[i]);
+  }
+
+  char diffMsg[96];
+  std::snprintf(diffMsg, sizeof(diffMsg), "host render matched dry input too closely (diff=%.6f)", diff);
+  char energyMsg[96];
+  std::snprintf(energyMsg, sizeof(energyMsg), "host render stayed effectively silent (energy=%.6f)", energy);
+
+  TEST_ASSERT_TRUE_MESSAGE(diff > 0.5f, diffMsg);
+  TEST_ASSERT_TRUE_MESSAGE(energy > 0.5f, energyMsg);
+}
+
+void test_juce_host_render_boot_seeds_remain_audible_when_focus_changes() {
+  constexpr std::size_t kFrames = 128;
+  AppState app;
+  app.initJuceHost(Units::kSampleRate, kFrames);
+
+  std::vector<float> input(kFrames, 0.0f);
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    input[i] = (i % 12u < 6u) ? 0.28f : -0.24f;
+  }
+
+  std::vector<float> left(kFrames, 0.0f);
+  std::vector<float> right(kFrames, 0.0f);
+  for (std::uint8_t focus = 0; focus < 4; ++focus) {
+    app.setFocusSeed(focus);
+
+    float diff = 0.0f;
+    float energy = 0.0f;
+    float peak = 0.0f;
+    for (int pass = 0; pass < 6; ++pass) {
+      app.setDryInputFromHost(input.data(), nullptr, input.size());
+      hal::audio::renderHostBuffer(left.data(), right.data(), left.size());
+      for (std::size_t i = 0; i < input.size(); ++i) {
+        diff += std::abs(left[i] - input[i]);
+        energy += std::abs(left[i]);
+        peak = std::max(peak, std::abs(left[i]));
+        peak = std::max(peak, std::abs(right[i]));
+      }
+    }
+
+    char diffMsg[96];
+    std::snprintf(diffMsg, sizeof(diffMsg), "focus seed %u stayed too close to dry input (diff=%.6f)",
+                  static_cast<unsigned>(focus), diff);
+    char energyMsg[96];
+    std::snprintf(energyMsg, sizeof(energyMsg), "focus seed %u stayed effectively silent (energy=%.6f)",
+                  static_cast<unsigned>(focus), energy);
+    char peakMsg[96];
+    std::snprintf(peakMsg, sizeof(peakMsg), "focus seed %u clipped too hard (peak=%.6f)",
+                  static_cast<unsigned>(focus), peak);
+
+    TEST_ASSERT_TRUE_MESSAGE(diff > 0.5f, diffMsg);
+    TEST_ASSERT_TRUE_MESSAGE(energy > 0.5f, energyMsg);
+    TEST_ASSERT_TRUE_MESSAGE(peak < 0.98f, peakMsg);
+  }
+}
+
 #else  // SEEDBOX_HW
 
 void test_simulator_audio_reports_48k() {
@@ -56,6 +140,14 @@ void test_simulator_audio_reports_48k() {
 
 void test_engine_idle_floor_tracks_peak_and_rms() {
   TEST_IGNORE_MESSAGE("engine idle floor check only applies to the simulator");
+}
+
+void test_juce_host_render_changes_live_input_when_granular_seed_is_focused() {
+  TEST_IGNORE_MESSAGE("JUCE host render check only applies to the simulator");
+}
+
+void test_juce_host_render_boot_seeds_remain_audible_when_focus_changes() {
+  TEST_IGNORE_MESSAGE("JUCE host render focus-switch check only applies to the simulator");
 }
 
 #endif  // !SEEDBOX_HW

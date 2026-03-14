@@ -97,38 +97,32 @@ struct EngineControlTemplate {
 };
 
 const EngineControlTemplate kDefaultEngine{
-    "Default Engine", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
+    "Sampler", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
 const EngineControlTemplate kGrainEngine{"Granular",
                                          {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob, kJitterKnob,
                                           kReleaseKnob, kGrainSizeKnob, kGrainSprayKnob, kGrainTransposeKnob,
                                           kGrainWindowSkewKnob}};
-const EngineControlTemplate kChordEngine{"Chord", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
-const EngineControlTemplate kDrumEngine{"Drum", {kToneKnob, kDensityKnob, kProbabilityKnob}};
-const EngineControlTemplate kFmEngine{"FM", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob, kJitterKnob}};
-const EngineControlTemplate kAdditiveEngine{"Additive",
-                                           {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob, kJitterKnob,
-                                            kReleaseKnob}};
 const EngineControlTemplate kResonatorEngine{
     "Resonator",
     {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob, kResonatorFeedbackKnob, kResonatorDampingKnob}};
-const EngineControlTemplate kNoiseEngine{"Noise", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
+const EngineControlTemplate kEuclidEngineUi{"Euclid", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
+const EngineControlTemplate kBurstEngineUi{"Burst", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
+const EngineControlTemplate kToyEngine{"Toy", {kToneKnob, kDensityKnob, kProbabilityKnob, kSpreadKnob}};
 
 const EngineControlTemplate& engineTemplateFor(int engineId) {
   switch (engineId) {
+    case 0:
+      return kDefaultEngine;
     case 1:
       return kGrainEngine;
     case 2:
-      return kChordEngine;
-    case 3:
-      return kDrumEngine;
-    case 4:
-      return kFmEngine;
-    case 5:
-      return kAdditiveEngine;
-    case 6:
       return kResonatorEngine;
-    case 7:
-      return kNoiseEngine;
+    case 3:
+      return kEuclidEngineUi;
+    case 4:
+      return kBurstEngineUi;
+    case 5:
+      return kToyEngine;
     default:
       return kDefaultEngine;
   }
@@ -202,8 +196,14 @@ void HomePageComponent::refresh() {
   bpmLabel_.setText("BPM: " + juce::String(ui.bpm, 1), juce::dontSendNotification);
   const char* clockName = ui.clock == UiState::ClockSource::kExternal ? "Clock: External" : "Clock: Internal";
   clockLabel_.setText(clockName, juce::dontSendNotification);
-  const auto focus = processor_.appState().focusSeed() + 1;
-  focusLabel_.setText("Focus: Seed " + juce::String(focus), juce::dontSendNotification);
+  const auto focus = processor_.appState().focusSeed();
+  juce::String focusText = "FX Slot " + juce::String(static_cast<int>(focus + 1));
+  const auto& seeds = processor_.appState().seeds();
+  if (focus < seeds.size()) {
+    focusText << " - "
+              << juce::String(processor_.appState().engineRouterForDebug().engineName(seeds[focus].engine));
+  }
+  focusLabel_.setText(focusText, juce::dontSendNotification);
 }
 
 void HomePageComponent::resized() {
@@ -216,10 +216,10 @@ void HomePageComponent::resized() {
 }
 
 SeedsPageComponent::SeedsPageComponent(SeedboxAudioProcessor& processor) : PageComponent(processor) {
-  focusSeedSelector_.addItem("Seed 1", 1);
-  focusSeedSelector_.addItem("Seed 2", 2);
-  focusSeedSelector_.addItem("Seed 3", 3);
-  focusSeedSelector_.addItem("Seed 4", 4);
+  focusSeedSelector_.addItem("FX Slot 1", 1);
+  focusSeedSelector_.addItem("FX Slot 2", 2);
+  focusSeedSelector_.addItem("FX Slot 3", 3);
+  focusSeedSelector_.addItem("FX Slot 4", 4);
   focusSeedSelector_.setJustificationType(juce::Justification::centred);
   focusSeedSelector_.setTooltip("Choose which seed to poke (1-4 also works).");
   addAndMakeVisible(focusSeedSelector_);
@@ -310,14 +310,12 @@ void SeedsPageComponent::resized() {
 }
 
 EnginePageComponent::EnginePageComponent(SeedboxAudioProcessor& processor) : PageComponent(processor) {
-  engineSelector_.addItem("Default", 1);
-  engineSelector_.addItem("Grain", 2);
-  engineSelector_.addItem("Chord", 3);
-  engineSelector_.addItem("Drum", 4);
-  engineSelector_.addItem("FM", 5);
-  engineSelector_.addItem("Additive", 6);
-  engineSelector_.addItem("Resonator", 7);
-  engineSelector_.addItem("Noise", 8);
+  engineSelector_.addItem("Sampler", 1);
+  engineSelector_.addItem("Granular", 2);
+  engineSelector_.addItem("Resonator", 3);
+  engineSelector_.addItem("Euclid", 4);
+  engineSelector_.addItem("Burst", 5);
+  engineSelector_.addItem("Toy", 6);
   engineSelector_.setJustificationType(juce::Justification::centred);
   engineSelector_.setTooltip("Engine select for focused seed (E cycles too).");
   engineSelector_.onChange = [this]() { refresh(); };
@@ -446,7 +444,7 @@ PerfPageComponent::PerfPageComponent(SeedboxAudioProcessor& processor) : PageCom
   };
   addAndMakeVisible(tapTempoButton_);
 
-  transportLatchButton_.setButtonText("Transport Latch");
+  transportLatchButton_.setButtonText("Latch Transport");
   transportLatchButton_.setTooltip("Space toggles; Tap also latches.");
   addAndMakeVisible(transportLatchButton_);
 
@@ -526,7 +524,7 @@ void SwingPageComponent::resized() {
 }
 
 UtilPageComponent::UtilPageComponent(SeedboxAudioProcessor& processor) : PageComponent(processor) {
-  debugMetersButton_.setButtonText("Debug Meters");
+  debugMetersButton_.setButtonText("Show Debug Meters");
   debugMetersButton_.setTooltip("Shift + FxMutate toggles the debug waterfall.");
   addAndMakeVisible(debugMetersButton_);
 
@@ -551,15 +549,15 @@ void UtilPageComponent::resized() {
 }
 
 SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) : PageComponent(processor) {
-  externalClockButton_.setButtonText("Clock Source: External");
-  externalClockButton_.setTooltip("Shift + Tap = chase external clock.");
+  externalClockButton_.setButtonText("Use MIDI Clock");
+  externalClockButton_.setTooltip("Let incoming MIDI clock replace SeedBox's internal tempo.");
   addAndMakeVisible(externalClockButton_);
 
-  followClockButton_.setButtonText("Follow External Clock");
-  followClockButton_.setTooltip("Alt + Tap = obey incoming transport.");
+  followClockButton_.setButtonText("Follow MIDI Start/Stop");
+  followClockButton_.setTooltip("React to incoming MIDI transport in addition to clock.");
   addAndMakeVisible(followClockButton_);
 
-  followHostTransportButton_.setButtonText("Follow Host Transport");
+  followHostTransportButton_.setButtonText("Follow DAW Transport");
 #if JucePlugin_Build_Standalone
   followHostTransportButton_.setTooltip("Standalone builds ignore DAW transport; keep this off.");
 #else
@@ -567,12 +565,12 @@ SettingsPageComponent::SettingsPageComponent(SeedboxAudioProcessor& processor) :
 #endif
   addAndMakeVisible(followHostTransportButton_);
 
-  idlePassthroughButton_.setButtonText("Force Idle Passthrough");
-  idlePassthroughButton_.setTooltip("Keep the engine render path alive even when inputs are hot.");
+  idlePassthroughButton_.setButtonText("Dry Fallback If Silent");
+  idlePassthroughButton_.setTooltip("Only pass dry input when the effect path goes silent.");
   addAndMakeVisible(idlePassthroughButton_);
 
-  testToneButton_.setButtonText("Test Tone");
-  testToneButton_.setTooltip("Quick sanity check: sine tone at low gain.");
+  testToneButton_.setButtonText("Output Test Tone");
+  testToneButton_.setTooltip("Quick output check: low-gain sine tone after the effect path.");
   addAndMakeVisible(testToneButton_);
 
   audioInfo_.setJustificationType(juce::Justification::centredLeft);
@@ -632,13 +630,14 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     panelView_ = std::make_unique<SeedboxPanelView>(processor_, processor_.deviceManager());
     addAndMakeVisible(panelView_.get());
 
-    advancedToggle_.setButtonText("Advanced / Pages");
+    advancedToggle_.setButtonText("Detailed Editor");
     advancedToggle_.setTooltip(
-        "Show the legacy HOME/SEEDS/ENGINE/PERF/SWING/SETTINGS/UTIL stack without rebuilding with SEEDBOX_LEGACY_UI.");
+        "Open the detailed page editor for deeper seed, sync, and diagnostics controls.");
     advancedToggle_.onClick = [this]() { setAdvancedVisible(!showAdvanced_); };
     addAndMakeVisible(advancedToggle_);
 
-    advancedHint_.setText("Advanced pages are live by default - toggle to tuck them away.", juce::dontSendNotification);
+    advancedHint_.setText("Panel view is the fastest way to play the FX. Open the detailed editor for deeper control.",
+                          juce::dontSendNotification);
     advancedHint_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
     advancedHint_.setJustificationType(juce::Justification::centredLeft);
     advancedHint_.setFont(juce::FontOptions(13.0f));
@@ -647,22 +646,22 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
     setSize(820, 760);
   }
 
-  advancedFrame_.setText("Advanced Pages");
+  advancedFrame_.setText("Detailed Editor");
   advancedFrame_.setTextLabelPosition(juce::Justification::centredLeft);
   advancedFrame_.setColour(juce::GroupComponent::outlineColourId, juce::Colours::dimgrey);
   advancedFrame_.setColour(juce::GroupComponent::textColourId, juce::Colours::lightgrey);
   advancedFrame_.setInterceptsMouseClicks(false, false);
   addAndMakeVisible(advancedFrame_);
 
-  modeSelector_.addItem("HOME", 1);
-  modeSelector_.addItem("SEEDS", 2);
-  modeSelector_.addItem("ENGINE", 3);
-  modeSelector_.addItem("PERF", 4);
-  modeSelector_.addItem("SETTINGS", 5);
-  modeSelector_.addItem("UTIL", 6);
-  modeSelector_.addItem("SWING", 7);
+  modeSelector_.addItem("Overview", 1);
+  modeSelector_.addItem("Slots", 2);
+  modeSelector_.addItem("FX", 3);
+  modeSelector_.addItem("Tempo", 4);
+  modeSelector_.addItem("Sync", 5);
+  modeSelector_.addItem("Tools", 6);
+  modeSelector_.addItem("Groove", 7);
   modeSelector_.setJustificationType(juce::Justification::centred);
-  modeSelector_.setTooltip("Mode jumper: same as mashing the panel combos without wearing out your fingers.");
+  modeSelector_.setTooltip("Jump between the detailed editor pages.");
   modeSelector_.onChange = [this]() {
     const auto id = modeSelector_.getSelectedId();
     if (id <= 0) {
@@ -680,13 +679,13 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
   displayLabel_.setColour(juce::Label::textColourId, juce::Colours::lime);
   displayLabel_.setFont(juce::FontOptions(16.0f, juce::Font::plain));
   displayLabel_.setBorderSize(juce::BorderSize<int>(4));
-    displayLabel_.setTooltip("Desktop control hint: press O for Tone, S for Shift, A for Alt.");
+    displayLabel_.setTooltip("Live status display. Desktop shortcuts: O=tone, S=shift, A=alt.");
   addAndMakeVisible(displayLabel_);
 
   shortcutsLabel_.setJustificationType(juce::Justification::centred);
   shortcutsLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   shortcutsLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.3f));
-  shortcutsLabel_.setText("Shortcuts: Space=Latch, T=Tap, O=Tone/Tilt, 1-4=Focus seed, E=Cycle engine, Arrows=Nudge",
+  shortcutsLabel_.setText("Shortcuts: Space=latch, T=tap, 1-4=choose FX slot, E=next FX mode, Arrows=nudge",
                           juce::dontSendNotification);
   shortcutsLabel_.setFont(juce::FontOptions(13.0f));
   addAndMakeVisible(shortcutsLabel_);

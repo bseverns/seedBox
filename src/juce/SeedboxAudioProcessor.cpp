@@ -114,6 +114,7 @@ void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     syncSeedStateFromApp();
   } else {
     hal::audio::configureHostStream(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
+    hal::audio::start();
   }
 }
 
@@ -216,8 +217,8 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
                               static_cast<std::size_t>(numSamples),
                               hal::audio::kEnginePassthroughFloor, hal::audio::kEngineIdleRmsSlack);
 
-  const bool idlePassthroughRequested = forceIdlePassthrough && !enginesAudible;
-  if (enginesAudible || !dryAudible || idlePassthroughRequested) {
+  const bool idlePassthroughRequested = forceIdlePassthrough && dryAudible && !enginesAudible;
+  if (!idlePassthroughRequested) {
     juce::FloatVectorOperations::copy(outLeft, renderScratch_.getReadPointer(0), numSamples);
     if (outputBus.getNumChannels() > 1) {
       juce::FloatVectorOperations::copy(outRight, renderScratch_.getReadPointer(1), numSamples);
@@ -462,10 +463,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
 
   // Choice labels must stay in lockstep with the combo boxes built in
   // SeedboxAudioProcessorEditor so that automation/preset values map correctly.
-  juce::StringArray focusSeedChoices{"Seed 1", "Seed 2", "Seed 3", "Seed 4"};
+  juce::StringArray focusSeedChoices{"FX Slot 1", "FX Slot 2", "FX Slot 3", "FX Slot 4"};
   params.push_back(std::make_unique<juce::AudioParameterChoice>(kParamFocusSeed, "Focus Seed", focusSeedChoices, 0));
 
-  juce::StringArray engineChoices{"Default", "Grain", "Chord", "Drum", "FM", "Additive", "Resonator", "Noise"};
+  juce::StringArray engineChoices{"Sampler", "Granular", "Resonator", "Euclid", "Burst", "Toy"};
   params.push_back(std::make_unique<juce::AudioParameterChoice>(kParamSeedEngine, "Seed Engine", engineChoices, 0));
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       kParamSwingPercent, "Swing Percent",

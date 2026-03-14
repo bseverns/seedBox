@@ -45,6 +45,7 @@ public:
   void panic();
   void onSeed(const Seed& seed);
   void triggerSeed(const Seed& seed, std::uint32_t whenSamples);
+  void processInputAudio(const Seed& seed, const Engine::RenderContext& ctx);
 
   SEEDBOX_MAYBE_UNUSED static void dispatchThunk(void* ctx, const Seed& seed, std::uint32_t whenSamples);
 

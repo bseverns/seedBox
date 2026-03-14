@@ -30,6 +30,7 @@ public:
   void onTick(const Engine::TickContext& ctx) override;
   void onParam(const Engine::ParamChange& change) override;
   void onSeed(const Engine::SeedContext& ctx) override;
+  void processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) override;
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
@@ -108,6 +109,12 @@ private:
   uint32_t nextHandle_{1};
   std::array<ModalPreset, 6> presets_{};
   std::vector<Seed> seedCache_{};
+  float hostSampleRate_{48000.0f};
+  std::vector<float> hostDelayLeft_{};
+  std::vector<float> hostDelayRight_{};
+  std::size_t hostWritePos_{0};
+  float hostBrightLeft_{0.0f};
+  float hostBrightRight_{0.0f};
 
 #if SEEDBOX_HW
   struct HardwareVoice {

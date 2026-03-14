@@ -93,6 +93,7 @@ public:
   void onTick(const Engine::TickContext& ctx) override;
   void onParam(const Engine::ParamChange& change) override;
   void onSeed(const Engine::SeedContext& ctx) override;
+  void processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) override;
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
@@ -131,6 +132,7 @@ private:
   void mapGrainToGraph(uint8_t index, GrainVoice& grain);
   Source resolveSource(uint8_t encoded) const;
   const SourceSlot* resolveSourceSlot(Source source, uint8_t requestedSlot) const;
+  void ensureEffectBuffers(std::size_t minFrames);
 
 private:
   Mode mode_{Mode::kSim};
@@ -140,6 +142,12 @@ private:
   std::array<SourceSlot, kSdClipSlots> sdClips_{};
   std::vector<Seed> seedCache_{};
   Stats stats_{};
+  float hostSampleRate_{48000.0f};
+  std::vector<float> effectDelayLeft_{};
+  std::vector<float> effectDelayRight_{};
+  std::size_t effectWritePos_{0};
+  float effectLowpassLeft_{0.0f};
+  float effectLowpassRight_{0.0f};
 
 #if SEEDBOX_HW
   struct HardwareVoice {

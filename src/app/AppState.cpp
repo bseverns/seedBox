@@ -349,25 +349,34 @@ bool bufferClipDetected(const float* left, const float* right, std::size_t frame
   return false;
 }
 
-float clampUnit(float value) {
-  return std::clamp(value, 0.0f, 1.0f);
-}
-
-float softClip(float value) {
-  return std::tanh(value);
-}
-
-float mixLinear(float a, float b, float mix) {
-  const float clamped = clampUnit(mix);
-  return a + ((b - a) * clamped);
-}
-
-std::size_t wrapDelayTap(std::size_t writePos, std::size_t bufferSize, std::size_t delaySamples) {
-  if (bufferSize == 0) {
-    return 0;
+void applyHostOutputSafety(float* left, float* right, std::size_t frames, float trim, float& limiterGain) {
+  if (!left || !right || frames == 0) {
+    return;
   }
-  const std::size_t clampedDelay = std::min(delaySamples, bufferSize - 1);
-  return (writePos + bufferSize - clampedDelay) % bufferSize;
+
+  float peak = 0.0f;
+  for (std::size_t i = 0; i < frames; ++i) {
+    peak = std::max(peak, std::fabs(left[i]));
+    peak = std::max(peak, std::fabs(right[i]));
+  }
+
+  constexpr float kTargetPeak = 0.72f;
+  constexpr float kAttack = 0.24f;
+  constexpr float kRelease = 0.025f;
+  constexpr float kSoftClipDrive = 1.15f;
+  constexpr float kSoftClipOut = 0.86f;
+
+  const float desiredGain = (peak > kTargetPeak && peak > 0.0f) ? (kTargetPeak / peak) : 1.0f;
+  const float slew = (desiredGain < limiterGain) ? kAttack : kRelease;
+  limiterGain += (desiredGain - limiterGain) * slew;
+  limiterGain = std::clamp(limiterGain, 0.12f, 1.0f);
+
+  for (std::size_t i = 0; i < frames; ++i) {
+    const float l = left[i] * trim * limiterGain;
+    const float r = right[i] * trim * limiterGain;
+    left[i] = std::tanh(l * kSoftClipDrive) * kSoftClipOut;
+    right[i] = std::tanh(r * kSoftClipDrive) * kSoftClipOut;
+  }
 }
 
 template <size_t N>
@@ -640,6 +649,8 @@ void AppState::initHardware() {
 #endif
   configureMidiRouting();
   hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hostAudioMode_ = false;
+  hostLimiterGain_ = 1.0f;
   hal::audio::start();
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kHardware, true);
@@ -657,6 +668,8 @@ void AppState::initSim() {
   const auto teachingPreset = loadTeachingPresetForSim();
 #endif
   hal::audio::init(&AppState::audioCallbackTrampoline, this);
+  hostAudioMode_ = false;
+  hostLimiterGain_ = 1.0f;
   hal::audio::stop();
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kSim, false);
@@ -673,6 +686,8 @@ void AppState::initJuceHost(float sampleRate, std::size_t framesPerBlock) {
   configureMidiRouting();
   hal::audio::init(&AppState::audioCallbackTrampoline, this);
   hal::audio::configureHostStream(sampleRate, framesPerBlock);
+  hostAudioMode_ = true;
+  hostLimiterGain_ = 1.0f;
   // JUCE-only boot path: load a default preset before the host spins audio so
   // the very first render has a deterministic, teachable seed table. We try
   // a built-in preset snapshot generated from the current master seed. Desktop
@@ -810,7 +825,11 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
     updateInputGateState(0.0f, 0.0f);
   }
 
-  Engine::RenderContext ctx{buffer.left, buffer.right, buffer.frames};
+  const float* dryLeftInput = dryInputLeft_.empty() ? nullptr : dryInputLeft_.data();
+  const float* dryRightInput = (!dryInputRight_.empty() && dryInputRight_.size() >= buffer.frames)
+                                   ? dryInputRight_.data()
+                                   : dryLeftInput;
+  Engine::RenderContext ctx{dryLeftInput, dryRightInput, buffer.left, buffer.right, buffer.frames};
 
   // Start from silence, then let the engines (or a test tone) paint over the
   // scratch pad. If they stay quiet we fall back to the cached host input so
@@ -843,17 +862,9 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   engines_.burst().renderAudio(ctx);
 
 #if !SEEDBOX_HW
-  if constexpr (SeedBoxConfig::kJuceBuild) {
-    if (!dryInputLeft_.empty()) {
-      const std::size_t effectFrames = std::min<std::size_t>(buffer.frames, dryInputLeft_.size());
-      const float* dryLeft = dryInputLeft_.data();
-      const float* dryRight = (!dryInputRight_.empty() && dryInputRight_.size() >= effectFrames)
-                                  ? dryInputRight_.data()
-                                  : dryLeft;
-      if (const auto* effectSeed = desktopEffectSeed()) {
-        renderDesktopInputEffect(*effectSeed, dryLeft, dryRight, effectFrames, buffer.left, buffer.right);
-      }
-    }
+  if (!dryInputLeft_.empty() && !seeds_.empty()) {
+    const std::size_t idx = static_cast<std::size_t>(focusSeed_) % seeds_.size();
+    engines_.processInputAudio(seeds_[idx], ctx);
   }
 #endif
 
@@ -875,7 +886,7 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   }
 #endif
 
-  if (!dryInputLeft_.empty()) {
+  if (!hostAudioMode_ && !dryInputLeft_.empty()) {
     const std::size_t copyFrames = std::min<std::size_t>(buffer.frames, dryInputLeft_.size());
     const float* dryLeft = dryInputLeft_.data();
     const float* dryRight = (!dryInputRight_.empty() && dryInputRight_.size() >= copyFrames)
@@ -891,6 +902,10 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
       std::copy(dryLeft, dryLeft + copyFrames, buffer.left);
       std::copy(dryRight, dryRight + copyFrames, buffer.right);
     }
+  }
+
+  if (hostAudioMode_) {
+    applyHostOutputSafety(buffer.left, buffer.right, buffer.frames, hostOutputTrim_, hostLimiterGain_);
   }
 
   const auto leftEnergy = measureEnergy(buffer.left, nullptr, buffer.frames);
@@ -2249,180 +2264,6 @@ void AppState::setDryInputFromHost(const float* left, const float* right, std::s
   const EnergyProbe probe = measureEnergy(dryInputLeft_.data(), probeRight, frames);
   updateInputGateState(probe.rms, probe.peak);
 }
-
-#if !SEEDBOX_HW
-void AppState::ensureDesktopEffectBuffers(std::size_t minFrames) {
-  const float sr = (hal::audio::sampleRate() > 0.0f) ? hal::audio::sampleRate() : 48000.0f;
-  const std::size_t desired = std::max<std::size_t>(static_cast<std::size_t>(sr * 2.0f), minFrames + 1u);
-  if (desktopEffectDelayLeft_.size() == desired && desktopEffectDelayRight_.size() == desired) {
-    return;
-  }
-
-  desktopEffectDelayLeft_.assign(desired, 0.0f);
-  desktopEffectDelayRight_.assign(desired, 0.0f);
-  desktopEffectWritePos_ = 0;
-  desktopEffectLowpassLeft_ = 0.0f;
-  desktopEffectLowpassRight_ = 0.0f;
-  desktopEffectPrevInputLeft_ = 0.0f;
-  desktopEffectPrevInputRight_ = 0.0f;
-  desktopEffectHighpassLeft_ = 0.0f;
-  desktopEffectHighpassRight_ = 0.0f;
-  desktopEffectPhase_ = 0.0;
-}
-
-const Seed* AppState::desktopEffectSeed() const {
-  if (seeds_.empty()) {
-    return nullptr;
-  }
-  const std::size_t idx = static_cast<std::size_t>(focusSeed_) % seeds_.size();
-  return &seeds_[idx];
-}
-
-void AppState::renderDesktopInputEffect(const Seed& seed, const float* dryLeft, const float* dryRight,
-                                        std::size_t frames, float* outLeft, float* outRight) {
-  if (!dryLeft || !outLeft || !outRight || frames == 0) {
-    return;
-  }
-
-  ensureDesktopEffectBuffers(frames);
-  if (desktopEffectDelayLeft_.empty() || desktopEffectDelayRight_.empty()) {
-    return;
-  }
-
-  const float sr = (hal::audio::sampleRate() > 0.0f) ? hal::audio::sampleRate() : 48000.0f;
-  const float bpm = std::clamp(scheduler_.bpm(), 40.0f, 240.0f);
-  const float tone = clampUnit(seed.tone);
-  const float spread = clampUnit(seed.spread);
-  const float density = std::max(0.25f, seed.density);
-  const float probability = clampUnit(seed.probability);
-  const float wetBase = 0.45f + (0.4f * probability);
-  const float hpCoeff = 0.995f - (tone * 0.08f);
-  const float lpCoeff = 0.03f + (tone * 0.42f);
-  const std::size_t delaySize = desktopEffectDelayLeft_.size();
-
-  for (std::size_t i = 0; i < frames; ++i) {
-    const float inL = dryLeft[i];
-    const float inR = dryRight ? dryRight[i] : inL;
-    const std::size_t writePos = desktopEffectWritePos_;
-
-    desktopEffectLowpassLeft_ += lpCoeff * (inL - desktopEffectLowpassLeft_);
-    desktopEffectLowpassRight_ += lpCoeff * (inR - desktopEffectLowpassRight_);
-    desktopEffectHighpassLeft_ = (hpCoeff * desktopEffectHighpassLeft_) + inL - desktopEffectPrevInputLeft_;
-    desktopEffectHighpassRight_ = (hpCoeff * desktopEffectHighpassRight_) + inR - desktopEffectPrevInputRight_;
-    desktopEffectPrevInputLeft_ = inL;
-    desktopEffectPrevInputRight_ = inR;
-
-    const float lowL = desktopEffectLowpassLeft_;
-    const float lowR = desktopEffectLowpassRight_;
-    const float highL = desktopEffectHighpassLeft_;
-    const float highR = desktopEffectHighpassRight_;
-
-    float processedL = inL;
-    float processedR = inR;
-    float writeL = inL;
-    float writeR = inR;
-
-    switch (seed.engine) {
-      case EngineRouter::kGranularId: {
-        const std::size_t grainDelay =
-            std::clamp<std::size_t>(static_cast<std::size_t>(Units::msToSamples(seed.granular.grainSizeMs)), 24u,
-                                    delaySize / 3u);
-        const std::size_t sprayDelay =
-            std::clamp<std::size_t>(static_cast<std::size_t>(Units::msToSamples(seed.granular.sprayMs + 8.0f)), 32u,
-                                    delaySize / 2u);
-        const float blend = clampUnit((seed.granular.windowSkew + 1.0f) * 0.5f);
-        const auto tapA = wrapDelayTap(writePos, delaySize, grainDelay);
-        const auto tapB = wrapDelayTap(writePos, delaySize, grainDelay + sprayDelay);
-        const float smearL = mixLinear(desktopEffectDelayLeft_[tapA], desktopEffectDelayLeft_[tapB], blend);
-        const float smearR = mixLinear(desktopEffectDelayRight_[tapA], desktopEffectDelayRight_[tapB], blend);
-        const float transposeBlend = clampUnit((seed.granular.transpose + 12.0f) / 24.0f);
-        processedL = mixLinear(inL, (0.65f * smearL) + (0.35f * lowL), wetBase);
-        processedR = mixLinear(inR, (0.65f * smearR) + (0.35f * lowR), wetBase);
-        processedL = mixLinear(processedL, softClip(processedL * 1.8f), transposeBlend * 0.2f);
-        processedR = mixLinear(processedR, softClip(processedR * 1.8f), transposeBlend * 0.2f);
-        writeL = inL + (smearL * 0.15f);
-        writeR = inR + (smearR * 0.15f);
-        break;
-      }
-      case EngineRouter::kResonatorId: {
-        const float pitchFactor = std::pow(2.0f, seed.pitch / 12.0f);
-        const float freq = std::clamp(110.0f * pitchFactor, 55.0f, 1760.0f);
-        const std::size_t combDelay =
-            std::clamp<std::size_t>(static_cast<std::size_t>(sr / freq), 16u, delaySize / 3u);
-        const auto tap = wrapDelayTap(writePos, delaySize, combDelay);
-        const float feedback = std::clamp(seed.resonator.feedback, 0.1f, 0.95f);
-        const float brightness = clampUnit(seed.resonator.brightness);
-        const float ringL = mixLinear(desktopEffectDelayLeft_[tap], highL, brightness);
-        const float ringR = mixLinear(desktopEffectDelayRight_[tap], highR, brightness);
-        processedL = mixLinear(inL, inL + (ringL * feedback), wetBase);
-        processedR = mixLinear(inR, inR + (ringR * feedback), wetBase);
-        writeL = inL + (ringL * feedback * 0.82f);
-        writeR = inR + (ringR * feedback * 0.82f);
-        break;
-      }
-      case EngineRouter::kEuclidId: {
-        const double rateHz = (static_cast<double>(bpm) / 60.0) * std::max(0.5, static_cast<double>(density));
-        const double phaseInc = rateHz / static_cast<double>(sr);
-        const double phase = desktopEffectPhase_;
-        const double pulseWidth = 0.15 + (0.6 * static_cast<double>(probability));
-        const float gate = (phase < pulseWidth) ? 1.0f : 0.18f;
-        const float pan = 1.0f - spread;
-        processedL = inL * gate;
-        processedR = inR * gate;
-        processedL *= mixLinear(1.0f, pan, 0.5f);
-        processedR *= mixLinear(1.0f, 2.0f - pan, 0.5f);
-        desktopEffectPhase_ += phaseInc;
-        if (desktopEffectPhase_ >= 1.0) {
-          desktopEffectPhase_ -= std::floor(desktopEffectPhase_);
-        }
-        writeL = inL;
-        writeR = inR;
-        break;
-      }
-      case EngineRouter::kBurstId: {
-        const double rateHz = (static_cast<double>(bpm) / 60.0) * std::max(0.5, static_cast<double>(density * 0.5f));
-        const double phaseInc = rateHz / static_cast<double>(sr);
-        const double phase = desktopEffectPhase_;
-        const float envelope = (phase < 0.18) ? static_cast<float>(1.0 - (phase / 0.18)) : 0.0f;
-        const auto tap1 = wrapDelayTap(writePos, delaySize, static_cast<std::size_t>(sr * 0.045f));
-        const auto tap2 = wrapDelayTap(writePos, delaySize, static_cast<std::size_t>(sr * 0.090f));
-        const auto tap3 = wrapDelayTap(writePos, delaySize, static_cast<std::size_t>(sr * 0.150f));
-        const float burstL = desktopEffectDelayLeft_[tap1] + (0.65f * desktopEffectDelayLeft_[tap2]) +
-                             (0.4f * desktopEffectDelayLeft_[tap3]);
-        const float burstR = desktopEffectDelayRight_[tap1] + (0.65f * desktopEffectDelayRight_[tap2]) +
-                             (0.4f * desktopEffectDelayRight_[tap3]);
-        processedL = inL + (burstL * envelope * wetBase * 0.55f);
-        processedR = inR + (burstR * envelope * wetBase * 0.55f);
-        desktopEffectPhase_ += phaseInc;
-        if (desktopEffectPhase_ >= 1.0) {
-          desktopEffectPhase_ -= std::floor(desktopEffectPhase_);
-        }
-        writeL = inL + (burstL * 0.2f * envelope);
-        writeR = inR + (burstR * 0.2f * envelope);
-        break;
-      }
-      case EngineRouter::kSamplerId:
-      default: {
-        const float drive = 1.2f + (seed.mutateAmt * 6.0f) + (density * 0.35f);
-        const float coloredL = mixLinear(lowL, highL, tone);
-        const float coloredR = mixLinear(lowR, highR, tone);
-        processedL = mixLinear(inL, softClip((0.55f * inL + 0.85f * coloredL) * drive), wetBase);
-        processedR = mixLinear(inR, softClip((0.55f * inR + 0.85f * coloredR) * drive), wetBase);
-        break;
-      }
-    }
-
-    const float widthL = mixLinear(processedL, (processedL * (1.0f - spread)) + (processedR * spread), 0.35f);
-    const float widthR = mixLinear(processedR, (processedR * (1.0f - spread)) + (processedL * spread), 0.35f);
-
-    outLeft[i] += widthL;
-    outRight[i] += widthR;
-    desktopEffectDelayLeft_[writePos] = writeL;
-    desktopEffectDelayRight_[writePos] = writeR;
-    desktopEffectWritePos_ = (writePos + 1u) % delaySize;
-  }
-}
-#endif
 
 void AppState::updateClockDominance() {
   // External clock wins if either the follow bit is set or the transport is

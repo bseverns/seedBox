@@ -205,6 +205,15 @@ void EngineRouter::triggerSeed(const Seed& seed, std::uint32_t whenSamples) {
   engine->onSeed(ctx);
 }
 
+void EngineRouter::processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) {
+  const std::uint8_t engineId = sanitizeEngineId(seed.engine);
+  Engine* engine = findEngine(engineId);
+  if (!engine) {
+    return;
+  }
+  engine->processInputAudio(seed, ctx);
+}
+
 void EngineRouter::dispatchThunk(void* ctx, const Seed& seed, std::uint32_t whenSamples) {
   if (!ctx) return;
   static_cast<EngineRouter*>(ctx)->triggerSeed(seed, whenSamples);

@@ -364,12 +364,6 @@ private:
   uint64_t computeNextPresetTickForBoundary(PresetBoundary boundary) const;
   void setTempoTarget(float bpm, bool immediate);
   void updateTempoSmoothing();
-#if !SEEDBOX_HW
-  void ensureDesktopEffectBuffers(std::size_t minFrames);
-  const Seed* desktopEffectSeed() const;
-  void renderDesktopInputEffect(const Seed& seed, const float* dryLeft, const float* dryRight,
-                                std::size_t frames, float* outLeft, float* outRight);
-#endif
 
   // Runtime guts.  Nothing fancy here, just all the levers AppState pulls while
   // the performance is running.
@@ -440,6 +434,9 @@ private:
   bool waitingForExternalClock_{false};
   uint32_t lastExternalClockMs_{0};
   uint32_t externalClockWaitStartMs_{0};
+  bool hostAudioMode_{false};
+  float hostOutputTrim_{0.62f};
+  float hostLimiterGain_{1.0f};
   bool testToneEnabled_{false};
   float testTonePhase_{0.0f};
   GateDivision gateDivision_{GateDivision::kBars};
@@ -464,16 +461,4 @@ private:
   float swingPercent_{0.0f};
   std::vector<float> dryInputLeft_{};
   std::vector<float> dryInputRight_{};
-#if !SEEDBOX_HW
-  std::vector<float> desktopEffectDelayLeft_{};
-  std::vector<float> desktopEffectDelayRight_{};
-  std::size_t desktopEffectWritePos_{0};
-  float desktopEffectLowpassLeft_{0.0f};
-  float desktopEffectLowpassRight_{0.0f};
-  float desktopEffectPrevInputLeft_{0.0f};
-  float desktopEffectPrevInputRight_{0.0f};
-  float desktopEffectHighpassLeft_{0.0f};
-  float desktopEffectHighpassRight_{0.0f};
-  double desktopEffectPhase_{0.0};
-#endif
 };

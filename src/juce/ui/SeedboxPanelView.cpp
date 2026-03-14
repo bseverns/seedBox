@@ -22,23 +22,38 @@ constexpr float kPanelHeight = 360.0f;
 juce::String engineName(int index) {
   switch (index) {
     case 0:
-      return "Default";
+      return "Sampler";
     case 1:
-      return "Grain";
+      return "Granular";
     case 2:
-      return "Chord";
-    case 3:
-      return "Drum";
-    case 4:
-      return "FM";
-    case 5:
-      return "Additive";
-    case 6:
       return "Resonator";
-    case 7:
-      return "Noise";
+    case 3:
+      return "Euclid";
+    case 4:
+      return "Burst";
+    case 5:
+      return "Toy";
     default:
-      return "Engine";
+      return "FX";
+  }
+}
+
+juce::String engineHint(int index) {
+  switch (index) {
+    case 0:
+      return "Playback / drive";
+    case 1:
+      return "Smear / texture";
+    case 2:
+      return "Ring / resonance";
+    case 3:
+      return "Rhythmic gate";
+    case 4:
+      return "Burst / echo";
+    case 5:
+      return "Toy color";
+    default:
+      return "Shape the input";
   }
 }
 
@@ -237,7 +252,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     addAndMakeVisible(target.helper);
   };
 
-  setupKnob(seedKnob_, "Seed Bank", "Focus");
+  setupKnob(seedKnob_, "FX Slot", "Choose 1-4");
   seedKnob_.knob.setRange(0.0, 3.0, 1.0);
   seedKnob_.knob.onValueChange = [this]() {
     const auto value = static_cast<int>(std::round(seedKnob_.knob.getValue()));
@@ -254,7 +269,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     seedKnob_.knob.setValue(next, juce::sendNotificationSync);
   };
 
-  setupKnob(densityKnob_, "Density", "Hits");
+  setupKnob(densityKnob_, "Motion", "Rate / pulse");
   densityKnob_.knob.setRange(0.0, 8.0, 0.05);
   densityKnob_.knob.onValueChange = [this]() {
     processor_.applySeedEdit(juce::Identifier{"density"}, densityKnob_.knob.getValue(),
@@ -264,7 +279,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     lastActive_ = &densityKnob_.knob;
   };
 
-  setupKnob(toneKnob_, "Tone/Tilt", "Bright/Soft");
+  setupKnob(toneKnob_, "Color", "Bright / soft");
   toneKnob_.knob.setRange(0.0, 1.0, 0.01);
   toneKnob_.knob.onValueChange = [this]() {
     processor_.applySeedEdit(juce::Identifier{"tone"}, toneKnob_.knob.getValue(),
@@ -274,7 +289,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     lastActive_ = &toneKnob_.knob;
   };
 
-  setupKnob(fxKnob_, "FX/Mutate", "Spread");
+  setupKnob(fxKnob_, "Shape", "Turn=space  Press=mode");
   fxKnob_.knob.setRange(0.0, 1.0, 0.01);
   fxKnob_.knob.onValueChange = [this]() {
     processor_.applySeedEdit(juce::Identifier{"spread"}, fxKnob_.knob.getValue(),
@@ -343,6 +358,11 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
   engineNameLabel_.setJustificationType(juce::Justification::centred);
   engineNameLabel_.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   addAndMakeVisible(engineNameLabel_);
+
+  engineHintLabel_.setJustificationType(juce::Justification::centred);
+  engineHintLabel_.setColour(juce::Label::textColourId, juce::Colours::silver);
+  engineHintLabel_.setFont(juce::FontOptions(11.0f));
+  addAndMakeVisible(engineHintLabel_);
 
   jackIcons_.add(new JackIcon("MIDI In", [this]() {
     juce::PopupMenu menu;
@@ -518,7 +538,9 @@ void SeedboxPanelView::layoutControls() {
                                         160.0f * scale, 70.0f * scale);
   oledLabel_.setBounds(oledArea.toNearestInt());
   clockStatusLabel_.setBounds(oledArea.translated(0.0f, oledArea.getHeight() + 6.0f).toNearestInt());
-  engineNameLabel_.setBounds(fxKnob_.label.getBounds().withHeight(18).translated(0, -fxKnob_.label.getHeight()));
+  const auto engineLine = fxKnob_.label.getBounds().withHeight(18).translated(0, -fxKnob_.label.getHeight() - 4);
+  engineNameLabel_.setBounds(engineLine);
+  engineHintLabel_.setBounds(engineLine.translated(0, 18));
 }
 
 void SeedboxPanelView::refresh() {
@@ -558,9 +580,11 @@ void SeedboxPanelView::refresh() {
     densityKnob_.knob.setValue(focusSeed->density, juce::dontSendNotification);
     toneKnob_.knob.setValue(focusSeed->tone, juce::dontSendNotification);
     fxKnob_.knob.setValue(focusSeed->spread, juce::dontSendNotification);
-    seedKnob_.helper.setText("Focus: " + juce::String(static_cast<int>(focus) + 1), juce::dontSendNotification);
+    seedKnob_.helper.setText("Slot " + juce::String(static_cast<int>(focus) + 1) + " - " +
+                                 engineName(static_cast<int>(focusSeed->engine)),
+                             juce::dontSendNotification);
   } else {
-    seedKnob_.helper.setText("No seeds", juce::dontSendNotification);
+    seedKnob_.helper.setText("No FX slots", juce::dontSendNotification);
   }
   updateEngineLabel();
   updateLockIndicator();
@@ -673,7 +697,8 @@ void SeedboxPanelView::updateEngineLabel() {
                                                                                     [processor_.appState().focusSeed()]
                                                                                         .engine);
   engineLabel_ = engineName(engineId);
-  engineNameLabel_.setText("Engine: " + engineLabel_, juce::dontSendNotification);
+  engineNameLabel_.setText("Mode: " + engineLabel_, juce::dontSendNotification);
+  engineHintLabel_.setText(engineHint(engineId), juce::dontSendNotification);
 }
 
 void SeedboxPanelView::nudgeActiveControl(double delta) {

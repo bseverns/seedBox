@@ -24,6 +24,7 @@ public:
   void onTick(const Engine::TickContext& ctx) override;
   void onParam(const Engine::ParamChange& change) override;
   void onSeed(const Engine::SeedContext& ctx) override;
+  void processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) override;
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
@@ -40,4 +41,9 @@ private:
   std::vector<std::uint32_t> pending_{};
   std::uint32_t generationSeed_{0};
   std::uint32_t lastSeedId_{0};
+  float hostSampleRate_{48000.0f};
+  std::vector<float> hostEchoLeft_{};
+  std::vector<float> hostEchoRight_{};
+  std::size_t hostWritePos_{0};
+  std::uint64_t hostCursor_{0};
 };

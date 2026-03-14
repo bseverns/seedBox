@@ -52,6 +52,8 @@ public:
   };
 
   struct RenderContext {
+    const float* inputLeft{nullptr};
+    const float* inputRight{nullptr};
     float* left{nullptr};
     float* right{nullptr};
     std::size_t frames{0};
@@ -66,6 +68,10 @@ public:
   virtual void onTick(const TickContext& ctx) = 0;
   virtual void onParam(const ParamChange& change) = 0;
   virtual void onSeed(const SeedContext& ctx) = 0;
+  virtual void processInputAudio(const Seed& seed, const RenderContext& ctx) {
+    (void)seed;
+    (void)ctx;
+  }
   virtual void renderAudio(const RenderContext& ctx) = 0;
   virtual StateBuffer serializeState() const = 0;
   virtual void deserializeState(const StateBuffer& state) = 0;

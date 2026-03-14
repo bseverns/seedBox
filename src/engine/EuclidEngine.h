@@ -26,6 +26,7 @@ public:
   void onTick(const Engine::TickContext& ctx) override;
   void onParam(const Engine::ParamChange& change) override;
   void onSeed(const Engine::SeedContext& ctx) override;
+  void processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) override;
   void renderAudio(const Engine::RenderContext& ctx) override;
   Engine::StateBuffer serializeState() const override;
   void deserializeState(const Engine::StateBuffer& state) override;
@@ -50,4 +51,7 @@ private:
   std::uint32_t cursor_{0};
   bool lastGate_{false};
   std::uint32_t lastSeedId_{0};
+  float hostSampleRate_{48000.0f};
+  std::uint64_t hostCursor_{0};
+  float hostGateLevel_{0.0f};
 };

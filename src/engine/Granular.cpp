@@ -43,6 +43,23 @@ static uint8_t clampVoices(uint8_t voices) {
   if (voices > GranularEngine::kVoicePoolSize) return GranularEngine::kVoicePoolSize;
   return voices;
 }
+
+float clampUnit(float value) {
+  return std::clamp(value, 0.0f, 1.0f);
+}
+
+float mixLinear(float a, float b, float mix) {
+  const float clamped = clampUnit(mix);
+  return a + ((b - a) * clamped);
+}
+
+std::size_t wrapDelayTap(std::size_t writePos, std::size_t bufferSize, std::size_t delaySamples) {
+  if (bufferSize == 0) {
+    return 0;
+  }
+  const std::size_t clampedDelay = std::min(delaySamples, bufferSize - 1);
+  return (writePos + bufferSize - clampedDelay) % bufferSize;
+}
 }
 
 #if SEEDBOX_HW
@@ -171,11 +188,17 @@ Engine::Type GranularEngine::type() const noexcept { return Engine::Type::kGranu
 
 void GranularEngine::init(Mode mode) {
   mode_ = mode;
+  hostSampleRate_ = 48000.0f;
   maxActiveVoices_ = (mode == Mode::kHardware) ? 32 : 12;
   liveInputArmed_ = true;
   voices_.fill(GrainVoice{});
   sdClips_.fill(SourceSlot{});
   stats_.reset();
+  effectDelayLeft_.clear();
+  effectDelayRight_.clear();
+  effectWritePos_ = 0;
+  effectLowpassLeft_ = 0.0f;
+  effectLowpassRight_ = 0.0f;
   // Slot zero is a reserved label for "live input" so deterministic seeds can
   // reference it even though it never appears in the SD clip registry.
   sdClips_[0].inUse = true;
@@ -234,8 +257,9 @@ void GranularEngine::init(Mode mode) {
 
 void GranularEngine::prepare(const Engine::PrepareContext& ctx) {
   init(ctx.hardware ? Mode::kHardware : Mode::kSim);
+  hostSampleRate_ = (ctx.sampleRate > 0) ? static_cast<float>(ctx.sampleRate) : 48000.0f;
+  ensureEffectBuffers(ctx.framesPerBlock);
   (void)ctx.masterSeed;
-  (void)ctx.sampleRate;
   (void)ctx.framesPerBlock;
 }
 
@@ -249,6 +273,80 @@ void GranularEngine::onParam(const Engine::ParamChange& change) {
 
 void GranularEngine::onSeed(const Engine::SeedContext& ctx) {
   trigger(ctx.seed, ctx.whenSamples);
+}
+
+void GranularEngine::processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) {
+#if SEEDBOX_HW
+  (void)seed;
+  (void)ctx;
+#else
+  if (!ctx.inputLeft || !ctx.left || !ctx.right || ctx.frames == 0) {
+    return;
+  }
+
+  ensureEffectBuffers(ctx.frames);
+  if (effectDelayLeft_.empty() || effectDelayRight_.empty()) {
+    return;
+  }
+
+  const float tone = clampUnit(seed.tone);
+  const float spread = clampUnit(seed.granular.stereoSpread);
+  const float density = std::max(0.5f, seed.density);
+  const float wet = 0.82f + (0.15f * clampUnit(seed.probability));
+  const float feedback = 0.28f + (0.45f * clampUnit(seed.mutateAmt));
+  const float lpCoeff = 0.04f + (tone * 0.32f);
+  const float transposeMix = clampUnit((seed.granular.transpose + 12.0f) / 24.0f);
+  const std::size_t delaySize = effectDelayLeft_.size();
+  const std::size_t grainDelay = std::clamp<std::size_t>(
+      static_cast<std::size_t>(Units::msToSamples(std::max(12.0f, seed.granular.grainSizeMs))), 24u, delaySize / 3u);
+  const std::size_t sprayDelay = std::clamp<std::size_t>(
+      static_cast<std::size_t>(Units::msToSamples(std::max(4.0f, seed.granular.sprayMs + (density * 6.0f)))), 16u,
+      delaySize / 2u);
+  const float windowBlend = clampUnit((seed.granular.windowSkew + 1.0f) * 0.5f);
+  const float width = 0.12f + (0.6f * spread);
+  const float transientBlend = 0.45f + (0.4f * windowBlend);
+  const float haloBlend = 0.22f + (0.5f * spread);
+  const float dryMix = 0.08f + (0.16f * (1.0f - clampUnit(seed.probability)));
+  const float drive = 1.15f + (0.85f * clampUnit(seed.mutateAmt));
+  const auto gains = stereo::constantPowerWidth(width);
+
+  for (std::size_t i = 0; i < ctx.frames; ++i) {
+    const float inL = ctx.inputLeft[i];
+    const float inR = ctx.inputRight ? ctx.inputRight[i] : inL;
+    const std::size_t writePos = effectWritePos_;
+    const std::size_t tapA = wrapDelayTap(writePos, delaySize, grainDelay);
+    const std::size_t tapB = wrapDelayTap(writePos, delaySize, grainDelay + sprayDelay);
+
+    effectLowpassLeft_ += lpCoeff * (inL - effectLowpassLeft_);
+    effectLowpassRight_ += lpCoeff * (inR - effectLowpassRight_);
+
+    const float smearL = mixLinear(effectDelayLeft_[tapA], effectDelayLeft_[tapB], windowBlend);
+    const float smearR = mixLinear(effectDelayRight_[tapA], effectDelayRight_[tapB], windowBlend);
+    const float pitchedL = mixLinear(smearL, effectLowpassLeft_, transposeMix);
+    const float pitchedR = mixLinear(smearR, effectLowpassRight_, transposeMix);
+    const float transientL = inL - effectLowpassLeft_;
+    const float transientR = inR - effectLowpassRight_;
+    const float grainL = mixLinear(smearL, transientL, transientBlend);
+    const float grainR = mixLinear(smearR, transientR, transientBlend);
+    const float haloL = mixLinear(pitchedL, transientR, haloBlend);
+    const float haloR = mixLinear(pitchedR, transientL, haloBlend);
+    const float wetCoreL = (0.78f * grainL) + (0.52f * haloL) + (0.18f * effectLowpassLeft_);
+    const float wetCoreR = (0.78f * grainR) + (0.52f * haloR) + (0.18f * effectLowpassRight_);
+    const float shapedL = std::tanh(wetCoreL * drive);
+    const float shapedR = std::tanh(wetCoreR * drive);
+    const float stereoWetL = (shapedL * gains.left) + (shapedR * (1.0f - gains.right) * 0.5f);
+    const float stereoWetR = (shapedR * gains.right) + (shapedL * (1.0f - gains.left) * 0.5f);
+    const float outL = mixLinear(stereoWetL, inL, dryMix * (1.0f - wet));
+    const float outR = mixLinear(stereoWetR, inR, dryMix * (1.0f - wet));
+
+    ctx.left[i] += outL;
+    ctx.right[i] += outR;
+
+    effectDelayLeft_[writePos] = inL + (wetCoreL * feedback);
+    effectDelayRight_[writePos] = inR + (wetCoreR * feedback);
+    effectWritePos_ = (writePos + 1u) % delaySize;
+  }
+#endif
 }
 
 void GranularEngine::renderAudio(const Engine::RenderContext& ctx) {
@@ -266,6 +364,11 @@ void GranularEngine::deserializeState(const Engine::StateBuffer& state) {
 void GranularEngine::panic() {
   voices_.fill(GrainVoice{});
   stats_.reset();
+  std::fill(effectDelayLeft_.begin(), effectDelayLeft_.end(), 0.0f);
+  std::fill(effectDelayRight_.begin(), effectDelayRight_.end(), 0.0f);
+  effectWritePos_ = 0;
+  effectLowpassLeft_ = 0.0f;
+  effectLowpassRight_ = 0.0f;
 #if SEEDBOX_HW
   for (auto& hwVoice : hwVoices_) {
     hwVoice.sdPlayer.stop();
@@ -298,6 +401,19 @@ void GranularEngine::panic() {
 
 void GranularEngine::setMaxActiveVoices(uint8_t voices) {
   maxActiveVoices_ = clampVoices(voices);
+}
+
+void GranularEngine::ensureEffectBuffers(std::size_t minFrames) {
+  const float sr = (hostSampleRate_ > 0.0f) ? hostSampleRate_ : 48000.0f;
+  const std::size_t desired = std::max<std::size_t>(static_cast<std::size_t>(sr * 2.0f), minFrames + 1u);
+  if (effectDelayLeft_.size() == desired && effectDelayRight_.size() == desired) {
+    return;
+  }
+  effectDelayLeft_.assign(desired, 0.0f);
+  effectDelayRight_.assign(desired, 0.0f);
+  effectWritePos_ = 0;
+  effectLowpassLeft_ = 0.0f;
+  effectLowpassRight_ = 0.0f;
 }
 
 void GranularEngine::armLiveInput(bool enabled) {

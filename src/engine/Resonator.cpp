@@ -22,6 +22,14 @@ float lerp(float a, float b, float t) {
   return a + (b - a) * t;
 }
 
+std::size_t wrapDelayTap(std::size_t writePos, std::size_t bufferSize, std::size_t delaySamples) {
+  if (bufferSize == 0) {
+    return 0;
+  }
+  const std::size_t clampedDelay = std::min(delaySamples, bufferSize - 1);
+  return (writePos + bufferSize - clampedDelay) % bufferSize;
+}
+
 constexpr std::array<ResonatorBank::ModalPreset, 6> kDefaultPresets{{
     {"Brass shell",
      {1.0f, 2.01f, 2.55f, 3.9f},
@@ -149,8 +157,14 @@ void ResonatorBank::init(Mode mode) {
 void ResonatorBank::prepare(const Engine::PrepareContext& ctx) {
   init(ctx.hardware ? Mode::kHardware : Mode::kSim);
   (void)ctx.masterSeed;
-  (void)ctx.sampleRate;
-  (void)ctx.framesPerBlock;
+  hostSampleRate_ = (ctx.sampleRate > 0) ? static_cast<float>(ctx.sampleRate) : 48000.0f;
+  const std::size_t delayFrames = std::max<std::size_t>(static_cast<std::size_t>(hostSampleRate_ * 2.0f),
+                                                        static_cast<std::size_t>(ctx.framesPerBlock) + 1u);
+  hostDelayLeft_.assign(delayFrames, 0.0f);
+  hostDelayRight_.assign(delayFrames, 0.0f);
+  hostWritePos_ = 0;
+  hostBrightLeft_ = 0.0f;
+  hostBrightRight_ = 0.0f;
 }
 
 void ResonatorBank::onTick(const Engine::TickContext& ctx) {
@@ -163,6 +177,70 @@ void ResonatorBank::onParam(const Engine::ParamChange& change) {
 
 void ResonatorBank::onSeed(const Engine::SeedContext& ctx) {
   trigger(ctx.seed, ctx.whenSamples);
+}
+
+void ResonatorBank::processInputAudio(const Seed& seed, const Engine::RenderContext& ctx) {
+#if SEEDBOX_HW
+  (void)seed;
+  (void)ctx;
+#else
+  if (!ctx.inputLeft || !ctx.left || !ctx.right || ctx.frames == 0) {
+    return;
+  }
+  if (hostDelayLeft_.empty() || hostDelayRight_.empty()) {
+    const std::size_t delayFrames =
+        std::max<std::size_t>(static_cast<std::size_t>(std::max(48000.0f, hostSampleRate_) * 2.0f), ctx.frames + 1u);
+    hostDelayLeft_.assign(delayFrames, 0.0f);
+    hostDelayRight_.assign(delayFrames, 0.0f);
+  }
+
+  const auto& preset = resolvePreset(seed.resonator.bank);
+  const float brightness = clamp01(lerp(preset.baseBrightness, seed.resonator.brightness, 0.7f));
+  const float damping = std::clamp(lerp(minDamping_, maxDamping_, seed.resonator.damping), 0.2f, 0.995f);
+  const float feedback = std::clamp((preset.baseFeedback * 0.55f) + (seed.resonator.feedback * 0.35f) +
+                                        (clamp01(seed.mutateAmt) * 0.15f),
+                                    0.2f, 0.97f);
+  const float excitation = 0.28f + (0.42f * clamp01(seed.probability));
+  const float wet = 0.74f + (0.18f * clamp01(seed.spread));
+  const float basePitch = clamp01((seed.pitch + 24.0f) / 48.0f);
+  const float baseFrequency = 70.0f + (basePitch * 260.0f) + (seed.tone * 180.0f);
+  const std::size_t delaySize = hostDelayLeft_.size();
+
+  for (std::size_t i = 0; i < ctx.frames; ++i) {
+    const float inL = ctx.inputLeft[i];
+    const float inR = ctx.inputRight ? ctx.inputRight[i] : inL;
+
+    hostBrightLeft_ += (0.04f + (brightness * 0.22f)) * (inL - hostBrightLeft_);
+    hostBrightRight_ += (0.04f + (brightness * 0.22f)) * (inR - hostBrightRight_);
+
+    const float exciteL = ((inL - hostBrightLeft_) * (0.55f + (seed.tone * 0.35f)) + (hostBrightLeft_ * 0.25f)) * excitation;
+    const float exciteR = ((inR - hostBrightRight_) * (0.55f + (seed.tone * 0.35f)) + (hostBrightRight_ * 0.25f)) * excitation;
+
+    float modalL = 0.0f;
+    float modalR = 0.0f;
+    for (std::size_t mode = 0; mode < preset.modeRatios.size(); ++mode) {
+      const float modeHz = std::max(28.0f, baseFrequency * preset.modeRatios[mode]);
+      const std::size_t delaySamples = std::clamp<std::size_t>(
+          static_cast<std::size_t>(hostSampleRate_ / modeHz), 12u,
+          std::max<std::size_t>(24u, delaySize / 3u));
+      const std::size_t tap = wrapDelayTap(hostWritePos_, delaySize, delaySamples + (mode * 7u));
+      modalL += hostDelayLeft_[tap] * preset.modeGains[mode];
+      modalR += hostDelayRight_[tap] * preset.modeGains[mode];
+    }
+
+    const float resonantL = (modalL * feedback) + exciteL;
+    const float resonantR = (modalR * feedback) + exciteR;
+    const float outL = std::tanh((inL * (1.0f - wet * 0.4f)) + (resonantL * wet * 1.2f));
+    const float outR = std::tanh((inR * (1.0f - wet * 0.4f)) + (resonantR * wet * 1.2f));
+
+    ctx.left[i] += outL;
+    ctx.right[i] += outR;
+
+    hostDelayLeft_[hostWritePos_] = (modalL * damping) + (exciteL * 0.95f);
+    hostDelayRight_[hostWritePos_] = (modalR * damping) + (exciteR * 0.95f);
+    hostWritePos_ = (hostWritePos_ + 1u) % delaySize;
+  }
+#endif
 }
 
 void ResonatorBank::renderAudio(const Engine::RenderContext& ctx) {
@@ -180,6 +258,11 @@ void ResonatorBank::deserializeState(const Engine::StateBuffer& state) {
 void ResonatorBank::panic() {
   voices_.fill(VoiceInternal{});
   nextHandle_ = 1;
+  std::fill(hostDelayLeft_.begin(), hostDelayLeft_.end(), 0.0f);
+  std::fill(hostDelayRight_.begin(), hostDelayRight_.end(), 0.0f);
+  hostWritePos_ = 0;
+  hostBrightLeft_ = 0.0f;
+  hostBrightRight_ = 0.0f;
 
 #if SEEDBOX_HW
   for (auto& hwVoice : hwVoices_) {

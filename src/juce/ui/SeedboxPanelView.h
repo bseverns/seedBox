@@ -115,6 +115,7 @@ class SeedboxPanelView : public juce::Component {
 
   juce::String engineLabel_;
   juce::Label engineNameLabel_;
+  juce::Label engineHintLabel_;
 
   juce::Rectangle<float> viewBounds_{};
   juce::Rectangle<float> panelBounds_{};
