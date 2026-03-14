@@ -1,17 +1,45 @@
 /.pio
 /.vscode
+/.idea
+
+# macOS / editor noise
 .DS_Store
+*.swp
+*.swo
 *.log
+
+# Local build outputs
 build/*
 !build/fixtures/
 !build/fixtures/**
-*.swp
-*.swo
-*.wav
-!build/fixtures/*.wav
 /out/
 /artifacts/
--DCMAKE_OSX_ARCHITECTURES=x86_64~
--DQUIET_MODE=ON
--DSEEDBOX_SIM=ON
--DSEEDBOX_VERSION=0a07f4d
+/cmake-build-*/
+/DerivedData/
+/compile_commands.json
+/CMakeUserPresets.json
+
+# Local audio renders, except committed fixtures
+*.wav
+!build/fixtures/*.wav
+
+# Local env / secrets
+.env
+.env.*
+*.local
+*.secret
+*.secrets
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+*.cer
+*.crt
+*.csr
+*.der
+
+# Xcode user state
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.dSYM/

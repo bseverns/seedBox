@@ -12,11 +12,12 @@ we build, which arch we aim at, and how to debug it if something pops.
 - **macOS universal (x86_64 + arm64).** Builds both the VST3 bundle (explicitly
   drives the format-specific `SeedboxVST3_VST3` target so the actual plugin
   binary exists) and the standalone app from the same CMake tree with
-  `CMAKE_OSX_ARCHITECTURES="x86_64;arm64"` on the macOS 14 runner. We stick with
-  the macOS 14 SDK because macOS 15 obsoleted the CoreGraphics
-  `CGWindowListCreateImage` API JUCE still leans on. The deployment target
-  remains 11.0 so both Intel and Apple Silicon hosts stay happy, and we upload
-  the bundled artifacts so testers can drag-drop without a local toolchain. CI
+  `CMAKE_OSX_ARCHITECTURES="x86_64;arm64"` on the macOS 14 runner. The runner
+  stays on macOS 14 for CI stability, but the repo currently pins JUCE 8.0.12,
+  which already includes JUCE's macOS 26 support work, so local Tahoe builds
+  can target the current SDKs cleanly. The deployment target remains 11.0 so
+  both Intel and Apple Silicon hosts stay happy, and we upload the bundled
+  artifacts so testers can drag-drop without a local toolchain. CI
   now hunts for the VST3 bundle with `find` and then hunts for the actual
   binary inside the bundle before running `lipo`, so we catch staging-layout
   changes instead of bombing out with a missing file—feel free to use the same
@@ -49,9 +50,10 @@ we build, which arch we aim at, and how to debug it if something pops.
   when configuring and remember to build the format-specific target
   (`cmake --build build/juce --target SeedboxVST3_VST3`) so the bundle actually
   contains a binary. `lipo -info` on the VST3 binary inside the bundle should
-  list both architectures. On CI we use the macOS 14 runner so JUCE can still
-  rely on the CoreGraphics window snapshot APIs that vanished in the macOS 15
-  SDK. Resist the urge to override the VST3 target’s output directories—the
+  list both architectures. On CI we still use the macOS 14 runner, but local
+  Tahoe builds with the pinned JUCE are valid too; a current SDK should stamp
+  the resulting binary with `sdk 26.x` while keeping the configured deployment
+  target. Resist the urge to override the VST3 target’s output directories—the
   JUCE helper that writes `moduleinfo.json` expects the default bundle layout
   (`.../SeedBox.vst3/Contents/...`), and short-circuiting that with custom
   `RUNTIME_OUTPUT_DIRECTORY` values will trick it into treating the naked `.so`

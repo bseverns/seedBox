@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-  set(CMAKE_OSX_DEPLOYMENT_TARGET "14.4" CACHE STRING "Minimum macOS deployment target for JUCE ScreenCaptureKit support" FORCE)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "14.4" CACHE STRING "Minimum macOS deployment target for SeedBox desktop builds" FORCE)
 endif()
 
 include(FetchContent)
@@ -123,7 +123,7 @@ juce_add_plugin(SeedboxVST3
   NEEDS_MIDI_OUTPUT TRUE
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-  COPY_PLUGIN_AFTER_BUILD TRUE
+  COPY_PLUGIN_AFTER_BUILD FALSE
 )
 
 juce_generate_juce_header(SeedboxVST3)
