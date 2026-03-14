@@ -12,6 +12,7 @@
 build/*
 !build/fixtures/
 !build/fixtures/**
+/include/BuildInfo.generated.h
 /out/
 /artifacts/
 /cmake-build-*/
