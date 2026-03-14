@@ -22,5 +22,6 @@ mkdir -p "${dest_dir}"
 
 rm -rf "${dest_dir}/SeedBox.vst3"
 cp -R "${source_path}" "${dest_dir}/SeedBox.vst3"
+codesign --force --deep --sign - "${dest_dir}/SeedBox.vst3"
 
 echo "Installed SeedBox.vst3 to ${dest_dir}"

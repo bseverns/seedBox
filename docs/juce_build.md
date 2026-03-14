@@ -27,7 +27,11 @@ same build flags PlatformIO uses so the DAW story matches the firmware truth.
    > A stray space after the backslash makes zsh try to run `-DQUIET_MODE=...`
    > as a command (that “command not found” you might have seen). If you ever
    > see CMake claim it is forcing flags you did not set, nuke `build/juce` and
-   > re-run the configure step so a stale cache cannot lie to you.
+   > re-run the configure step so a stale cache cannot lie to you. The same
+   > applies if JUCE blows up with `target_compile_features no known features
+   > for CXX compiler "" version .` on macOS: that means the build tree cached
+   > a broken compiler-identification result. Delete `build/juce` and
+   > reconfigure from scratch rather than trying to salvage the cache.
 
 3. **Build the standalone app.**
 
@@ -108,8 +112,9 @@ defines so `SeedBoxConfig.h` stays happy.
   manager. It uses the same engine code as the Teensy build; only the platform
   shim changes.
 - **`SeedboxVST3`** is the DAW-facing sibling. It exposes the
-  `SeedboxAudioProcessor` as a VST3 instrument, with MIDI I/O enabled and the
-  editor using the minimal teaching UI from `src/juce/`.
+  `SeedboxAudioProcessor` as a VST3 audio effect with MIDI I/O enabled, so
+  hosts can feed the plugin live audio while the editor keeps the minimal
+  teaching UI from `src/juce/`.
 - The core engine lives in `seedbox_core` so the plugin and app share every
   translation unit except the firmware `main.cpp` and the Teensy-only
   `board_teensy.cpp`.

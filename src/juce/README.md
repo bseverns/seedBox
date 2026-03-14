@@ -23,7 +23,7 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 ## How to hear audio (monitoring + test tone priority)
 
 - **Standalone:** launch the app, flip to the SETTINGS page, and pick a stereo input + output in the inline Audio/MIDI selector. The headphone jack popup is still around for a quick restart or summary, but the selector now lives in the page body for faster onboarding. With inputs enabled, the processor copies input → output every block _unless_ the test tone or engines are actively generating sound. Test tone/engines always win; passthrough fills the gap when they are silent. Mono inputs get mirrored to stereo automatically.
-- **VST3:** drop the plugin on a DAW track, make sure the track is record/monitor-enabled, and confirm the VST3 reports a stereo input bus. Monitoring is always on in the plugin as well; the same “engine or test tone beats passthrough” rule applies.
+- **VST3:** drop the plugin on a DAW track as an insert effect, make sure the track is record/monitor-enabled, and confirm the VST3 reports a stereo input bus. Monitoring is always on in the plugin as well; the same “engine or test tone beats passthrough” rule applies.
 - **Quick sanity:** flip test tone on, hear the synthesized whine, then disable it and speak/play into the selected input. You should immediately hear dry input unless the engines are busy.
 
 ## Page tour (what each mode actually surfaces)

@@ -186,13 +186,7 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
 
   for (const auto metadata : midiMessages) {
     const auto& msg = metadata.getMessage();
-    if (msg.isMidiClock()) {
-      app_.onExternalClockTick();
-    } else if (msg.isMidiStart()) {
-      app_.onExternalTransportStart();
-    } else if (msg.isMidiStop()) {
-      app_.onExternalTransportStop();
-    } else if (msg.isController()) {
+    if (msg.isController()) {
       const auto channel = static_cast<std::uint8_t>(std::max(0, msg.getChannel() - 1));
       app_.onExternalControlChange(channel,
                                    static_cast<std::uint8_t>(msg.getControllerNumber()),
@@ -490,12 +484,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::creat
       std::make_unique<juce::AudioParameterBool>(kParamClockSourceExternal, "Clock Source External", false));
   params.push_back(
       std::make_unique<juce::AudioParameterBool>(kParamFollowExternalClock, "Follow External Clock", false));
-  const bool followHostTransportDefault =
-#if JucePlugin_Build_Standalone
-      false;
-#else
-      true;
-#endif
+  const bool followHostTransportDefault = false;
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamFollowHostTransport, "Follow Host Transport",
                                                               followHostTransportDefault));
   params.push_back(std::make_unique<juce::AudioParameterBool>(kParamDebugMeters, "Debug Meters", false));
