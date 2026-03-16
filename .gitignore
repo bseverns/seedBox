@@ -27,10 +27,13 @@ build/*
 # Local env / secrets
 .env
 .env.*
+.envrc
+.direnv/
 *.local
 *.secret
 *.secrets
 *.pem
+*.key
 *.p12
 *.pfx
 *.mobileprovision
@@ -38,9 +41,29 @@ build/*
 *.crt
 *.csr
 *.der
+*.ovpn
+.netrc
+.npmrc
+.pypirc
+.python-version
+secrets/
+private/
+credentials/
+*.tfvars
+*.tfvars.json
+*.tfstate
+*.tfstate.*
 
 # Xcode user state
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint
 *.dSYM/
+
+# Python / local tooling caches
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/

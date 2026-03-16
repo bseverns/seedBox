@@ -13,7 +13,9 @@ same build flags PlatformIO uses so the DAW story matches the firmware truth.
 
    ```bash
    cmake -S . -B build/juce \
+     -DSEEDBOX_JUCE=ON \
      -DSEEDBOX_SIM=ON \
+     -DSEEDBOX_HW=OFF \
      -DQUIET_MODE=OFF \
      -DSEEDBOX_VERSION="$(git rev-parse --short HEAD)"
    ```
@@ -104,6 +106,29 @@ exactly like `pio test -e native`:
 
 The helper function in `CMakeLists.txt` converts each `ON/OFF` switch into `0/1`
 defines so `SeedBoxConfig.h` stays happy.
+
+## Hardware-intent alignment checklist
+
+If the goal is "make the JUCE build behave like the instrument intends" rather
+than "pretend a laptop is a Teensy," use this checklist:
+
+- Configure JUCE as `SEEDBOX_JUCE=ON`, `SEEDBOX_SIM=ON`, `SEEDBOX_HW=OFF`. That
+  keeps the desktop build on the host-audio path while preserving the shared
+  `AppState`, scheduler, and engine wiring.
+- Treat JUCE as a host/sim twin, not a hardware build. The panel semantics,
+  seed logic, transport rules, and MIDI routing should match hardware; the
+  codec, GPIO, and Teensy-only glue should not be compiled in.
+- Let the host own sample rate and buffer size. JUCE should mirror the values
+  into `hal::audio::configureHostStream(...)` instead of forcing hardware-ish
+  defaults.
+- Verify simulator parity with `pio test -e native`, especially the JUCE-adjacent
+  boot/render checks in `tests/test_app/test_audio_defaults.cpp`.
+- Verify hardware parity separately with `pio run -e teensy40` and, when needed,
+  the bench rituals in `docs/calibration_guide.md`. Alignment means same musical
+  behavior across targets, not identical platform plumbing.
+- If JUCE and hardware disagree, fix the shared logic first (`AppState`,
+  engines, scheduler, MIDI router) and only touch platform-specific code when
+  the mismatch is genuinely host- or board-specific.
 
 ## Targets and sources
 

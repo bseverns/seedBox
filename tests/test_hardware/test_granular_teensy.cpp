@@ -4,11 +4,10 @@
 #include <unity.h>
 
 #include "Seed.h"
+#include "AudioMemoryBudget.h"
 #include "engine/Granular.h"
 
 #if SEEDBOX_HW
-#include <Audio.h>
-
 namespace {
 
 // Replicate the compile-time probes from the hardware mapper so we can assert
@@ -25,10 +24,10 @@ struct HasBeginPitchShift : std::false_type {};
 template <typename T>
 struct HasBeginPitchShift<T, std::void_t<decltype(std::declval<T &>().beginPitchShift(1.0f))>> : std::true_type {};
 
-void ensureAudioMemory(uint16_t blocks) {
+void ensureAudioMemory() {
   static bool allocated = false;
   if (!allocated) {
-    AudioMemory(blocks);
+    AudioMemory(AudioMemoryBudget::kTotalBlocks);
     allocated = true;
   }
 }
@@ -56,7 +55,7 @@ void test_teensy_granular_effect_traits() {
 }
 
 void test_teensy_granular_assigns_dsp_handles() {
-  ensureAudioMemory(GranularEngine::kVoicePoolSize * 2);
+  ensureAudioMemory();
 
   GranularEngine engine;
   engine.init(GranularEngine::Mode::kHardware);
@@ -69,7 +68,7 @@ void test_teensy_granular_assigns_dsp_handles() {
 }
 
 void test_teensy_granular_triggers_span_mixer_fanout() {
-  ensureAudioMemory(GranularEngine::kVoicePoolSize * 2);
+  ensureAudioMemory();
 
   GranularEngine engine;
   engine.init(GranularEngine::Mode::kHardware);
@@ -110,4 +109,3 @@ void test_teensy_granular_triggers_span_mixer_fanout() {
 }
 
 #endif  // SEEDBOX_HW
-
