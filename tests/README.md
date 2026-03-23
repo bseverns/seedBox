@@ -4,6 +4,12 @@ Welcome to the safety net. These tests run in the `native` PlatformIO
 environment so you can check ideas on a laptop before ever touching hardware.
 Think of this folder as the detective agency for your audio experiments.
 
+If you want the public framing around proof and trust before diving into test
+targets:
+
+- [Seed gallery](../docs/SeedGallery.md)
+- [Stability and support](../docs/StabilityAndSupport.md)
+
 ```mermaid
 flowchart TD
   Start[Write scenario] --> Cases[test_app/]

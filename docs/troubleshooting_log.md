@@ -5,6 +5,24 @@ the next builder. Each section starts with an intent-first checklist, then gives
 you space to record the fix, the test that proved it, and any firmware knobs you
 had to twist. Keep the tone punk but the notes precise.
 
+Before filling a section below, start from one of the structured templates:
+
+- [Bench receipt template](BenchReceiptTemplate.md)
+- [JUCE manual smoke checklist](JUCESmokeChecklist.md)
+
+## Quick copy/paste receipt prompts
+
+Use these minimum fields even when you're moving fast:
+
+- date
+- unit or host/OS
+- git revision
+- exact build command
+- symptom
+- proof you ran first
+- receipt path for logs/photos/screenshots
+- final status
+
 ## Boot failures & silent rigs
 
 - [ ] Confirm the bring-up sequence in [`src/main.cpp`](../src/main.cpp) actually
@@ -17,9 +35,9 @@ had to twist. Keep the tone punk but the notes precise.
       below so future readers can compare baseline text.
 - [ ] Document the fix: which solder joints, cables, or boot order mattered?
 
-| Date | Symptom | Root cause | Fix | Test receipt |
+| Date | Unit / revision | Symptom | Root cause | Fix | Test receipt |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| | | | | | |
 
 ## Clock + transport weirdness
 
@@ -35,9 +53,9 @@ had to twist. Keep the tone punk but the notes precise.
       and note whether the handshake flags flipped.
 - [ ] Add any serial logs or scope captures to `artifacts/` and link them here.
 
-| Date | Symptom | Root cause | Fix | Test receipt |
+| Date | Unit / host | Symptom | Root cause | Fix | Test receipt |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| | | | | | |
 
 ## Engine silence or off-by-one timbres
 
@@ -53,6 +71,6 @@ had to twist. Keep the tone punk but the notes precise.
 - [ ] When you find the fix, add a short summary plus commit hash here and mirror
       it in the calibration doc if it requires future rigs to adjust.
 
-| Date | Symptom | Root cause | Fix | Test receipt |
+| Date | Unit / revision | Symptom | Root cause | Fix | Test receipt |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| | | | | | |

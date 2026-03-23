@@ -44,6 +44,18 @@ we build, which arch we aim at, and how to debug it if something pops.
   prompt), layers Ninja on top, and drives the same CMake targets so we know
   JUCE + Windows stay in lockstep with the rest of the project.
 
+## Current verification matrix
+
+| Surface | What CI proves | What still needs a human |
+| --- | --- | --- |
+| Starter bundle | The documented native newcomer path runs on Ubuntu | A human still decides whether the docs feel legible |
+| Native golden | Golden fixtures can be regenerated, hashed, staged, and uploaded | A human still listens for musical intent when a fixture changes |
+| macOS JUCE | Universal app + VST3 build, bundle layout, and binary slices are present | Manual host playback and UI smoke on a real Mac/DAW |
+| Linux JUCE | Dependency discovery and app + VST3 build stay wired up | Manual runtime checks on the target distro/audio stack |
+| Windows JUCE | MSVC/Ninja build and artifact staging stay healthy | Manual runtime checks in actual Windows hosts |
+
+For those manual runtime passes, use [`docs/JUCESmokeChecklist.md`](JUCESmokeChecklist.md).
+
 ## Tips for running these steps locally
 
 - **macOS universal builds**: pass `-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"`

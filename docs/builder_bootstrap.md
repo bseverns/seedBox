@@ -5,6 +5,14 @@ teaching guide you reach for when someone says "make it work on my desk." Treat
 it as a living index — when you learn something gnarly or wire a new widget,
 leave breadcrumbs here so the next person can ship faster.
 
+Before you start ordering parts or chasing uploads, read the current public
+truth surfaces:
+
+- [Current state](CurrentState.md)
+- [Stability and support](StabilityAndSupport.md)
+- [Choose your path](ChooseYourPath.md)
+- [Bench validation matrix](BenchValidationMatrix.md)
+
 ## Table of contents
 
 1. [Environment setup](#environment-setup)

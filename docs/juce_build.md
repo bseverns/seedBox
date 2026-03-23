@@ -5,6 +5,30 @@ and meant to teach. The top-level `CMakeLists.txt` now pulls JUCE via
 `FetchContent`, spins up both a VST3 plugin and a standalone app, and threads the
 same build flags PlatformIO uses so the DAW story matches the firmware truth.
 
+For the short public framing first:
+
+- [Choose your path](ChooseYourPath.md)
+- [Current state](CurrentState.md)
+- [Stability and support](StabilityAndSupport.md)
+- [JUCE manual smoke checklist](JUCESmokeChecklist.md)
+
+## Current verification surfaces
+
+The JUCE lane is not just documented; it also has concrete build-verification
+surfaces in the repo today.
+
+| Surface | What the repo verifies now | What it does not prove by itself |
+| --- | --- | --- |
+| Local macOS build path | [`docs/build_mac.md`](build_mac.md) gives a concrete configure/build/inspect loop for the universal macOS bundle | It does not prove that your host, DAW, or audio setup behaves identically |
+| Local artifact-audio probe | `seedbox_juce_vst3_probe` can scan the built VST3, instantiate it, enable `Test Tone`, and render a WAV for monitor playback | It is not a substitute for a real DAW session receipt |
+| CI macOS universal job | `.github/workflows/ci.yml` configures a universal build on `macos-14`, builds `SeedboxApp` and `SeedboxVST3_VST3`, then inspects the produced binaries with `lipo` | It is a build/artifact check, not a hands-on audio smoke test |
+| CI Linux job | `.github/workflows/ci.yml` installs GTK/WebKit/X11 deps, configures JUCE, and builds both the app and VST3 | It does not prove runtime behavior across Linux desktop/audio stacks |
+| CI Windows job | `.github/workflows/ci.yml` boots the MSVC toolchain, configures JUCE, and builds both the app and VST3 | It does not prove runtime behavior inside specific hosts |
+| Shared-core alignment | `CMakeLists.txt`, the flag table below, and the native tests keep the JUCE lane tied to the same shared logic as the rest of SeedBox | It does not eliminate the need for manual host-level smoke tests |
+
+Treat the current JUCE support posture as "build-verified and structurally
+aligned," with manual runtime validation still needed per host/OS/audio setup.
+
 ## Quick start
 
 1. **Clone dependencies.** The CMake project fetches JUCE straight from GitHub.
@@ -63,6 +87,21 @@ Sanity check the binary is present:
 ```bash
 ls -l build/juce/SeedboxVST3_artefacts/<CONFIG>/VST3/SeedBox.vst3/Contents/MacOS/
 ```
+
+If you want a fast "does the built VST3 emit real audio?" receipt without
+opening a DAW, build and run the local probe:
+
+```bash
+cmake --build build/juce --target seedbox_juce_vst3_probe
+./build/juce/seedbox_juce_vst3_probe \
+  --plugin build/juce/SeedboxVST3_artefacts/<CONFIG>/VST3/SeedBox.vst3 \
+  --output build/juce_probe/seedbox_vst3_probe.wav
+afplay build/juce_probe/seedbox_vst3_probe.wav
+```
+
+The probe hosts the built bundle directly, enables the plugin's `Test Tone`
+parameter, renders a short WAV, and prints simple signal stats so silence is
+obvious. `afplay` is the optional "can the monitor hear it?" step.
 
 ## CI artifact vibe check: universal vs arm64
 

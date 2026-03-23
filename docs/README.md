@@ -8,6 +8,8 @@ not intimidate.
 
 | File or folder | What you'll learn | Best time to read |
 | --- | --- | --- |
+| `index.md` / `WhySeedBox.md` / `CurrentState.md` / `ChooseYourPath.md` / `StabilityAndSupport.md` | The public-core identity, routing, status, and support layer. | First, especially if you want the repo’s shortest coherent overview. |
+| `BenchValidationMatrix.md` / `BenchReceiptTemplate.md` / `JUCESmokeChecklist.md` | Practical validation surfaces for hardware benches and desktop runtime checks. | Right before a demo, calibration pass, or manual smoke run. |
 | `builder_bootstrap.md` | Environment setup, wiring diagrams, lab ideas. | When you're booting hardware or helping a friend get started. |
 | `DOC_SINGLE_SOURCE.md` | Canonical ownership for overlapping docs so topics do not drift. | Before editing setup/build docs in multiple places. |
 | `assumptions.md` | Design bets, non-negotiables, and why quiet mode exists. | Before you ship a change that bends the vibe. |

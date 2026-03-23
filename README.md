@@ -1,41 +1,85 @@
 # SeedBox — lab for sound + code curious humans
 
-SeedBox is a tiny music lab wrapped in C++. It runs as Teensy 4.0 firmware **and** as a laptop simulator, so you can sketch rhythms, mangle grains, or teach DSP without solder anxiety. Think of this repo as half studio notebook, half teaching zine: the code makes noise, and the docs explain why.
+SeedBox is a seed-driven instrument system with several bodies: a Teensy 4.0
+firmware build, a laptop-native simulator, a JUCE standalone/VST3 lane, a
+deterministic golden-render harness, and a hardware/documentation environment
+built for teaching as much as building.
 
-## Who should be here
-- **New programmers:** follow the prompts, run the tests, and learn how a seed genome becomes audio.
-- **Musicians:** plug in a Teensy, reseed a preset bank, and hear the same grooves on hardware and the sim.
-- **Punks + tinkerers:** break the DSP, rewrite a scheduler, or script headless reseeds; the repo keeps receipts.
+Think of this repo as half studio notebook, half teaching zine. The code makes
+noise, the tests keep receipts, and the docs explain how the same instrument
+logic moves across hardware, simulator, desktop, and bench work.
+
+## What SeedBox is
+
+- a Teensy 4.0 firmware project
+- a laptop-native simulator and test path
+- a JUCE standalone / VST3 lane built from the same core
+- a deterministic golden-render environment for regression proof
+- a hardware build path with BOM, wiring, and calibration notes
+- a trust-conscious documentation layer with ethics and artifact-signing docs
+
+## Start here
+
+- **Choose a route:** [`docs/ChooseYourPath.md`](docs/ChooseYourPath.md)
+- **Understand the system:** [`docs/WhySeedBox.md`](docs/WhySeedBox.md)
+- **Check the current truth:** [`docs/CurrentState.md`](docs/CurrentState.md)
 
 ## Make noise fast
+
 ### Laptop-native (no hardware)
-1. Install PlatformIO once: `pip install -U platformio`.
-2. Clone and enter: `git clone https://github.com/bseverns/seedBox.git && cd seedBox`.
-3. Run the starter bundle: `./scripts/starter_bundle.sh`.
-4. Fire up the simulator examples (headless reseeds, ASCII UI mirrors) in `examples/` to hear the engines without flashing a board.
-5. Optional: run the same flow in a pinned container (`containers/native-dev/README.md`) when local tool versions drift.
+
+1. Install PlatformIO once: `pip install -U platformio`
+2. Clone and enter: `git clone https://github.com/bseverns/seedBox.git && cd seedBox`
+3. Run the starter bundle: `./scripts/starter_bundle.sh`
+4. Start with [`examples/01_sprout/README.md`](examples/01_sprout/README.md)
+5. Optional: use the pinned container in [`containers/native-dev/README.md`](containers/native-dev/README.md)
+
+This is the clearest first path if you want to hear SeedBox and learn the shared
+logic without soldering first.
 
 ### Teensy 4.0 hardware
-1. Wire it up with the guides in [`docs/hardware/`](docs/hardware) and the BOM in [`docs/hardware_bill_of_materials.md`](docs/hardware_bill_of_materials.md).
-2. Build the firmware: `pio run -e teensy40`.
-3. Reseed from the front panel or MIDI and compare against the simulator to prove parity.
 
-### Already hacking code?
-- Crack open [`docs/builder_bootstrap.md`](docs/builder_bootstrap.md) and [`src/README.md`](src/README.md) for the architecture tour.
-- Run `pio test -e native_golden` when you touch audio paths so reviewers can diff deterministic renders.
-- Need a DAW lane? Follow [`docs/juce_build.md`](docs/juce_build.md) to build the standalone app or VST3.
+1. Read [`docs/CurrentState.md`](docs/CurrentState.md) and
+   [`docs/StabilityAndSupport.md`](docs/StabilityAndSupport.md)
+2. Wire from [`docs/hardware_bill_of_materials.md`](docs/hardware_bill_of_materials.md)
+   and [`docs/builder_bootstrap.md`](docs/builder_bootstrap.md)
+3. Build the firmware: `pio run -e teensy40`
+4. Bench-check with [`docs/calibration_guide.md`](docs/calibration_guide.md)
+
+### JUCE / desktop lane
+
+- Build the standalone app or VST3 from [`docs/juce_build.md`](docs/juce_build.md)
+- Use [`docs/ci_desktop_builds.md`](docs/ci_desktop_builds.md) for platform
+  expectations
+- Treat JUCE as the desktop body of the same system, not a separate repo story
+
+## One system, several surfaces
+
+- **Firmware:** the physical instrument path on Teensy 4.0
+- **Native simulator:** fastest way to explore, test, and render deterministically
+- **JUCE:** desktop-host body for standalone and DAW contexts
+- **Seed genome + shared core:** the thread that keeps behavior legible across
+  targets
+- **Docs and tests:** part of the instrument body, not just supporting paperwork
 
 ## Where to read next
-- **Orientation zine:** [`docs/onboarding/newcomer_map.md`](docs/onboarding/newcomer_map.md) maps the repo, shows the engine cabinet, and links the first doc in each folder.
-- **Seed primes, proved:** [`docs/seeds/prime_modes.md`](docs/seeds/prime_modes.md) walks through LFSR, tap-tempo, and preset primes plus the tests that lock them down.
-- **Tutorials + galleries:** Peek at [`docs/tutorials/`](docs/tutorials) for live input, quantizer, Euclid/Burst rhythm labs, and HAL poking sessions, or at [`docs/ui_ascii_gallery.md`](docs/ui_ascii_gallery.md) for UI snapshots.
-- **Examples that make noise:** [`examples/`](examples) double as lesson plans; start with [`examples/01_sprout/README.md`](examples/01_sprout/README.md).
-- **Hardware helpers:** Wiring, calibration, and panel cheat sheets live under [`docs/hardware/`](docs/hardware) and [`docs/panel_cheat_sheet.md`](docs/panel_cheat_sheet.md).
-- **Ethos + safety:** See [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and [`docs/ethics.md`](docs/ethics.md).
+
+- **Orientation zine:** [`docs/onboarding/newcomer_map.md`](docs/onboarding/newcomer_map.md)
+- **Builder primer:** [`docs/builder_bootstrap.md`](docs/builder_bootstrap.md)
+- **Source tour:** [`src/README.md`](src/README.md)
+- **Test harness:** [`tests/README.md`](tests/README.md)
+- **Stability boundary:** [`docs/StabilityAndSupport.md`](docs/StabilityAndSupport.md)
+- **Proof/listening surface:** [`docs/SeedGallery.md`](docs/SeedGallery.md)
 
 ## Trust, tests, and receipts
-- **Deterministic audio:** Golden fixtures + manifests live alongside the tests in [`tests/native_golden/`](tests/native_golden) with deeper notes in [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md). Run `pio test -e native_golden` to regenerate proofs when you change DSP.
-- **Signed bundles:** CI publishes artifacts with detached GPG signatures; verification steps live in [`docs/security/artifact_signing.md`](docs/security/artifact_signing.md).
-- **Cross-check builds:** Desktop CI recipes and dependencies stay documented in [`docs/ci_desktop_builds.md`](docs/ci_desktop_builds.md).
 
-Welcome to the lab. Keep it loud, keep it intentional, and narrate every experiment so the next traveler can build on it.
+- **Deterministic audio:** golden fixtures + manifests live in
+  [`tests/native_golden/`](tests/native_golden) with deeper notes in
+  [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md)
+- **Signed bundles:** CI artifact verification steps live in
+  [`docs/security/artifact_signing.md`](docs/security/artifact_signing.md)
+- **Ethics:** privacy and data-handling expectations live in
+  [`docs/ethics.md`](docs/ethics.md)
+
+Welcome to the lab. Keep it loud, keep it intentional, and narrate every
+experiment so the next traveler can build on it.

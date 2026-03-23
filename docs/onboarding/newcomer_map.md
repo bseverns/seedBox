@@ -1,5 +1,12 @@
 # SeedBox Orientation Zine
 
+Before you dive into folder topology, use the public-core docs if you want the
+short version first:
+
+- [Choose your path](../ChooseYourPath.md)
+- [Why SeedBox](../WhySeedBox.md)
+- [Current state](../CurrentState.md)
+
 ## Why this project exists
 SeedBox is built so you can audition synth ideas anywhere: it ships as firmware for a Teensy 4.0 brain **and** as a native simulator. That dual life keeps experiments fast—prototype riffs on your laptop, then flash the exact same seed DNA onto hardware when it’s ready for stage lights.
 
@@ -77,7 +84,6 @@ The first docs to read from each folder:
 ## Compost candidates (trim without mercy)
 - **Empty troubleshooting tables:** `docs/troubleshooting_log.md` ships blank—either start logging real incidents or compost the scaffolding.
 - **Bloated fixtures:** `build/fixtures/` tracks goldens, but files like `long-random-take.wav` make reviews a slog. Archive rarely used captures and refresh `golden.json` when you prune.
-- **Retired warnings:** The top-level README still mentions the dead `teensy40_usbmidiserial` alias. Once you confirm no downstream docs depend on it, kill the warning to keep the intro punchy.
 
 ## Where to explore after onboarding
 - Dive into one DSP engine + matching tests to master the seed pipeline.

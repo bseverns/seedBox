@@ -199,3 +199,24 @@ target_link_libraries(SeedboxApp
     juce::juce_gui_extra
     juce::juce_core
 )
+
+add_executable(seedbox_juce_vst3_probe
+  ${CMAKE_CURRENT_SOURCE_DIR}/tools/juce_vst3_probe.cpp
+)
+
+target_compile_definitions(seedbox_juce_vst3_probe PRIVATE
+  JUCE_PLUGINHOST_VST=0
+  JUCE_PLUGINHOST_VST3=1
+  JUCE_PLUGINHOST_AU=0
+  JUCE_PLUGINHOST_LADSPA=0
+  JUCE_PLUGINHOST_LV2=0
+  JUCE_PLUGINHOST_ARA=0
+  JUCE_USE_CURL=0
+)
+
+target_link_libraries(seedbox_juce_vst3_probe
+  PRIVATE
+    juce::juce_audio_processors_headless
+    juce::juce_audio_formats
+    juce::juce_core
+)
