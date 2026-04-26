@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "hal/hal_audio.h"
+#include "juce/HostControlBridge.h"
 #include "juce/SeedboxAudioProcessorEditor.h"
 #include "Seed.h"
 
@@ -72,6 +73,7 @@ SeedboxAudioProcessor::SeedboxAudioProcessor()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Main", juce::AudioChannelSet::stereo(), true)),
       app_(hal::board()),
+      hostControl_(app_),
       parameters_(*this, nullptr, "SeedBoxParameters", createParameterLayout()) {
   auto backend = std::make_unique<ProcessorMidiBackend>(app_.midi, MidiRouter::Port::kUsb);
   midiBackend_ = backend.get();
@@ -159,24 +161,7 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
 
   const bool followHostTransport =
       parameters_.getRawParameterValue(kParamFollowHostTransport)->load() >= 0.5f;
-  if (followHostTransport) {
-    if (auto* playHead = getPlayHead()) {
-      if (auto position = playHead->getPosition()) {
-        if (auto bpm = position->getBpm()) {
-          app_.setInternalBpmFromHost(static_cast<float>(*bpm));
-        }
-        const bool isPlaying = position->getIsPlaying();
-        if (isPlaying != hostPlaying_) {
-          hostPlaying_ = isPlaying;
-          if (hostPlaying_) {
-            app_.onExternalTransportStart();
-          } else {
-            app_.onExternalTransportStop();
-          }
-        }
-      }
-    }
-  }
+  hostControl_.syncHostTransport(getPlayHead(), followHostTransport);
 
   const bool testToneEnabled =
       parameters_.getRawParameterValue(kParamTestTone)->load() >= 0.5f;
@@ -346,6 +331,11 @@ bool SeedboxAudioProcessor::applyPanelQuickPreset() {
 }
 
 void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
+  if (hostControl_.handleParameterChange(parameterID, newValue)) {
+    parameterState_[parameterID.toStdString()] = newValue;
+    return;
+  }
+
   if (parameterID == kParamMasterSeed) {
     app_.reseed(static_cast<std::uint32_t>(newValue));
     syncSeedStateFromApp();
@@ -386,32 +376,6 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
     const auto control = static_cast<std::uint8_t>((quantizeScaleParam_ * 32u) + (quantizeRootParam_ % 12u));
     app_.applyQuantizeControlFromHost(control);
     parameterState_[kParamQuantizeRoot] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamTransportLatch) {
-    app_.setTransportLatchFromHost(newValue >= 0.5f);
-    parameterState_[kParamTransportLatch] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamClockSourceExternal) {
-    app_.setClockSourceExternalFromHost(newValue >= 0.5f);
-    parameterState_[kParamClockSourceExternal] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamFollowExternalClock) {
-    app_.setFollowExternalClockFromHost(newValue >= 0.5f);
-    parameterState_[kParamFollowExternalClock] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamFollowHostTransport) {
-    parameterState_[kParamFollowHostTransport] = newValue;
-    if (newValue < 0.5f) {
-      hostPlaying_ = false;
-    }
     return;
   }
 

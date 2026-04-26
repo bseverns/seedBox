@@ -16,6 +16,8 @@
 #include <vector>
 #include "SeedLock.h"
 #include "Seed.h"
+#include "app/DisplaySnapshot.h"
+#include "app/AudioRuntimeState.h"
 #include "app/Preset.h"
 #include "app/PresetController.h"
 #include "app/ClockTransportController.h"
@@ -114,12 +116,7 @@ public:
   // seed should trigger on this frame.
   void tick();
 
-  struct DisplaySnapshot {
-    char title[17];
-    char status[17];
-    char metrics[17];
-    char nuance[17];
-  };
+  using DisplaySnapshot = seedbox::DisplaySnapshot;
 
   struct DiagnosticsSnapshot {
     PatternScheduler::Diagnostics scheduler{};
@@ -291,8 +288,8 @@ public:
   void setDiagnosticsEnabledFromHost(bool enabled);
   bool diagnosticsEnabled() const { return diagnosticsEnabled_; }
   DiagnosticsSnapshot diagnosticsSnapshot() const;
-  void setTestToneEnabledFromHost(bool enabled) { testToneEnabled_ = enabled; }
-  bool testToneEnabled() const { return testToneEnabled_; }
+  void setTestToneEnabledFromHost(bool enabled) { audioRuntime_.setTestToneEnabled(enabled); }
+  bool testToneEnabled() const { return audioRuntime_.testToneEnabled(); }
   bool waitingForExternalClock() const { return clockTransport_.waitingForExternalClock(); }
   void setSeedPrimeBypassFromHost(bool enabled);
   void setLiveCaptureVariation(uint8_t variationSteps);
@@ -335,7 +332,6 @@ private:
   void updateExternalClockWatchdog();
   void applyQuantizeControl(uint8_t value);
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
-  void processInputEvents();
   bool handleClockButtonEvent(const InputEvents::Event& evt);
   void applyModeTransition(const InputEvents::Event& evt);
   bool handleSeedPrimeGesture(const InputEvents::Event& evt);
@@ -350,6 +346,7 @@ private:
   void handleReseedRequest();
   void triggerLiveCaptureReseed();
   void triggerPanic();
+  friend class InputGestureRouter;
   static const char* modeLabel(Mode mode);
   ClockProvider* clock() const { return clockTransport_.clock(); }
   void selectClockProvider(ClockProvider* provider);
@@ -408,7 +405,6 @@ private:
   RandomnessPanel randomnessPanel_{};
   LearnFrame::AudioMetrics latestAudioMetrics_{};
   bool displayDirty_{false};
-  uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
   seedbox::io::Store* store_{nullptr};
   Page currentPage_{Page::kSeeds};
@@ -424,11 +420,7 @@ private:
   float targetBpm_{120.f};
   OnePoleSmoother bpmSmoother_{};
   bool diagnosticsEnabled_{false};
-  bool hostAudioMode_{false};
-  float hostOutputTrim_{0.62f};
-  float hostLimiterGain_{1.0f};
-  bool testToneEnabled_{false};
-  float testTonePhase_{0.0f};
+  AudioRuntimeState audioRuntime_{};
   GateDivision gateDivision_{GateDivision::kBars};
   bool storageButtonHeld_{false};
   bool storageLongPress_{false};

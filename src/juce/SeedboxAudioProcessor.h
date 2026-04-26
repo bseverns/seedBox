@@ -11,6 +11,7 @@
 
 #include "app/AppState.h"
 #include "app/Preset.h"
+#include "juce/HostControlBridge.h"
 
 namespace seedbox::juce_bridge {
 
@@ -62,7 +63,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void setPanelQuickPreset(const seedbox::Preset& preset);
   bool applyPanelQuickPreset();
   const std::optional<seedbox::Preset>& panelQuickPreset() const { return panelPreset_; }
-  bool hostTransportPlaying() const { return hostPlaying_; }
+  bool hostTransportPlaying() const { return hostControl_.hostPlaying(); }
   bool followHostTransportEnabled() const;
 
  private:
@@ -109,6 +110,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   juce::String serializePresetToBase64(const seedbox::Preset& preset) const;
 
   AppState app_;
+  HostControlBridge hostControl_;
   ProcessorMidiBackend* midiBackend_{nullptr};
   juce::AudioProcessorValueTreeState parameters_;
   juce::AudioDeviceManager* deviceManager_{nullptr};  // owned by SeedboxApplication when present
@@ -121,7 +123,6 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::unordered_map<std::string, float> parameterState_{};
   std::uint8_t quantizeScaleParam_{0};
   std::uint8_t quantizeRootParam_{0};
-  bool hostPlaying_{false};
   bool testToneEnabled_{false};
 };
 
