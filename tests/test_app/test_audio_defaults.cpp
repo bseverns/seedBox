@@ -132,6 +132,24 @@ void test_juce_host_render_boot_seeds_remain_audible_when_focus_changes() {
   }
 }
 
+void test_juce_host_arms_granular_live_input_for_effect_processing() {
+  AppState app;
+  app.initJuceHost(Units::kSampleRate, 128);
+
+  auto seed = app.seeds().front();
+  seed.id = 0;
+  seed.engine = EngineRouter::kGranularId;
+  seed.granular.source = static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
+  seed.granular.sdSlot = 0;
+
+  auto& granular = app.engineRouterForDebug().granular();
+  granular.trigger(seed, 0);
+
+  const auto voice = granular.voice(0);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput),
+                          static_cast<std::uint8_t>(voice.source));
+}
+
 #else  // SEEDBOX_HW
 
 void test_simulator_audio_reports_48k() {
@@ -148,6 +166,10 @@ void test_juce_host_render_changes_live_input_when_granular_seed_is_focused() {
 
 void test_juce_host_render_boot_seeds_remain_audible_when_focus_changes() {
   TEST_IGNORE_MESSAGE("JUCE host render focus-switch check only applies to the simulator");
+}
+
+void test_juce_host_arms_granular_live_input_for_effect_processing() {
+  TEST_IGNORE_MESSAGE("JUCE host render granular live-input check only applies to the simulator");
 }
 
 #endif  // !SEEDBOX_HW

@@ -635,6 +635,9 @@ void AppState::initJuceHost(float sampleRate, std::size_t framesPerBlock) {
   hal::audio::start();
   hal::io::writeDigital(kStatusLedPin, false);
   bootRuntime(EngineRouter::Mode::kSim, false);
+  // JUCE hosts hand us live audio, so keep the granular engine willing to use
+  // it even though we're not on physical hardware.
+  engines_.granular().armLiveInput(true);
   midi.markAppReady();
 }
 #endif

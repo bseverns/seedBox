@@ -86,6 +86,7 @@ list(FILTER SEEDBOX_CORE_SOURCES EXCLUDE REGEX "/hal/board_teensy.cpp$")
 
 set(SEEDBOX_JUCE_PLUGIN_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/JuceHost.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/HostControlBridge.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/JuceHostTest.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/SeedboxAudioProcessor.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/juce/SeedboxAudioProcessorEditor.cpp

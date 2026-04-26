@@ -20,6 +20,7 @@ void test_clock_transport_controller_latches_transport_gate();
 void test_clock_transport_controller_watchdog_falls_back_to_internal();
 void test_juce_host_render_changes_live_input_when_granular_seed_is_focused();
 void test_juce_host_render_boot_seeds_remain_audible_when_focus_changes();
+void test_juce_host_arms_granular_live_input_for_effect_processing();
 void test_display_snapshot_builder_renders_empty_state();
 void test_display_snapshot_builder_switches_settings_hints();
 void test_audio_runtime_state_tracks_flags_and_processes_audio();
@@ -81,6 +82,7 @@ int main(int, char**) {
   RUN_TEST(test_clock_transport_controller_watchdog_falls_back_to_internal);
   RUN_TEST(test_juce_host_render_changes_live_input_when_granular_seed_is_focused);
   RUN_TEST(test_juce_host_render_boot_seeds_remain_audible_when_focus_changes);
+  RUN_TEST(test_juce_host_arms_granular_live_input_for_effect_processing);
   RUN_TEST(test_display_snapshot_builder_renders_empty_state);
   RUN_TEST(test_display_snapshot_builder_switches_settings_hints);
   RUN_TEST(test_audio_runtime_state_tracks_flags_and_processes_audio);
