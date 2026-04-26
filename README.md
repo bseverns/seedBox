@@ -73,6 +73,7 @@ logic without soldering first.
 
 ## Trust, tests, and receipts
 
+- **Latest proof pass:** [`docs/receipts/2026-04-seedbox-proof-pass.md`](docs/receipts/2026-04-seedbox-proof-pass.md)
 - **Deterministic audio:** golden fixtures + manifests live in
   [`tests/native_golden/`](tests/native_golden) with deeper notes in
   [`docs/roadmaps/native_golden.md`](docs/roadmaps/native_golden.md)

@@ -17,6 +17,8 @@
 #include "SeedLock.h"
 #include "Seed.h"
 #include "app/Preset.h"
+#include "app/PresetController.h"
+#include "app/ClockTransportController.h"
 #include "util/Smoother.h"
 #include "engine/Patterns.h"
 #include "engine/EngineRouter.h"
@@ -247,7 +249,7 @@ public:
   bool savePreset(std::string_view slot);
   bool recallPreset(std::string_view slot, bool crossfade = true);
   std::vector<std::string> storedPresets() const;
-  const std::string& activePresetSlot() const { return activePresetSlot_; }
+  const std::string& activePresetSlot() const { return presetController_.activePresetSlot(); }
 
   // JUCE host helpers. Intentionally thin wrappers around the private preset
   // plumbing so the plugin can persist/restore state without opening up the
@@ -264,12 +266,12 @@ public:
   void onExternalTransportStop();
   void onExternalControlChange(uint8_t ch, uint8_t cc, uint8_t val);
 
-  bool externalClockDominant() const { return externalClockDominant_; }
-  bool followExternalClockEnabled() const { return followExternalClockEnabled_; }
+  bool externalClockDominant() const { return clockTransport_.externalClockDominant(); }
+  bool followExternalClockEnabled() const { return clockTransport_.followExternalClockEnabled(); }
   bool debugMetersEnabled() const { return debugMetersEnabled_; }
-  bool transportLatchEnabled() const { return transportLatchEnabled_; }
-  bool transportLatchedRunning() const { return transportLatchedRunning_; }
-  bool externalTransportRunning() const { return externalTransportRunning_; }
+  bool transportLatchEnabled() const { return clockTransport_.transportLatchEnabled(); }
+  bool transportLatchedRunning() const { return clockTransport_.transportLatchedRunning(); }
+  bool externalTransportRunning() const { return clockTransport_.externalTransportRunning(); }
   bool mn42HelloSeen() const { return mn42HelloSeen_; }
   Mode mode() const { return mode_; }
   bool swingPageRequested() const { return swingPageRequested_; }
@@ -291,7 +293,7 @@ public:
   DiagnosticsSnapshot diagnosticsSnapshot() const;
   void setTestToneEnabledFromHost(bool enabled) { testToneEnabled_ = enabled; }
   bool testToneEnabled() const { return testToneEnabled_; }
-  bool waitingForExternalClock() const { return waitingForExternalClock_; }
+  bool waitingForExternalClock() const { return clockTransport_.waitingForExternalClock(); }
   void setSeedPrimeBypassFromHost(bool enabled);
   void setLiveCaptureVariation(uint8_t variationSteps);
   void setInputGateDivisionFromHost(GateDivision division);
@@ -314,6 +316,8 @@ private:
   void applyMn42ModeBits(uint8_t value);
   bool applyMn42ParamControl(uint8_t controller, uint8_t value);
   void handleTransportGate(uint8_t value);
+  void requestPresetChange(const seedbox::Preset& preset, bool crossfade, PresetBoundary boundary);
+  void maybeCommitPendingPreset(uint64_t currentTick);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void configureMidiRouting();
@@ -323,10 +327,6 @@ private:
   seedbox::Preset snapshotPreset(std::string_view slot) const;
   void applyPreset(const seedbox::Preset& preset, bool crossfade);
   Seed blendSeeds(const Seed& from, const Seed& to, float t) const;
-  std::vector<Seed> buildLfsrSeeds(uint32_t masterSeed, std::size_t count);
-  std::vector<Seed> buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm);
-  std::vector<Seed> buildPresetSeeds(std::size_t count);
-  std::vector<Seed> buildLiveInputSeeds(uint32_t masterSeed, std::size_t count);
   void applyRepeatBias(const std::vector<Seed>& previousSeeds, std::vector<Seed>& generated);
   void stepGateDivision(int delta);
   void handleGateTick();
@@ -351,17 +351,16 @@ private:
   void triggerLiveCaptureReseed();
   void triggerPanic();
   static const char* modeLabel(Mode mode);
+  ClockProvider* clock() const { return clockTransport_.clock(); }
   void selectClockProvider(ClockProvider* provider);
   void toggleClockProvider();
+  void toggleTransportLatchedRunning();
   void enterSwingMode();
   void exitSwingMode(Mode targetMode);
   void adjustSwing(float delta);
   void applySwingPercent(float value);
   static void digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
                                    void* ctx);
-  void requestPresetChange(const seedbox::Preset& preset, bool crossfade, PresetBoundary boundary);
-  void maybeCommitPendingPreset(uint64_t currentTick);
-  uint64_t computeNextPresetTickForBoundary(PresetBoundary boundary) const;
   void setTempoTarget(float bpm, bool immediate);
   void updateTempoSmoothing();
 
@@ -378,7 +377,8 @@ private:
   MidiClockIn midiClockIn_{};
   MidiClockOut midiClockOut_{};
   PatternScheduler scheduler_{};
-  ClockProvider* clock_{nullptr};
+  ClockTransportController clockTransport_{internalClock_, midiClockIn_, midiClockOut_, scheduler_};
+  PresetController presetController_{};
   EngineRouter engines_{};
   bool enginesReady_{false};
   std::vector<uint8_t> seedEngineSelections_{};
@@ -398,13 +398,7 @@ private:
   uint8_t focusSeed_{0};
   bool seedsPrimed_{false};
   bool seedPrimeBypassEnabled_{SeedBoxConfig::kSeedPrimeBypass};
-  bool externalClockDominant_{false};
-  bool followExternalClockEnabled_{false};
   bool debugMetersEnabled_{false};
-  bool transportLatchEnabled_{false};
-  bool transportLatchedRunning_{false};
-  bool externalTransportRunning_{false};
-  bool transportGateHeld_{false};
   bool mn42HelloSeen_{false};
   bool swingPageRequested_{false};
   bool swingEditing_{false};
@@ -417,7 +411,6 @@ private:
   uint64_t audioCallbackCount_{0};
   bool reseedRequested_{false};
   seedbox::io::Store* store_{nullptr};
-  std::string activePresetSlot_{};
   Page currentPage_{Page::kSeeds};
   uint8_t quantizeScaleIndex_{0};
   uint8_t quantizeRoot_{0};
@@ -431,28 +424,12 @@ private:
   float targetBpm_{120.f};
   OnePoleSmoother bpmSmoother_{};
   bool diagnosticsEnabled_{false};
-  bool waitingForExternalClock_{false};
-  uint32_t lastExternalClockMs_{0};
-  uint32_t externalClockWaitStartMs_{0};
   bool hostAudioMode_{false};
   float hostOutputTrim_{0.62f};
   float hostLimiterGain_{1.0f};
   bool testToneEnabled_{false};
   float testTonePhase_{0.0f};
   GateDivision gateDivision_{GateDivision::kBars};
-  struct PresetCrossfade {
-    std::vector<Seed> from;
-    std::vector<Seed> to;
-    std::uint32_t remaining{0};
-    std::uint32_t total{0};
-  } presetCrossfade_{};
-  struct PendingPresetRequest {
-    seedbox::Preset preset{};
-    bool crossfade{false};
-    PresetBoundary boundary{PresetBoundary::Step};
-    uint64_t targetTick{0};
-  };
-  std::optional<PendingPresetRequest> pendingPresetRequest_{};
   bool storageButtonHeld_{false};
   bool storageLongPress_{false};
   uint64_t storageButtonPressFrame_{0};

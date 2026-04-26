@@ -436,5 +436,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2025-11-27T00:55:25Z"
+  "generated_at_utc": "2026-04-25T18:09:05Z"
 }

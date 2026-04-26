@@ -7,6 +7,9 @@
 // are intentionally loud so you can walk a classroom through the firmware
 // without needing a separate slide deck.
 #include "app/AppState.h"
+#include "app/SeedPrimeController.h"
+#include "app/ClockTransportController.h"
+#include "app/PresetController.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -145,36 +148,35 @@ std::optional<seedbox::Preset> loadTeachingPresetForSim() {
 }
 #endif
 
-constexpr std::array<AppState::SeedPrimeMode, 4> kPrimeModes{{
-    AppState::SeedPrimeMode::kLfsr,
-    AppState::SeedPrimeMode::kTapTempo,
-    AppState::SeedPrimeMode::kPreset,
-    AppState::SeedPrimeMode::kLiveInput,
-}};
-
-AppState::SeedPrimeMode rotatePrimeMode(AppState::SeedPrimeMode current, int step) {
-  const int count = static_cast<int>(kPrimeModes.size());
-  auto it = std::find(kPrimeModes.begin(), kPrimeModes.end(), current);
-  const int index = (it == kPrimeModes.end())
-                        ? 0
-                        : static_cast<int>(std::distance(kPrimeModes.begin(), it));
-  int next = index + step;
-  if (next < 0) {
-    next = (next % count) + count;
-  }
-  next %= count;
-  return kPrimeModes[static_cast<std::size_t>(next)];
-}
-
-const char* primeModeLabel(AppState::SeedPrimeMode mode) {
+SeedPrimeController::Mode toPrimeControllerMode(AppState::SeedPrimeMode mode) {
   switch (mode) {
-    case AppState::SeedPrimeMode::kTapTempo: return "Tap";
-    case AppState::SeedPrimeMode::kPreset: return "Preset";
-    case AppState::SeedPrimeMode::kLiveInput: return "Live";
+    case AppState::SeedPrimeMode::kTapTempo: return SeedPrimeController::Mode::kTapTempo;
+    case AppState::SeedPrimeMode::kPreset: return SeedPrimeController::Mode::kPreset;
+    case AppState::SeedPrimeMode::kLiveInput: return SeedPrimeController::Mode::kLiveInput;
     case AppState::SeedPrimeMode::kLfsr:
-    default: return "LFSR";
+    default: return SeedPrimeController::Mode::kLfsr;
   }
 }
+
+AppState::SeedPrimeMode toAppSeedPrimeMode(SeedPrimeController::Mode mode) {
+  switch (mode) {
+    case SeedPrimeController::Mode::kTapTempo: return AppState::SeedPrimeMode::kTapTempo;
+    case SeedPrimeController::Mode::kPreset: return AppState::SeedPrimeMode::kPreset;
+    case SeedPrimeController::Mode::kLiveInput: return AppState::SeedPrimeMode::kLiveInput;
+    case SeedPrimeController::Mode::kLfsr:
+    default: return AppState::SeedPrimeMode::kLfsr;
+  }
+}
+
+PresetController::Boundary toPresetControllerBoundary(AppState::PresetBoundary boundary) {
+  switch (boundary) {
+    case AppState::PresetBoundary::Bar: return PresetController::Boundary::kBar;
+    case AppState::PresetBoundary::Step:
+    default: return PresetController::Boundary::kStep;
+  }
+}
+
+SeedPrimeController gSeedPrimeController{};
 
 const char* gateDivisionLabel(AppState::GateDivision div) {
   switch (div) {
@@ -453,26 +455,6 @@ float lerp(float a, float b, float t) {
   return a + (b - a) * t;
 }
 
-constexpr uint32_t kSaltPitch = 0xA1B2C3D4u;
-constexpr uint32_t kSaltDensity = 0xB2C3D4E5u;
-constexpr uint32_t kSaltProbability = 0xC3D4E5F6u;
-constexpr uint32_t kSaltJitter = 0xD4E5F601u;
-constexpr uint32_t kSaltTone = 0xE5F601A2u;
-constexpr uint32_t kSaltSpread = 0xF601A2B3u;
-constexpr uint32_t kSaltMutate = 0x601A2B3Cu;
-constexpr uint32_t kSaltGranularSize = 0x0A1B2C3Du;
-constexpr uint32_t kSaltGranularSpray = 0x1B2C3D4Eu;
-constexpr uint32_t kSaltGranularTranspose = 0x2C3D4E5Fu;
-constexpr uint32_t kSaltGranularWindow = 0x3D4E5F60u;
-constexpr uint32_t kSaltGranularSpread = 0x4E5F6011u;
-constexpr uint32_t kSaltGranularSource = 0x5F601122u;
-constexpr uint32_t kSaltGranularSlot = 0x60112233u;
-constexpr uint32_t kSaltResonatorExcite = 0x71122334u;
-constexpr uint32_t kSaltResonatorDamping = 0x81223345u;
-constexpr uint32_t kSaltResonatorBrightness = 0x92334456u;
-constexpr uint32_t kSaltResonatorFeedback = 0xA3344557u;
-constexpr uint32_t kSaltResonatorMode = 0xB4455668u;
-constexpr uint32_t kSaltResonatorBank = 0xC5566779u;
 constexpr uint32_t kSaltRepeatBias = 0xD667788Au;
 
 constexpr float kNormalizedRange = 1.0f / 16777216.0f;
@@ -483,20 +465,6 @@ float deterministicNormalizedValue(uint32_t masterSeed, std::size_t slot, uint32
   state ^= salt;
   const uint32_t hashed = RNG::xorshift(state);
   return (hashed >> 8) * kNormalizedRange;
-}
-
-float mixEntropy(float base, float randomValue, float entropy) {
-  const float clamped = std::clamp(entropy, 0.0f, 1.0f);
-  return base + (randomValue - base) * clamped;
-}
-
-uint8_t deterministicBucket(uint32_t masterSeed, std::size_t slot, uint32_t salt, uint8_t bucketCount) {
-  if (bucketCount == 0) {
-    return 0;
-  }
-  const float normalized = deterministicNormalizedValue(masterSeed, slot, salt);
-  const uint32_t candidate = static_cast<uint32_t>(normalized * static_cast<float>(bucketCount));
-  return static_cast<uint8_t>(std::min<uint32_t>(candidate, bucketCount - 1));
 }
 
 seedbox::io::Store* ensureStore(seedbox::io::Store* current) {
@@ -601,9 +569,6 @@ constexpr std::array<ModeTransition, 31> kModeTransitions{{
 }};
 
 AppState::AppState(hal::Board& board) : board_(board), input_(board) {
-  internalClock_.attachScheduler(&scheduler_);
-  midiClockIn_.attachScheduler(&scheduler_);
-  midiClockOut_.attachScheduler(&scheduler_);
   selectClockProvider(&internalClock_);
   applySwingPercent(swingPercent_);
   static bool ioInitialised = false;
@@ -698,10 +663,16 @@ void AppState::initJuceHost(float sampleRate, std::size_t framesPerBlock) {
   bootPreset.masterSeed = masterSeed_;
   bootPreset.focusSeed = 0;
   bootPreset.clock.bpm = scheduler_.bpm();
-  bootPreset.seeds = buildLfsrSeeds(bootPreset.masterSeed, kSeedSlotCount);
+  bootPreset.seeds = gSeedPrimeController.buildSeeds(
+      SeedPrimeController::Mode::kLfsr, bootPreset.masterSeed, kSeedSlotCount, randomnessPanel_.entropy,
+      randomnessPanel_.mutationRate, 120.f, liveCaptureLineage_, liveCaptureSlot_, presetBuffer_.seeds,
+      presetBuffer_.id);
   if (bootPreset.seeds.empty()) {
     const uint32_t fallbackSeed = bootPreset.masterSeed ? bootPreset.masterSeed : masterSeed_;
-    bootPreset.seeds = buildLfsrSeeds(fallbackSeed, kSeedSlotCount);
+    bootPreset.seeds = gSeedPrimeController.buildSeeds(
+        SeedPrimeController::Mode::kLfsr, fallbackSeed, kSeedSlotCount, randomnessPanel_.entropy,
+        randomnessPanel_.mutationRate, 120.f, liveCaptureLineage_, liveCaptureSlot_, presetBuffer_.seeds,
+        presetBuffer_.id);
   }
   configureDesktopBootSeeds(bootPreset.seeds);
   if (!bootPreset.seeds.empty()) {
@@ -768,8 +739,8 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   granularStats_ = engines_.granular().stats();
   engines_.resonator().setMaxVoices(hardwareMode ? 10 : 4);
   engines_.resonator().setDampingRange(0.18f, 0.92f);
-  ClockProvider* provider = followExternalClockEnabled_ ? static_cast<ClockProvider*>(&midiClockIn_)
-                                                        : static_cast<ClockProvider*>(&internalClock_);
+  ClockProvider* provider = clockTransport_.followExternalClockEnabled() ? static_cast<ClockProvider*>(&midiClockIn_)
+                                                                         : static_cast<ClockProvider*>(&internalClock_);
   selectClockProvider(provider);
   applySwingPercent(swingPercent_);
   if (seedPrimeBypassEnabled_) {
@@ -791,7 +762,7 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   displayDirty_ = true;
   audioCallbackCount_ = 0;
   clearPresetCrossfade();
-  activePresetSlot_.clear();
+  presetController_.setActivePresetSlot(std::string{});
   currentPage_ = Page::kSeeds;
   storageButtonHeld_ = false;
   storageLongPress_ = false;
@@ -947,8 +918,9 @@ void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp) {
       return;
     }
 
-    const std::string slotName = activePresetSlot_.empty() ? std::string(kDefaultPresetSlot)
-                                                           : activePresetSlot_;
+    const std::string slotName = presetController_.activePresetSlot().empty()
+                                     ? std::string(kDefaultPresetSlot)
+                                     : presetController_.activePresetSlot();
     if (longPress) {
       storageLongPress_ = true;
       savePreset(slotName);
@@ -1009,18 +981,18 @@ void AppState::tick() {
   if (!seedsPrimed_ && !seedPrimeBypassEnabled_) {
     reseed(masterSeed_);
   }
-  if (!externalClockDominant_) {
-    if (!clock_) {
+  if (!externalClockDominant()) {
+    if (!clock()) {
       selectClockProvider(&internalClock_);
     }
     if (panicSkipNextTick_) {
       panicSkipNextTick_ = false;
     } else {
-      clock_->onTick();
+      clock()->onTick();
       handleGateTick();
       maybeCommitPendingPreset(scheduler_.ticks());
     }
-  } else if (!externalTransportRunning_) {
+  } else if (!externalTransportRunning()) {
     // If we're waiting on an external clock that hasn't started yet, apply any
     // pending preset step immediately so storage recalls don't stall.
     maybeCommitPendingPreset(scheduler_.ticks());
@@ -1074,7 +1046,8 @@ bool AppState::handleSeedPrimeGesture(const InputEvents::Event& evt) {
 
   const bool reverse = input_.buttonDown(hal::Board::ButtonID::Shift);
   const int step = reverse ? -1 : 1;
-  const SeedPrimeMode nextMode = rotatePrimeMode(seedPrimeMode_, step);
+  const SeedPrimeMode nextMode =
+      toAppSeedPrimeMode(gSeedPrimeController.rotateMode(toPrimeControllerMode(seedPrimeMode_), step));
   setSeedPrimeMode(nextMode);
   seedPageReseed(masterSeed_, nextMode);
   return true;
@@ -1114,7 +1087,7 @@ bool AppState::handleClockButtonEvent(const InputEvents::Event& evt) {
     }
     toggleClockProvider();
     if (mode_ == Mode::PERF) {
-      transportLatchedRunning_ = !transportLatchedRunning_;
+      toggleTransportLatchedRunning();
     }
     displayDirty_ = true;
     return true;
@@ -1364,15 +1337,14 @@ void AppState::handleEngineEvent(const InputEvents::Event& evt) {
 
 void AppState::handlePerfEvent(const InputEvents::Event& evt) {
   if (evt.type == InputEvents::Type::ButtonPress && evt.primaryButton == hal::Board::ButtonID::TapTempo) {
-    transportLatchedRunning_ = !transportLatchedRunning_;
+    toggleTransportLatchedRunning();
     displayDirty_ = true;
   }
 }
 
 void AppState::handleSettingsEvent(const InputEvents::Event& evt) {
   if (evt.type == InputEvents::Type::ButtonPress && evt.primaryButton == hal::Board::ButtonID::TapTempo) {
-    followExternalClockEnabled_ = !followExternalClockEnabled_;
-    updateClockDominance();
+    setFollowExternalClockFromHost(!followExternalClockEnabled());
     displayDirty_ = true;
     return;
   }
@@ -1434,38 +1406,16 @@ void AppState::triggerLiveCaptureReseed() {
 }
 
 void AppState::requestPresetChange(const seedbox::Preset& preset, bool crossfade, PresetBoundary boundary) {
-  PendingPresetRequest request;
-  request.preset = preset;
-  request.crossfade = crossfade;
-  request.boundary = boundary;
-  request.targetTick = computeNextPresetTickForBoundary(boundary);
-  pendingPresetRequest_ = std::move(request);
+  presetController_.requestPresetChange(preset, crossfade, toPresetControllerBoundary(boundary), scheduler_.ticks());
   displayDirty_ = true;
 }
 
-uint64_t AppState::computeNextPresetTickForBoundary(PresetBoundary boundary) const {
-  const uint64_t current = scheduler_.ticks();
-  if (boundary == PresetBoundary::Bar) {
-    const uint64_t base = (current / kPresetBoundaryTicksPerBar) * kPresetBoundaryTicksPerBar;
-    uint64_t target = base + kPresetBoundaryTicksPerBar;
-    if (target <= current) {
-      target += kPresetBoundaryTicksPerBar;
-    }
-    return target;
-  }
-  return current;
-}
-
 void AppState::maybeCommitPendingPreset(uint64_t currentTick) {
-  if (!pendingPresetRequest_) {
+  auto pending = presetController_.takePendingPreset(currentTick);
+  if (!pending) {
     return;
   }
-  if (currentTick < pendingPresetRequest_->targetTick) {
-    return;
-  }
-  const PendingPresetRequest request = *pendingPresetRequest_;
-  pendingPresetRequest_.reset();
-  applyPreset(request.preset, request.crossfade);
+  applyPreset(pending->preset, pending->crossfade);
 }
 
 void AppState::triggerPanic() {
@@ -1474,8 +1424,8 @@ void AppState::triggerPanic() {
   midi.panic();
   input_.clear();
   gateEdgePending_ = false;
-  pendingPresetRequest_.reset();
-  transportGateHeld_ = false;
+  presetController_.clearPendingPresetRequest();
+  clockTransport_.clearTransportGateHold();
   panicSkipNextTick_ = true;
   displayDirty_ = true;
 
@@ -1534,84 +1484,22 @@ void AppState::applySwingPercent(float value) {
   const float clamped = std::clamp(value, 0.0f, 0.99f);
   const bool changed = std::fabs(clamped - swingPercent_) > 1e-5f;
   swingPercent_ = clamped;
-  internalClock_.setSwing(clamped);
-  midiClockOut_.setSwing(clamped);
-  if (clock_) {
-    clock_->setSwing(clamped);
-  }
+  clockTransport_.applySwing(clamped);
   if (changed) {
     displayDirty_ = true;
   }
 }
 
-namespace {
-void alignProviderRunning(ClockProvider* clock, InternalClock& internal, MidiClockIn& midiIn,
-                          MidiClockOut& midiOut, bool externalRunning) {
-  if (!clock) {
-    internal.stopTransport();
-    midiIn.stopTransport();
-    midiOut.stopTransport();
-    return;
-  }
-  if (clock == &internal) {
-    internal.startTransport();
-    midiIn.stopTransport();
-  } else {
-    internal.stopTransport();
-    if (externalRunning) {
-      midiIn.startTransport();
-    } else {
-      midiIn.stopTransport();
-    }
-  }
-  // Outbound MIDI stays in lockstep with whichever source is active.
-  if (clock == &midiOut) {
-    midiOut.startTransport();
-  } else {
-    if (clock == &internal || externalRunning) {
-      midiOut.startTransport();
-    } else {
-      midiOut.stopTransport();
-    }
-  }
-}
-}  // namespace
-
 void AppState::selectClockProvider(ClockProvider* provider) {
-  ClockProvider* target = provider ? provider : &internalClock_;
-  ClockProvider* previous = clock_;
-
-  if (previous && previous != target) {
-    previous->stopTransport();
-  }
-
-  clock_ = target;
-
-  internalClock_.attachScheduler(&scheduler_);
-  midiClockIn_.attachScheduler(&scheduler_);
-  midiClockOut_.attachScheduler(&scheduler_);
-  scheduler_.setClockProvider(clock_);
-
-  if (clock_) {
-    clock_->setBpm(scheduler_.bpm());
-  }
-
-  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-  applySwingPercent(swingPercent_);
+  clockTransport_.selectClockProvider(provider);
 }
 
 void AppState::toggleClockProvider() {
-  const bool useExternal = (clock_ != &midiClockIn_);
-  if (useExternal) {
-    selectClockProvider(&midiClockIn_);
-    followExternalClockEnabled_ = true;
-  } else {
-    selectClockProvider(&internalClock_);
-    followExternalClockEnabled_ = false;
-  }
-  updateClockDominance();
+  clockTransport_.toggleClockProvider();
   displayDirty_ = true;
 }
+
+void AppState::toggleTransportLatchedRunning() { clockTransport_.toggleTransportLatchedRunning(); }
 
 // primeSeeds is where the deterministic world-building happens. We treat
 // masterSeed as the only source of entropy, then spin a tiny RNG to fill each
@@ -1625,6 +1513,13 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   const std::vector<Seed> previousSeeds = seeds_;
   const uint8_t previousFocus = focusSeed_;
   const bool allowRepeatBias = (seedPrimeMode_ == SeedPrimeMode::kLfsr);
+  const auto controllerMode = toPrimeControllerMode(seedPrimeMode_);
+  const auto buildBatch = [&](std::size_t count) {
+    return gSeedPrimeController.buildSeeds(controllerMode, masterSeed_, count, randomnessPanel_.entropy,
+                                           randomnessPanel_.mutationRate, currentTapTempoBpm(),
+                                           liveCaptureLineage_, liveCaptureSlot_, presetBuffer_.seeds,
+                                           presetBuffer_.id);
+  };
 
   seedLock_.resize(kSeedSlotCount);
   seedLock_.trim(kSeedSlotCount);
@@ -1632,24 +1527,12 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   std::vector<Seed> generated;
   if (seedPrimeBypassEnabled_) {
     generated.assign(kSeedSlotCount, Seed{});
-    std::vector<Seed> focusOnly;
-    switch (seedPrimeMode_) {
-      case SeedPrimeMode::kTapTempo:
-        focusOnly = buildTapTempoSeeds(masterSeed_, 1, currentTapTempoBpm());
-        break;
-      case SeedPrimeMode::kPreset:
-        focusOnly = buildPresetSeeds(1);
-        break;
-      case SeedPrimeMode::kLiveInput:
-        focusOnly = buildLiveInputSeeds(masterSeed_, 1);
-        break;
-      case SeedPrimeMode::kLfsr:
-      default:
-        focusOnly = buildLfsrSeeds(masterSeed_, 1);
-        break;
-    }
+    std::vector<Seed> focusOnly = buildBatch(1);
     if (focusOnly.empty()) {
-      focusOnly = buildLfsrSeeds(masterSeed_, 1);
+      focusOnly = gSeedPrimeController.buildSeeds(SeedPrimeController::Mode::kLfsr, masterSeed_, 1,
+                                                 randomnessPanel_.entropy, randomnessPanel_.mutationRate,
+                                                 currentTapTempoBpm(), liveCaptureLineage_, liveCaptureSlot_,
+                                                 presetBuffer_.seeds, presetBuffer_.id);
     }
     if (!focusOnly.empty()) {
       const std::size_t targetIndex = std::min<std::size_t>(focusSeed_, kSeedSlotCount - 1);
@@ -1664,23 +1547,13 @@ void AppState::primeSeeds(uint32_t masterSeed) {
       applyRepeatBias(previousSeeds, generated);
     }
   } else if (!seedLock_.globalLocked() || previousSeeds.empty()) {
-    switch (seedPrimeMode_) {
-      case SeedPrimeMode::kTapTempo:
-        generated = buildTapTempoSeeds(masterSeed_, kSeedSlotCount, currentTapTempoBpm());
-        break;
-      case SeedPrimeMode::kPreset:
-        generated = buildPresetSeeds(kSeedSlotCount);
-        break;
-      case SeedPrimeMode::kLiveInput:
-        generated = buildLiveInputSeeds(masterSeed_, kSeedSlotCount);
-        break;
-      case SeedPrimeMode::kLfsr:
-      default:
-        generated = buildLfsrSeeds(masterSeed_, kSeedSlotCount);
-        break;
-    }
+    generated = buildBatch(kSeedSlotCount);
     if (generated.empty()) {
-      generated = buildLfsrSeeds(masterSeed_, kSeedSlotCount);
+      generated = gSeedPrimeController.buildSeeds(SeedPrimeController::Mode::kLfsr, masterSeed_,
+                                                  kSeedSlotCount, randomnessPanel_.entropy,
+                                                  randomnessPanel_.mutationRate, currentTapTempoBpm(),
+                                                  liveCaptureLineage_, liveCaptureSlot_, presetBuffer_.seeds,
+                                                  presetBuffer_.id);
     }
     if (generated.size() < kSeedSlotCount) {
       generated.resize(kSeedSlotCount);
@@ -1704,7 +1577,11 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   } else {
     generated = previousSeeds;
     if (generated.size() < kSeedSlotCount) {
-      const auto topUp = buildLfsrSeeds(masterSeed_, kSeedSlotCount);
+      const auto topUp = gSeedPrimeController.buildSeeds(SeedPrimeController::Mode::kLfsr, masterSeed_,
+                                                          kSeedSlotCount, randomnessPanel_.entropy,
+                                                          randomnessPanel_.mutationRate, currentTapTempoBpm(),
+                                                          liveCaptureLineage_, liveCaptureSlot_,
+                                                          presetBuffer_.seeds, presetBuffer_.id);
       for (std::size_t i = generated.size(); i < kSeedSlotCount && i < topUp.size(); ++i) {
         generated.push_back(topUp[i]);
       }
@@ -1756,178 +1633,10 @@ void AppState::primeSeeds(uint32_t masterSeed) {
   }
 
   seedsPrimed_ = hasSeedContent;
-  externalTransportRunning_ = false;
-  transportLatchedRunning_ = false;
-  transportGateHeld_ = false;
-  updateClockDominance();
+  clockTransport_.resetTransportState();
   const bool ledOn = !SeedBoxConfig::kQuietMode;
   hal::io::writeDigital(kStatusLedPin, ledOn);
   displayDirty_ = true;
-}
-
-std::vector<Seed> AppState::buildLfsrSeeds(uint32_t masterSeed, std::size_t count) {
-  std::vector<Seed> seeds;
-  seeds.reserve(count);
-  uint32_t state = masterSeed ? masterSeed : 0x5EEDB0B1u;
-  const float entropy = std::clamp(randomnessPanel_.entropy, 0.0f, 1.0f);
-  const float mutationBase = std::clamp(randomnessPanel_.mutationRate, 0.0f, 1.0f);
-  for (std::size_t i = 0; i < count; ++i) {
-    Seed seed{};
-    seed.id = static_cast<uint32_t>(i);
-    seed.source = Seed::Source::kLfsr;
-    seed.lineage = masterSeed;
-    seed.prng = RNG::xorshift(state);
-    seed.engine = 0;
-    seed.sampleIdx = static_cast<uint8_t>(i % 16);
-
-    const float randomPitch = static_cast<float>(static_cast<int32_t>(RNG::xorshift(state) % 25) - 12);
-    const float basePitch = -12.f + deterministicNormalizedValue(masterSeed, i, kSaltPitch) * 24.f;
-    seed.pitch = mixEntropy(basePitch, randomPitch, entropy);
-
-    const float randomDensity = 0.5f + 0.75f * RNG::uniform01(state);
-    const float baseDensity = 0.5f + deterministicNormalizedValue(masterSeed, i, kSaltDensity) * 0.75f;
-    seed.density = mixEntropy(baseDensity, randomDensity, entropy);
-
-    const float randomProbability = RNG::uniform01(state);
-    const float baseProbability = deterministicNormalizedValue(masterSeed, i, kSaltProbability);
-    seed.probability = mixEntropy(baseProbability, randomProbability, entropy);
-
-    const float randomJitter = 2.0f + 12.0f * RNG::uniform01(state);
-    const float baseJitter = 2.0f + deterministicNormalizedValue(masterSeed, i, kSaltJitter) * 12.0f;
-    seed.jitterMs = mixEntropy(baseJitter, randomJitter, entropy);
-
-    const float randomTone = RNG::uniform01(state);
-    const float baseTone = deterministicNormalizedValue(masterSeed, i, kSaltTone);
-    seed.tone = mixEntropy(baseTone, randomTone, entropy);
-
-    const float randomSpread = 0.1f + 0.8f * RNG::uniform01(state);
-    const float baseSpread = 0.1f + deterministicNormalizedValue(masterSeed, i, kSaltSpread) * 0.8f;
-    seed.spread = mixEntropy(baseSpread, randomSpread, entropy);
-
-    const float randomMutate = 0.05f + 0.15f * RNG::uniform01(state);
-    seed.mutateAmt = std::clamp(mixEntropy(mutationBase, randomMutate, entropy), 0.0f, 1.0f);
-
-    const float randomSize = 35.f + 120.f * RNG::uniform01(state);
-    const float baseSize = 35.f + deterministicNormalizedValue(masterSeed, i, kSaltGranularSize) * 120.f;
-    seed.granular.grainSizeMs = mixEntropy(baseSize, randomSize, entropy);
-
-    const float randomSpray = 4.f + 24.f * RNG::uniform01(state);
-    const float baseSpray = 4.f + deterministicNormalizedValue(masterSeed, i, kSaltGranularSpray) * 24.f;
-    seed.granular.sprayMs = mixEntropy(baseSpray, randomSpray, entropy);
-
-    const float randomTranspose = static_cast<float>(static_cast<int32_t>(RNG::xorshift(state) % 13) - 6);
-    const float baseTranspose =
-        static_cast<float>(static_cast<int32_t>(deterministicBucket(masterSeed, i, kSaltGranularTranspose, 13)) - 6);
-    seed.granular.transpose = mixEntropy(baseTranspose, randomTranspose, entropy);
-
-    const float randomWindow = (RNG::uniform01(state) * 2.f) - 1.f;
-    const float baseWindow = (deterministicNormalizedValue(masterSeed, i, kSaltGranularWindow) * 2.f) - 1.f;
-    seed.granular.windowSkew = mixEntropy(baseWindow, randomWindow, entropy);
-
-    const float randomStereo = 0.2f + 0.7f * RNG::uniform01(state);
-    const float baseStereo = 0.2f + deterministicNormalizedValue(masterSeed, i, kSaltGranularSpread) * 0.7f;
-    seed.granular.stereoSpread = mixEntropy(baseStereo, randomStereo, entropy);
-
-    const float randomSource = RNG::uniform01(state);
-    const float baseSource = deterministicNormalizedValue(masterSeed, i, kSaltGranularSource);
-    const float sourceThreshold = mixEntropy(baseSource, randomSource, entropy);
-    seed.granular.source = (sourceThreshold > 0.4f)
-                               ? static_cast<uint8_t>(GranularEngine::Source::kSdClip)
-                               : static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
-
-    const uint8_t randomSdSlot = static_cast<uint8_t>(RNG::xorshift(state) % GranularEngine::kSdClipSlots);
-    const float baseSd = static_cast<float>(deterministicBucket(masterSeed, i, kSaltGranularSlot,
-                                                                 GranularEngine::kSdClipSlots));
-    const float mixedSdSlot = mixEntropy(baseSd, static_cast<float>(randomSdSlot), entropy);
-    seed.granular.sdSlot = static_cast<uint8_t>(std::clamp(
-        static_cast<int>(std::round(mixedSdSlot)), 0, GranularEngine::kSdClipSlots - 1));
-
-    const float randomExcite = 2.0f + 10.0f * RNG::uniform01(state);
-    const float baseExcite = 2.0f + deterministicNormalizedValue(masterSeed, i, kSaltResonatorExcite) * 10.0f;
-    seed.resonator.exciteMs = mixEntropy(baseExcite, randomExcite, entropy);
-
-    const float randomDamping = RNG::uniform01(state);
-    const float baseDamping = deterministicNormalizedValue(masterSeed, i, kSaltResonatorDamping);
-    seed.resonator.damping = mixEntropy(baseDamping, randomDamping, entropy);
-
-    const float randomBrightness = RNG::uniform01(state);
-    const float baseBrightness = deterministicNormalizedValue(masterSeed, i, kSaltResonatorBrightness);
-    seed.resonator.brightness = mixEntropy(baseBrightness, randomBrightness, entropy);
-
-    const float randomFeedback = 0.55f + 0.4f * RNG::uniform01(state);
-    const float baseFeedback = 0.55f + deterministicNormalizedValue(masterSeed, i, kSaltResonatorFeedback) * 0.4f;
-    seed.resonator.feedback = std::min(mixEntropy(baseFeedback, randomFeedback, entropy), 0.99f);
-
-    const float randomMode = RNG::uniform01(state);
-    const float baseMode = static_cast<float>(i % 2);
-    const float modeMix = mixEntropy(baseMode, randomMode, entropy);
-    seed.resonator.mode = static_cast<uint8_t>(modeMix > 0.5f ? 1 : 0);
-
-    const uint8_t randomBank = static_cast<uint8_t>(RNG::xorshift(state) % 6);
-    const float baseBank = static_cast<float>(
-        deterministicBucket(masterSeed, i, kSaltResonatorBank, 6));
-    const float mixedBank = mixEntropy(baseBank, static_cast<float>(randomBank), entropy);
-    seed.resonator.bank =
-        static_cast<uint8_t>(std::clamp(static_cast<int>(std::round(mixedBank)), 0, 5));
-
-    seeds.push_back(seed);
-  }
-  return seeds;
-}
-
-std::vector<Seed> AppState::buildTapTempoSeeds(uint32_t masterSeed, std::size_t count, float bpm) {
-  auto seeds = buildLfsrSeeds(masterSeed, count);
-  const float safeBpm = bpm > 1.f ? bpm : 120.f;
-  const float densityScale = safeBpm / 120.f;
-  const uint32_t lineageTag = static_cast<uint32_t>(std::max(0.f, safeBpm * 100.f));
-  for (auto& seed : seeds) {
-    seed.source = Seed::Source::kTapTempo;
-    seed.lineage = lineageTag;
-    seed.density = std::clamp(seed.density * densityScale, 0.25f, 6.0f);
-    seed.jitterMs = std::max(0.5f, seed.jitterMs * 0.5f);
-  }
-  return seeds;
-}
-
-std::vector<Seed> AppState::buildLiveInputSeeds(uint32_t masterSeed, std::size_t count) {
-  auto seeds = buildLfsrSeeds(masterSeed, count);
-  const uint32_t lineage = liveCaptureLineage_ ? liveCaptureLineage_ : masterSeed;
-  const uint8_t slot = static_cast<uint8_t>(liveCaptureSlot_ % kShortCaptureSlots);
-  for (auto& seed : seeds) {
-    seed.source = Seed::Source::kLiveInput;
-    seed.lineage = lineage;
-    seed.sampleIdx = slot;
-    seed.granular.source = static_cast<uint8_t>(GranularEngine::Source::kLiveInput);
-    seed.granular.sdSlot = slot;
-  }
-  return seeds;
-}
-
-std::vector<Seed> AppState::buildPresetSeeds(std::size_t count) {
-  std::vector<Seed> seeds;
-  if (presetBuffer_.seeds.empty()) {
-    // If the JUCE boot path hasn't injected a preset buffer yet, we fall back
-    // to LFSR seeds so the app still makes noise instead of silence.
-    return buildLfsrSeeds(masterSeed_, count);
-  }
-  seeds.reserve(count);
-  for (std::size_t i = 0; i < count; ++i) {
-    const Seed& templateSeed = presetBuffer_.seeds[i % presetBuffer_.seeds.size()];
-    Seed seed = templateSeed;
-    seed.id = static_cast<uint32_t>(i);
-    seed.source = Seed::Source::kPreset;
-    seed.lineage = presetBuffer_.id;
-    if (seed.prng == 0) {
-      uint32_t lineageSeed = masterSeed_ ^ (presetBuffer_.id + static_cast<uint32_t>(i * 97));
-      uint32_t rngState = lineageSeed;
-      if (rngState == 0) {
-        rngState = masterSeed_;
-      }
-      seed.prng = RNG::xorshift(rngState);
-    }
-    seeds.push_back(seed);
-  }
-  return seeds;
 }
 
 void AppState::applyRepeatBias(const std::vector<Seed>& previousSeeds, std::vector<Seed>& generated) {
@@ -1987,25 +1696,21 @@ void AppState::onExternalClockTick() {
     return;
   }
 
-  lastExternalClockMs_ = board_.nowMillis();
-  waitingForExternalClock_ = false;
-  externalClockWaitStartMs_ = 0u;
+  const uint32_t now = board_.nowMillis();
 
   if (!seedsPrimed_ && !seedPrimeBypassEnabled_) {
     primeSeeds(masterSeed_);
   }
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
-  const bool wasDominant = externalClockDominant_;
+  const bool wasDominant = externalClockDominant();
 #endif
-  externalTransportRunning_ = true;
-  alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-  updateClockDominance();
+  clockTransport_.onExternalClockTick(now);
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
-  if (!wasDominant && externalClockDominant_) {
+  if (!wasDominant && externalClockDominant()) {
     Serial.println(F("external clock: TRS/USB seized transport"));
   }
 #endif
-  if (clock_ == &midiClockIn_ || externalClockDominant_) {
+  if (clock() == &midiClockIn_ || externalClockDominant()) {
     midiClockIn_.onTick();
     handleGateTick();
     maybeCommitPendingPreset(scheduler_.ticks());
@@ -2014,16 +1719,11 @@ void AppState::onExternalClockTick() {
 
 void AppState::onExternalTransportStart() {
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
-  const bool wasDominant = externalClockDominant_;
+  const bool wasDominant = externalClockDominant();
 #endif
-  externalTransportRunning_ = true;
-  selectClockProvider(&midiClockIn_);
-  updateClockDominance();
-  if (transportLatchEnabled_) {
-    transportLatchedRunning_ = true;
-  }
+  clockTransport_.onExternalTransportStart();
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
-  if (!wasDominant && externalClockDominant_) {
+  if (!wasDominant && externalClockDominant()) {
     Serial.println(F("external clock: transport START"));
   }
 #endif
@@ -2031,20 +1731,11 @@ void AppState::onExternalTransportStart() {
 
 void AppState::onExternalTransportStop() {
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
-  const bool wasDominant = externalClockDominant_;
+  const bool wasDominant = externalClockDominant();
 #endif
-  externalTransportRunning_ = false;
-  if (!followExternalClockEnabled_) {
-    selectClockProvider(&internalClock_);
-  } else {
-    alignProviderRunning(clock_, internalClock_, midiClockIn_, midiClockOut_, externalTransportRunning_);
-  }
-  updateClockDominance();
-  if (transportLatchEnabled_) {
-    transportLatchedRunning_ = false;
-  }
+  clockTransport_.onExternalTransportStop();
 #if SEEDBOX_HW && SEEDBOX_DEBUG_CLOCK_SOURCE
-  if (wasDominant && !externalClockDominant_) {
+  if (wasDominant && !externalClockDominant()) {
     Serial.println(F("external clock: transport STOP"));
   }
 #endif
@@ -2112,41 +1803,23 @@ void AppState::setDebugMetersEnabledFromHost(bool enabled) {
 }
 
 void AppState::setTransportLatchFromHost(bool enabled) {
-  if (transportLatchEnabled_ == enabled) {
+  if (transportLatchEnabled() == enabled) {
     return;
   }
-  transportLatchEnabled_ = enabled;
-  if (transportLatchEnabled_) {
-    transportLatchedRunning_ = externalTransportRunning_;
-  } else {
-    transportLatchedRunning_ = false;
-    transportGateHeld_ = false;
-  }
+  clockTransport_.setTransportLatchEnabled(enabled);
   displayDirty_ = true;
 }
 
 void AppState::setFollowExternalClockFromHost(bool enabled) {
-  if (followExternalClockEnabled_ == enabled) {
+  if (followExternalClockEnabled() == enabled) {
     return;
   }
-  followExternalClockEnabled_ = enabled;
-  selectClockProvider(enabled ? static_cast<ClockProvider*>(&midiClockIn_)
-                              : static_cast<ClockProvider*>(&internalClock_));
-  updateClockDominance();
-  externalClockWaitStartMs_ = enabled ? board_.nowMillis() : 0u;
-  waitingForExternalClock_ = false;
-  lastExternalClockMs_ = 0u;
+  clockTransport_.setFollowExternalClockEnabled(enabled, board_.nowMillis());
   displayDirty_ = true;
 }
 
 void AppState::setClockSourceExternalFromHost(bool external) {
-  selectClockProvider(external ? static_cast<ClockProvider*>(&midiClockIn_)
-                               : static_cast<ClockProvider*>(&internalClock_));
-  followExternalClockEnabled_ = external;
-  updateClockDominance();
-  externalClockWaitStartMs_ = external ? board_.nowMillis() : 0u;
-  waitingForExternalClock_ = false;
-  lastExternalClockMs_ = 0u;
+  clockTransport_.setClockSourceExternal(external, board_.nowMillis());
   displayDirty_ = true;
 }
 
@@ -2269,7 +1942,7 @@ void AppState::updateClockDominance() {
   // External clock wins if either the follow bit is set or the transport is
   // actively running.  This line is the truth table behind the entire sync
   // story, so yeah, spell it out.
-  externalClockDominant_ = followExternalClockEnabled_ || externalTransportRunning_;
+  clockTransport_.updateClockDominance();
 }
 
 void AppState::handleGateTick() {
@@ -2332,38 +2005,9 @@ void AppState::updateInputGateState(float rms, float peak) {
 }
 
 void AppState::updateExternalClockWatchdog() {
-  if (!followExternalClockEnabled_) {
-    waitingForExternalClock_ = false;
-    externalClockWaitStartMs_ = 0u;
-    return;
-  }
-
-  const uint32_t now = board_.nowMillis();
-  if (lastExternalClockMs_ == 0u) {
-    if (externalClockWaitStartMs_ == 0u) {
-      externalClockWaitStartMs_ = now;
-    }
-    waitingForExternalClock_ = (now - externalClockWaitStartMs_) >= kExternalClockTimeoutMs;
-    if (waitingForExternalClock_) {
-      followExternalClockEnabled_ = false;
-      selectClockProvider(&internalClock_);
-      updateClockDominance();
-      waitingForExternalClock_ = false;
-      externalClockWaitStartMs_ = 0u;
-      lastExternalClockMs_ = 0u;
-      displayDirty_ = true;
-    }
-    return;
-  }
-
-  waitingForExternalClock_ = (now - lastExternalClockMs_) >= kExternalClockTimeoutMs;
-  if (waitingForExternalClock_) {
-    followExternalClockEnabled_ = false;
-    selectClockProvider(&internalClock_);
-    updateClockDominance();
-    waitingForExternalClock_ = false;
-    externalClockWaitStartMs_ = 0u;
-    lastExternalClockMs_ = 0u;
+  const bool wasFollowing = followExternalClockEnabled();
+  clockTransport_.updateExternalClockWatchdog(board_.nowMillis(), kExternalClockTimeoutMs);
+  if (!clockTransport_.followExternalClockEnabled() && wasFollowing) {
     displayDirty_ = true;
   }
 }
@@ -2372,29 +2016,17 @@ void AppState::applyMn42ModeBits(uint8_t value) {
   // MN42 packs several toggle bits into one CC.  Unpack them and update the
   // flags that control our sync + debug behaviours.
   const bool follow = (value & seedbox::interop::mn42::mode::kFollowExternalClock) != 0;
-  if (followExternalClockEnabled_ != follow) {
-    followExternalClockEnabled_ = follow;
-    selectClockProvider(follow ? static_cast<ClockProvider*>(&midiClockIn_)
-                               : static_cast<ClockProvider*>(&internalClock_));
-    updateClockDominance();
-    externalClockWaitStartMs_ = follow ? board_.nowMillis() : 0u;
-    waitingForExternalClock_ = false;
-    lastExternalClockMs_ = 0u;
+  if (followExternalClockEnabled() != follow) {
+    clockTransport_.setFollowExternalClockEnabled(follow, board_.nowMillis());
   }
 
   debugMetersEnabled_ = (value & seedbox::interop::mn42::mode::kExposeDebugMeters) != 0;
 
   const bool latch = (value & seedbox::interop::mn42::mode::kLatchTransport) != 0;
-  if (transportLatchEnabled_ != latch) {
-    transportLatchEnabled_ = latch;
-    if (transportLatchEnabled_) {
-      transportLatchedRunning_ = externalTransportRunning_;
-    } else {
-      transportLatchedRunning_ = false;
-      transportGateHeld_ = false;
-    }
-  } else if (transportLatchEnabled_) {
-    transportLatchedRunning_ = externalTransportRunning_;
+  if (transportLatchEnabled() != latch) {
+    clockTransport_.setTransportLatchEnabled(latch);
+  } else if (transportLatchEnabled()) {
+    clockTransport_.refreshTransportLatchState();
   }
 }
 
@@ -2496,32 +2128,13 @@ void AppState::handleTransportGate(uint8_t value) {
   // Mode bit decides whether the gate is momentary (direct transport control)
   // or latched (each press toggles state).  Both flows live here so it's easy
   // to demo the difference.
-  const bool gateHigh = value > 0;
-  if (transportLatchEnabled_) {
-    if (gateHigh && !transportGateHeld_) {
-      transportGateHeld_ = true;
-      if (transportLatchedRunning_) {
-        onExternalTransportStop();
-      } else {
-        onExternalTransportStart();
-      }
-    } else if (!gateHigh) {
-      transportGateHeld_ = false;
-    }
-    return;
-  }
-
-  if (gateHigh) {
-    onExternalTransportStart();
-  } else {
-    onExternalTransportStop();
-  }
+  clockTransport_.handleTransportGate(value);
 }
 
 void AppState::reseed(uint32_t masterSeed) {
   primeSeeds(masterSeed);
   clearPresetCrossfade();
-  activePresetSlot_.clear();
+  presetController_.setActivePresetSlot(std::string{});
   engines_.reseed(masterSeed_);
   const bool hardwareMode = (engines_.granular().mode() == GranularEngine::Mode::kHardware);
   scheduler_.setSampleClockFn(hardwareMode ? &hal::audio::sampleClock : nullptr);
@@ -2810,7 +2423,7 @@ bool AppState::savePreset(std::string_view slot) {
   if (!store_->save(slotName, bytes)) {
     return false;
   }
-  activePresetSlot_ = slotName;
+  presetController_.setActivePresetSlot(slotName);
   setSeedPreset(preset.masterSeed, preset.seeds);
   return true;
 }
@@ -2874,7 +2487,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
   }
   uiOut->bpm = scheduler_.bpm();
   uiOut->swing = swingPercent_;
-  uiOut->clock = externalClockDominant_ ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
+  uiOut->clock = externalClockDominant() ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
   uiOut->seedLocked = anyLockActive;
 
   if (hasSeeds) {
@@ -2889,7 +2502,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     writeUiField(uiOut->pageHints[1], "Seed:5% Den:1%");
   } else if (mode_ == Mode::SETTINGS) {
     const auto bypassHint = formatScratch(scratch, "Alt:prime %s", seedPrimeBypassEnabled_ ? "skip" : "fill");
-    const auto followHint = formatScratch(scratch, "Tap:%s clock", followExternalClockEnabled_ ? "ext" : "int");
+    const auto followHint = formatScratch(scratch, "Tap:%s clock", followExternalClockEnabled() ? "ext" : "int");
     writeUiField(uiOut->pageHints[0], bypassHint);
     writeUiField(uiOut->pageHints[1], followHint);
   } else if (currentPage_ == Page::kStorage) {
@@ -2913,13 +2526,17 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
         break;
       default:
         writeUiField(uiOut->pageHints[0], "Tone S:src ALT:d");
-        const auto primeHint = formatScratch(scratch, "Tap:%s G%s", primeModeLabel(seedPrimeMode_), gateLabel);
+        const auto primeHint = formatScratch(scratch, "Tap:%s G%s",
+                                             gSeedPrimeController.modeLabel(toPrimeControllerMode(seedPrimeMode_)),
+                                             gateLabel);
         writeUiField(uiOut->pageHints[1], primeHint);
         break;
     }
   } else {
     writeUiField(uiOut->pageHints[0], "Gate:Shift+Den");
-    const auto primeHint = formatScratch(scratch, "Tap:%s G%s", primeModeLabel(seedPrimeMode_), gateLabel);
+    const auto primeHint = formatScratch(scratch, "Tap:%s G%s",
+                                         gSeedPrimeController.modeLabel(toPrimeControllerMode(seedPrimeMode_)),
+                                         gateLabel);
     writeUiField(uiOut->pageHints[1], primeHint);
   }
 
@@ -2928,7 +2545,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
     if (seedPrimeBypassEnabled_) {
       mood = "bypass";
     }
-    if (waitingForExternalClock_) {
+    if (waitingForExternalClock()) {
       writeDisplayField(out.status, "WAIT EXT CLK");
     } else {
       writeDisplayField(out.status, formatScratch(scratch, "%s %s", modeLabel(mode_), mood));
@@ -2943,7 +2560,7 @@ void AppState::captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const {
 
   const Seed& s = seeds_[focusIndex];
   const std::string_view shortName = engineLabel(engines_, s.engine);
-  if (waitingForExternalClock_) {
+  if (waitingForExternalClock()) {
     writeDisplayField(out.status, "WAIT EXT CLK");
   } else {
     writeDisplayField(out.status,
@@ -3051,7 +2668,7 @@ void AppState::captureLearnFrame(LearnFrame& out) const {
 
   out.generator.bpm = scheduler_.bpm();
   out.generator.clock =
-      externalClockDominant_ ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
+      externalClockDominant() ? UiState::ClockSource::kExternal : UiState::ClockSource::kInternal;
   out.generator.tick = scheduler_.ticks();
   constexpr uint32_t kTicksPerBeat = 24u;
   const uint32_t ticksPerBar = kPresetBoundaryTicksPerBar;
@@ -3087,12 +2704,14 @@ void AppState::captureStatusSnapshot(StatusSnapshot& out) const {
   writeDisplayField(out.page, pageLabel(currentPage_));
   out.masterSeed = masterSeed_;
   out.activePresetId = activePresetId();
-  writeDisplayField(out.activePresetSlot, activePresetSlot_.empty() ? kDefaultPresetSlot : activePresetSlot_);
+  writeDisplayField(out.activePresetSlot,
+                    presetController_.activePresetSlot().empty() ? kDefaultPresetSlot
+                                                                 : presetController_.activePresetSlot());
   out.bpm = scheduler_.bpm();
   out.schedulerTick = scheduler_.ticks();
-  out.externalClockDominant = externalClockDominant_;
-  out.followExternalClockEnabled = followExternalClockEnabled_;
-  out.waitingForExternalClock = waitingForExternalClock_;
+  out.externalClockDominant = externalClockDominant();
+  out.followExternalClockEnabled = followExternalClockEnabled();
+  out.waitingForExternalClock = waitingForExternalClock();
   out.quietMode = SeedBoxConfig::kQuietMode;
   out.globalSeedLocked = seedLock_.globalLocked();
 
@@ -3175,24 +2794,18 @@ GranularEngine::SimHardwareVoice AppState::debugGranularSimVoice(uint8_t index) 
 #endif
 
 seedbox::Preset AppState::snapshotPreset(std::string_view slot) const {
-  seedbox::Preset preset;
-  preset.slot = slot.empty() ? std::string(kDefaultPresetSlot) : std::string(slot);
-  preset.masterSeed = masterSeed_;
-  preset.focusSeed = focusSeed_;
-  preset.clock.bpm = scheduler_.bpm();
-  preset.clock.followExternal = followExternalClockEnabled_;
-  preset.clock.debugMeters = debugMetersEnabled_;
-  preset.clock.transportLatch = transportLatchEnabled_;
-  preset.page = static_cast<seedbox::PageId>(currentPage_);
-  preset.seeds = seeds_;
-  preset.engineSelections = seedEngineSelections_;
-  if (preset.engineSelections.size() < preset.seeds.size()) {
-    preset.engineSelections.resize(preset.seeds.size(), 0);
-    for (std::size_t i = 0; i < preset.seeds.size(); ++i) {
-      preset.engineSelections[i] = preset.seeds[i].engine;
-    }
-  }
-  return preset;
+  PresetController::SnapshotInput input{};
+  input.slot = slot.empty() ? std::string_view(kDefaultPresetSlot) : slot;
+  input.masterSeed = masterSeed_;
+  input.focusSeed = focusSeed_;
+  input.bpm = scheduler_.bpm();
+  input.followExternal = followExternalClockEnabled();
+  input.debugMeters = debugMetersEnabled_;
+  input.transportLatch = transportLatchEnabled();
+  input.page = static_cast<seedbox::PageId>(currentPage_);
+  input.seeds = &seeds_;
+  input.engineSelections = &seedEngineSelections_;
+  return presetController_.snapshotPreset(input);
 }
 
 Seed AppState::blendSeeds(const Seed& from, const Seed& to, float t) const {
@@ -3232,20 +2845,12 @@ Seed AppState::blendSeeds(const Seed& from, const Seed& to, float t) const {
 }
 
 void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
-  activePresetSlot_ = preset.slot.empty() ? std::string(kDefaultPresetSlot) : preset.slot;
+  presetController_.setActivePresetSlot(preset.slot.empty() ? std::string(kDefaultPresetSlot) : preset.slot);
   masterSeed_ = preset.masterSeed;
-  followExternalClockEnabled_ = preset.clock.followExternal;
+  clockTransport_.applyPresetClockState(preset.clock.followExternal, preset.clock.transportLatch,
+                                        clockTransport_.externalTransportRunning());
   debugMetersEnabled_ = preset.clock.debugMeters;
-  const bool previousLatch = transportLatchEnabled_;
-  transportLatchEnabled_ = preset.clock.transportLatch;
-  if (!transportLatchEnabled_) {
-    transportLatchedRunning_ = false;
-    transportGateHeld_ = false;
-  } else if (!previousLatch) {
-    transportLatchedRunning_ = externalTransportRunning_;
-  }
   setTempoTarget(preset.clock.bpm, true);
-  updateClockDominance();
   currentPage_ = static_cast<Page>(preset.page);
   storageButtonHeld_ = false;
   storageLongPress_ = false;
@@ -3263,13 +2868,10 @@ void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
   const bool haveSeeds = !preset.seeds.empty();
   bool doCrossfade = crossfade && haveSeeds && !seeds_.empty() && preset.seeds.size() == seeds_.size();
   if (doCrossfade) {
-    presetCrossfade_.from = seeds_;
-    presetCrossfade_.to = preset.seeds;
-    presetCrossfade_.total = kPresetCrossfadeTicks;
-    presetCrossfade_.remaining = kPresetCrossfadeTicks;
+    presetController_.beginCrossfade(seeds_, preset.seeds, kPresetCrossfadeTicks);
   } else {
     seeds_ = preset.seeds;
-    clearPresetCrossfade();
+    presetController_.clearCrossfade();
     scheduler_ = PatternScheduler{};
     setTempoTarget(preset.clock.bpm, true);
     scheduler_.setTriggerCallback(&engines_, &EngineRouter::dispatchThunk);
@@ -3289,13 +2891,13 @@ void AppState::applyPreset(const seedbox::Preset& preset, bool crossfade) {
 }
 
 void AppState::stepPresetCrossfade() {
-  if (presetCrossfade_.remaining == 0 || presetCrossfade_.total == 0) {
+  if (!presetController_.crossfadeActive()) {
     return;
   }
-  if (presetCrossfade_.from.size() != presetCrossfade_.to.size() ||
-      presetCrossfade_.to.size() != seeds_.size()) {
-    seeds_ = presetCrossfade_.to;
-    clearPresetCrossfade();
+  const auto& crossfade = presetController_.crossfade();
+  if (crossfade.from.size() != crossfade.to.size() || crossfade.to.size() != seeds_.size()) {
+    seeds_ = crossfade.to;
+    presetController_.clearCrossfade();
     const float currentBpm = scheduler_.bpm();
     scheduler_ = PatternScheduler{};
     setTempoTarget(currentBpm, true);
@@ -3308,26 +2910,24 @@ void AppState::stepPresetCrossfade() {
     return;
   }
 
-  const float total = static_cast<float>(presetCrossfade_.total);
-  const float remaining = static_cast<float>(presetCrossfade_.remaining);
+  const float total = static_cast<float>(crossfade.total);
+  const float remaining = static_cast<float>(crossfade.remaining);
   const float mix = (total <= 0.f) ? 1.0f : (1.0f - (remaining / total));
   for (std::size_t i = 0; i < seeds_.size(); ++i) {
-    seeds_[i] = blendSeeds(presetCrossfade_.from[i], presetCrossfade_.to[i], mix);
+    seeds_[i] = blendSeeds(crossfade.from[i], crossfade.to[i], mix);
     scheduler_.updateSeed(i, seeds_[i]);
   }
 
-  if (presetCrossfade_.remaining > 0) {
-    --presetCrossfade_.remaining;
-  }
-  if (presetCrossfade_.remaining == 0) {
-    seeds_ = presetCrossfade_.to;
+  presetController_.decrementCrossfade();
+  if (!presetController_.crossfadeActive()) {
+    seeds_ = crossfade.to;
     for (std::size_t i = 0; i < seeds_.size(); ++i) {
       scheduler_.updateSeed(i, seeds_[i]);
     }
-    clearPresetCrossfade();
+    presetController_.clearCrossfade();
   }
 }
 
 void AppState::clearPresetCrossfade() {
-  presetCrossfade_ = {};
+  presetController_.clearCrossfade();
 }
