@@ -1,4 +1,4 @@
-# SeedBox — lab for sound + code curious humans
+# SeedBox — lab for sound + code-curious humans
 
 SeedBox is a seed-driven instrument system with several bodies: a Teensy 4.0
 firmware build, a laptop-native simulator, a JUCE standalone/VST3 lane, a
