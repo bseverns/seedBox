@@ -5,9 +5,9 @@ firmware build, a laptop-native simulator, a JUCE standalone/VST3 lane, a
 deterministic golden-render harness, and a hardware/documentation environment
 built for teaching as much as building.
 
-Think of this repo as half studio notebook, half teaching zine. The code makes
+Think of this repo as half studio notebook, half teach-zine. The code makes
 noise, the tests keep receipts, and the docs explain how the same instrument
-logic moves across hardware, simulator, desktop, and bench work.
+logic moves across hardware, simulator, desktop, and bench workspaces.
 
 ## What SeedBox is
 
