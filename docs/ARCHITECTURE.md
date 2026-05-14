@@ -62,3 +62,10 @@ Output (HAL audio)
 2. Read `src/engine/Patterns.cpp` to understand event timing.
 3. Jump to `src/engine/EngineRouter.cpp` to see how seeds route to engines.
 4. Inspect an engine (`Sampler.cpp`) to see how `onSeed` turns into audio.
+
+## Follow-on architecture notes
+
+For the post-`AppState` service split and the first JUCE real-time audit, see:
+
+- [`architecture/app_services.md`](architecture/app_services.md)
+- [`architecture/juce_rt_audit.md`](architecture/juce_rt_audit.md)

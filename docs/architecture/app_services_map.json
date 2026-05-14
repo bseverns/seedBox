@@ -1,0 +1,323 @@
+{
+  "title": "SeedBox Service Map",
+  "groups": [
+    {
+      "id": "juce",
+      "label": "JUCE Boundary"
+    },
+    {
+      "id": "app",
+      "label": "App Runtime"
+    },
+    {
+      "id": "state",
+      "label": "State Owners"
+    },
+    {
+      "id": "services",
+      "label": "Friend Services"
+    },
+    {
+      "id": "logic",
+      "label": "Pure-ish Logic"
+    },
+    {
+      "id": "engine",
+      "label": "Scheduler And Engines"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "SeedboxAudioProcessor",
+      "label": "SeedboxAudioProcessor",
+      "group": "juce"
+    },
+    {
+      "id": "JuceHost",
+      "label": "JuceHost",
+      "group": "juce"
+    },
+    {
+      "id": "HostControlBridge",
+      "label": "HostControlBridge",
+      "group": "juce"
+    },
+    {
+      "id": "AppState",
+      "label": "AppState",
+      "group": "app"
+    },
+    {
+      "id": "ClockTransportController",
+      "label": "ClockTransportController",
+      "group": "state"
+    },
+    {
+      "id": "AudioRuntimeState",
+      "label": "AudioRuntimeState",
+      "group": "state"
+    },
+    {
+      "id": "InputGateMonitor",
+      "label": "InputGateMonitor",
+      "group": "state"
+    },
+    {
+      "id": "PresetController",
+      "label": "PresetController",
+      "group": "state"
+    },
+    {
+      "id": "SeedLock",
+      "label": "SeedLock",
+      "group": "state"
+    },
+    {
+      "id": "ModeEventRouter",
+      "label": "ModeEventRouter",
+      "group": "services"
+    },
+    {
+      "id": "Mn42ControlRouter",
+      "label": "Mn42ControlRouter",
+      "group": "services"
+    },
+    {
+      "id": "HostControlService",
+      "label": "HostControlService",
+      "group": "services"
+    },
+    {
+      "id": "SeedMutationService",
+      "label": "SeedMutationService",
+      "group": "services"
+    },
+    {
+      "id": "GateQuantizeService",
+      "label": "GateQuantizeService",
+      "group": "services"
+    },
+    {
+      "id": "SeedPrimeRuntimeService",
+      "label": "SeedPrimeRuntimeService",
+      "group": "services"
+    },
+    {
+      "id": "PresetTransitionRunner",
+      "label": "PresetTransitionRunner",
+      "group": "services"
+    },
+    {
+      "id": "PresetStorageService",
+      "label": "PresetStorageService",
+      "group": "services"
+    },
+    {
+      "id": "DisplayTelemetryService",
+      "label": "DisplayTelemetryService",
+      "group": "services"
+    },
+    {
+      "id": "AppUiClockService",
+      "label": "AppUiClockService",
+      "group": "services"
+    },
+    {
+      "id": "SeedLockService",
+      "label": "SeedLockService",
+      "group": "services"
+    },
+    {
+      "id": "TapTempoTracker",
+      "label": "TapTempoTracker",
+      "group": "logic"
+    },
+    {
+      "id": "SeedPrimeController",
+      "label": "SeedPrimeController",
+      "group": "logic"
+    },
+    {
+      "id": "StatusSnapshotBuilder",
+      "label": "StatusSnapshotBuilder",
+      "group": "logic"
+    },
+    {
+      "id": "DisplaySnapshotBuilder",
+      "label": "DisplaySnapshotBuilder",
+      "group": "logic"
+    },
+    {
+      "id": "PatternScheduler",
+      "label": "PatternScheduler",
+      "group": "engine"
+    },
+    {
+      "id": "EngineRouter",
+      "label": "EngineRouter",
+      "group": "engine"
+    },
+    {
+      "id": "Sampler",
+      "label": "Sampler",
+      "group": "engine"
+    },
+    {
+      "id": "Granular",
+      "label": "Granular",
+      "group": "engine"
+    },
+    {
+      "id": "Resonator",
+      "label": "Resonator",
+      "group": "engine"
+    },
+    {
+      "id": "Euclid",
+      "label": "Euclid",
+      "group": "engine"
+    },
+    {
+      "id": "Burst",
+      "label": "Burst",
+      "group": "engine"
+    }
+  ],
+  "edges": [
+    {
+      "from": "SeedboxAudioProcessor",
+      "to": "HostControlBridge"
+    },
+    {
+      "from": "SeedboxAudioProcessor",
+      "to": "AppState",
+      "label": "dry input / MIDI / tick"
+    },
+    {
+      "from": "JuceHost",
+      "to": "AppState",
+      "label": "audio callback / tick"
+    },
+    {
+      "from": "HostControlBridge",
+      "to": "AppState",
+      "label": "transport + parameters"
+    },
+    {
+      "from": "AppState",
+      "to": "ClockTransportController"
+    },
+    {
+      "from": "AppState",
+      "to": "AudioRuntimeState"
+    },
+    {
+      "from": "AppState",
+      "to": "InputGateMonitor"
+    },
+    {
+      "from": "AppState",
+      "to": "PresetController"
+    },
+    {
+      "from": "AppState",
+      "to": "SeedLock"
+    },
+    {
+      "from": "AppState",
+      "to": "ModeEventRouter"
+    },
+    {
+      "from": "AppState",
+      "to": "Mn42ControlRouter"
+    },
+    {
+      "from": "AppState",
+      "to": "HostControlService"
+    },
+    {
+      "from": "AppState",
+      "to": "SeedMutationService"
+    },
+    {
+      "from": "AppState",
+      "to": "GateQuantizeService"
+    },
+    {
+      "from": "AppState",
+      "to": "SeedPrimeRuntimeService"
+    },
+    {
+      "from": "AppState",
+      "to": "PresetTransitionRunner"
+    },
+    {
+      "from": "AppState",
+      "to": "PresetStorageService"
+    },
+    {
+      "from": "AppState",
+      "to": "DisplayTelemetryService"
+    },
+    {
+      "from": "AppState",
+      "to": "AppUiClockService"
+    },
+    {
+      "from": "AppState",
+      "to": "SeedLockService"
+    },
+    {
+      "from": "AppState",
+      "to": "TapTempoTracker"
+    },
+    {
+      "from": "AppState",
+      "to": "SeedPrimeController"
+    },
+    {
+      "from": "AppState",
+      "to": "StatusSnapshotBuilder"
+    },
+    {
+      "from": "AppState",
+      "to": "DisplaySnapshotBuilder"
+    },
+    {
+      "from": "ClockTransportController",
+      "to": "PatternScheduler"
+    },
+    {
+      "from": "AppState",
+      "to": "PatternScheduler"
+    },
+    {
+      "from": "AppState",
+      "to": "EngineRouter"
+    },
+    {
+      "from": "PatternScheduler",
+      "to": "EngineRouter"
+    },
+    {
+      "from": "EngineRouter",
+      "to": "Sampler"
+    },
+    {
+      "from": "EngineRouter",
+      "to": "Granular"
+    },
+    {
+      "from": "EngineRouter",
+      "to": "Resonator"
+    },
+    {
+      "from": "EngineRouter",
+      "to": "Euclid"
+    },
+    {
+      "from": "EngineRouter",
+      "to": "Burst"
+    }
+  ]
+}
