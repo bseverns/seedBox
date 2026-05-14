@@ -14,6 +14,7 @@
 #include "app/GateQuantizeService.h"
 #include "app/InputGestureRouter.h"
 #include "app/HostControlService.h"
+#include "app/HostAudioRealtimeService.h"
 #include "app/Mn42ControlRouter.h"
 #include "app/ModeEventRouter.h"
 #include "app/PresetStorageService.h"
@@ -467,7 +468,6 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   engines_.granular().setMaxActiveVoices(hardwareMode ? 36 : 12);
   engines_.granular().armLiveInput(hardwareMode);
   populateSdClips(engines_.granular());
-  granularStats_ = engines_.granular().stats();
   engines_.resonator().setMaxVoices(hardwareMode ? 10 : 4);
   engines_.resonator().setDampingRange(0.18f, 0.92f);
   ClockProvider* provider = clockTransport_.followExternalClockEnabled() ? static_cast<ClockProvider*>(&midiClockIn_)
@@ -727,10 +727,41 @@ void AppState::tick() {
   }
   stepPresetCrossfade();
   ++frame_;
-  granularStats_ = engines_.granular().stats();
   captureDisplaySnapshot(displayCache_, uiStateCache_);
   displayDirty_ = true;
 }
+
+#if !SEEDBOX_HW
+void AppState::tickHostAudio() {
+  static const HostAudioRealtimeService service{};
+  service.tick(*this);
+}
+
+void AppState::serviceHostMaintenance() {
+  // Desktop upkeep lives here: poll the simulated panel, resolve any queued
+  // host gestures, commit deferred preset requests, and refresh the UI caches.
+  hal::io::poll();
+  board_.poll();
+  input_.update();
+  InputGestureRouter{}.process(*this);
+  if (swingPageRequested_) {
+    swingPageRequested_ = false;
+    enterSwingMode();
+  }
+  if (reseedRequested_) {
+    uint32_t base = masterSeed_ ? masterSeed_ : 0x5EEDB0B1u;
+    const uint32_t nextSeed = RNG::xorshift(base);
+    reseed(nextSeed);
+    reseedRequested_ = false;
+  }
+  if (!seedsPrimed_ && !seedPrimeBypassEnabled_) {
+    reseed(masterSeed_);
+  }
+  maybeCommitPendingPreset(scheduler_.ticks());
+  captureDisplaySnapshot(displayCache_, uiStateCache_);
+  displayDirty_ = true;
+}
+#endif
 
 bool AppState::handleSeedPrimeGesture(const InputEvents::Event& evt) {
   if (evt.type != InputEvents::Type::ButtonPress) {
@@ -964,6 +995,16 @@ void AppState::setClockSourceExternalFromHost(bool external) {
 void AppState::setInternalBpmFromHost(float bpm) {
   static const HostControlService service{};
   service.setInternalBpm(*this, bpm);
+}
+
+void AppState::syncInternalBpmFromHostTransport(float bpm) {
+  // Transport sync needs the same BPM sanitation as UI automation, but it
+  // should not dirty the display every time a host reports position.
+  const float sanitized = std::clamp(bpm, 20.0f, 999.0f);
+  if (std::fabs(sanitized - targetBpm_) <= 1e-4f) {
+    return;
+  }
+  setTempoTarget(sanitized, false);
 }
 
 void AppState::setTempoTarget(float bpm, bool immediate) {

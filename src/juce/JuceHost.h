@@ -2,12 +2,15 @@
 
 #if SEEDBOX_JUCE
 
+#include <array>
+#include <atomic>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <memory>
 #include <vector>
 
 #include "app/AppState.h"
 #include "io/MidiRouter.h"
+#include "juce/AppStateThreadViews.h"
 
 namespace seedbox::juce_bridge {
 
@@ -43,9 +46,17 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   void stop();
 
  private:
+  class MaintenanceTimer;
+
   void ensureMidiOutput();
+  void prepareScratchBuffers(int blockSize);
+  void startMaintenanceTimer();
+  void stopMaintenanceTimer();
 
   AppState& app_;
+  HostAudioThreadAccess audioThreadApp_;
+  HostReadThreadAccess readThreadApp_;
+  HostControlThreadAccess controlThreadApp_;
   juce::AudioDeviceManager deviceManager_;
   std::shared_ptr<juce::MidiOutput> midiOutput_{};
   MidiRouter::Backend* midiBackend_{nullptr};
@@ -54,6 +65,8 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   std::vector<float> inputScratchRight_{};
   std::vector<float> scratchLeft_{};
   std::vector<float> scratchRight_{};
+  std::size_t preparedScratchFrames_{0};
+  std::unique_ptr<MaintenanceTimer> maintenanceTimer_{};
 };
 
 }  // namespace seedbox::juce_bridge

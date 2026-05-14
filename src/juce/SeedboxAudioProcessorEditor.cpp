@@ -192,16 +192,16 @@ HomePageComponent::HomePageComponent(SeedboxAudioProcessor& processor) : PageCom
 }
 
 void HomePageComponent::refresh() {
-  const auto& ui = processor_.appState().uiStateCache();
+  const auto& app = processor_.readThreadApp();
+  const auto& ui = app.uiStateCache();
   bpmLabel_.setText("BPM: " + juce::String(ui.bpm, 1), juce::dontSendNotification);
   const char* clockName = ui.clock == UiState::ClockSource::kExternal ? "Clock: External" : "Clock: Internal";
   clockLabel_.setText(clockName, juce::dontSendNotification);
-  const auto focus = processor_.appState().focusSeed();
+  const auto focus = app.focusSeed();
   juce::String focusText = "FX Slot " + juce::String(static_cast<int>(focus + 1));
-  const auto& seeds = processor_.appState().seeds();
+  const auto& seeds = app.seeds();
   if (focus < seeds.size()) {
-    focusText << " - "
-              << juce::String(processor_.appState().engineRouterForDebug().engineName(seeds[focus].engine));
+    focusText << " - " << juce::String(app.engineName(seeds[focus].engine));
   }
   focusLabel_.setText(focusText, juce::dontSendNotification);
 }
@@ -271,15 +271,17 @@ SeedsPageComponent::SeedsPageComponent(SeedboxAudioProcessor& processor) : PageC
 
   randomizeSeedButton_.setButtonText("Randomize Focused Seed");
   randomizeSeedButton_.onClick = [this]() {
-    processor_.appState().seedPageReseed(processor_.appState().masterSeed(), AppState::SeedPrimeMode::kLfsr);
+    processor_.controlThreadApp().seedPageReseed(processor_.controlThreadApp().masterSeed(),
+                                                 AppState::SeedPrimeMode::kLfsr);
   };
   addAndMakeVisible(randomizeSeedButton_);
 }
 
 void SeedsPageComponent::refresh() {
-  const auto focus = processor_.appState().focusSeed();
+  const auto& app = processor_.readThreadApp();
+  const auto focus = app.focusSeed();
   focusSeedSelector_.setSelectedId(static_cast<int>(focus) + 1, juce::dontSendNotification);
-  const auto& seeds = processor_.appState().seeds();
+  const auto& seeds = app.seeds();
   if (seeds.empty()) {
     seedToneSlider_.setEnabled(false);
     seedProbabilitySlider_.setEnabled(false);
@@ -342,9 +344,9 @@ void EnginePageComponent::refresh() {
   const int engineId = engineSelector_.getSelectedId();
   const EngineControlTemplate& tpl = engineTemplateFor(engineId - 1);
   heading_.setText(tpl.heading, juce::dontSendNotification);
-  const auto& seeds = processor_.appState().seeds();
-  const std::size_t focus = std::min<std::size_t>(processor_.appState().focusSeed(),
-                                                 seeds.empty() ? 0 : seeds.size() - 1);
+  const auto& app = processor_.readThreadApp();
+  const auto& seeds = app.seeds();
+  const std::size_t focus = std::min<std::size_t>(app.focusSeed(), seeds.empty() ? 0 : seeds.size() - 1);
   const Seed* focusSeed = seeds.empty() ? nullptr : &seeds[focus];
 
   const std::size_t knobCount = std::min<std::size_t>(tpl.knobs.size(), engineKnobs_.size());
@@ -431,7 +433,7 @@ PerfPageComponent::PerfPageComponent(SeedboxAudioProcessor& processor) : PageCom
   tempoSlider_.setTextValueSuffix(" BPM");
   tempoSlider_.setTooltip("Internal tempo: live editable on PERF/HOME.");
   tempoSlider_.onValueChange = [this]() {
-    processor_.appState().setInternalBpmFromHost(static_cast<float>(tempoSlider_.getValue()));
+    processor_.controlThreadApp().setInternalBpm(static_cast<float>(tempoSlider_.getValue()));
   };
   addAndMakeVisible(tempoSlider_);
 
@@ -460,7 +462,7 @@ PerfPageComponent::PerfPageComponent(SeedboxAudioProcessor& processor) : PageCom
 }
 
 void PerfPageComponent::refresh() {
-  const auto& ui = processor_.appState().uiStateCache();
+  const auto& ui = processor_.readThreadApp().uiStateCache();
   bpmLabel_.setText("BPM: " + juce::String(ui.bpm, 1), juce::dontSendNotification);
   const char* clockName = ui.clock == UiState::ClockSource::kExternal ? "Clock: External" : "Clock: Internal";
   clockLabel_.setText(clockName, juce::dontSendNotification);
@@ -507,12 +509,11 @@ SwingPageComponent::SwingPageComponent(SeedboxAudioProcessor& processor) : PageC
 }
 
 void SwingPageComponent::refresh() {
-  const auto& ui = processor_.appState().uiStateCache();
+  const auto& app = processor_.readThreadApp();
+  const auto& ui = app.uiStateCache();
   swingSlider_.setValue(ui.swing, juce::dontSendNotification);
-  quantizeScaleSelector_.setSelectedItemIndex(static_cast<int>(processor_.appState().quantizeScaleIndex()),
-                                              juce::dontSendNotification);
-  quantizeRootSelector_.setSelectedItemIndex(static_cast<int>(processor_.appState().quantizeRoot()),
-                                             juce::dontSendNotification);
+  quantizeScaleSelector_.setSelectedItemIndex(static_cast<int>(app.quantizeScaleIndex()), juce::dontSendNotification);
+  quantizeRootSelector_.setSelectedItemIndex(static_cast<int>(app.quantizeRoot()), juce::dontSendNotification);
 }
 
 void SwingPageComponent::resized() {
@@ -531,8 +532,8 @@ UtilPageComponent::UtilPageComponent(SeedboxAudioProcessor& processor) : PageCom
   panicButton_.setButtonText("Panic / Reset");
   panicButton_.setTooltip("All notes off, unlatch transport.");
   panicButton_.onClick = [this]() {
-    processor_.appState().midi.panic();
-    processor_.appState().setTransportLatchFromHost(false);
+    processor_.controlThreadApp().panicMidi();
+    processor_.controlThreadApp().setTransportLatch(false);
   };
   addAndMakeVisible(panicButton_);
 
@@ -668,7 +669,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
       return;
     }
     const auto mode = static_cast<AppState::Mode>(id - 1);
-    processor_.appState().setModeFromHost(mode);
+    processor_.controlThreadApp().setMode(mode);
     updateVisiblePage();
   };
   modeSelector_.setSelectedId(1);
@@ -718,7 +719,7 @@ SeedboxAudioProcessorEditor::SeedboxAudioProcessorEditor(SeedboxAudioProcessor& 
 
   buildAudioSelector();
   setAdvancedVisible(showAdvanced_);
-  refreshDisplay();
+  refreshDisplay(true);
   startTimerHz(15);
 }
 
@@ -749,7 +750,7 @@ void SeedboxAudioProcessorEditor::resized() {
     const bool hasDeviceManager = processor_.deviceManager() != nullptr;
     const bool selectorVisible = audioSelector_ && audioSelector_->isVisible();
     const bool selectorSpaceNeeded =
-        audioSelectorHint_.isVisible() || (hasDeviceManager && processor_.appState().mode() == AppState::Mode::SETTINGS);
+        audioSelectorHint_.isVisible() || (hasDeviceManager && processor_.readThreadApp().mode() == AppState::Mode::SETTINGS);
 
     if (selectorSpaceNeeded) {
       const auto hintArea = inner.removeFromBottom(32);
@@ -800,12 +801,12 @@ void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
     return;
   }
 
-  const auto& app = processor_.appState();
+  const auto& app = processor_.readThreadApp();
   const auto& ui = app.uiStateCache();
   const std::size_t focusIndex = app.focusSeed();
   juce::String engineName = "UNKNOWN";
   if (focusIndex < app.seeds().size()) {
-    engineName = juce::String(app.engineRouterForDebug().engineShortName(app.seeds()[focusIndex].engine).data());
+    engineName = juce::String(app.engineShortName(app.seeds()[focusIndex].engine).data());
   }
 
   const char* clockName = ui.clock == UiState::ClockSource::kExternal ? "External" : "Internal";
@@ -853,33 +854,43 @@ void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
 }
 
 void SeedboxAudioProcessorEditor::timerCallback() {
+  syncKeyboardButtons();
+  const bool displayDirty = processor_.readThreadApp().displayDirty();
   if (advancedUiEnabled()) {
-    const int appModeId = static_cast<int>(processor_.appState().mode()) + 1;
+    const int appModeId = static_cast<int>(processor_.readThreadApp().mode()) + 1;
     if (modeSelector_.getSelectedId() != appModeId) {
       modeSelector_.setSelectedId(appModeId, juce::dontSendNotification);
       updateVisiblePage();
     }
     refreshAllPages();
-    refreshDisplay();
+    refreshDisplay(displayDirty);
   }
   if (panelView_) {
-    panelView_->refresh();
+    panelView_->refresh(displayDirty);
   }
-  syncKeyboardButtons();
+  if (displayDirty) {
+    processor_.controlThreadApp().clearDisplayDirtyFlag();
+  }
 }
 
-void SeedboxAudioProcessorEditor::refreshDisplay() {
-  AppState::DisplaySnapshot snapshot{};
-  processor_.appState().captureDisplaySnapshot(snapshot);
+void SeedboxAudioProcessorEditor::refreshDisplay(bool displayDirty) {
+  const auto& app = processor_.readThreadApp();
+  if (displayDirty || cachedDisplayText_.isEmpty()) {
+    const auto& snapshot = app.displayCache();
+    std::ostringstream snapshotStream;
+    snapshotStream << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n"
+                   << snapshot.nuance;
+    cachedDisplayText_ = snapshotStream.str();
+  }
   AppState::LearnFrame learn{};
-  processor_.appState().captureLearnFrame(learn);
-  const bool waiting = processor_.appState().waitingForExternalClock();
+  app.captureLearnFrame(learn);
+  const bool waiting = app.waitingForExternalClock();
   juce::String clockMode = "INTERNAL";
   if (waiting) {
     clockMode = "WAITING";
   } else if (processor_.followHostTransportEnabled()) {
     clockMode = "HOST";
-  } else if (processor_.appState().followExternalClockEnabled()) {
+  } else if (app.followExternalClockEnabled()) {
     clockMode = "MIDI";
   }
   auto toDb = [](float value) {
@@ -890,8 +901,7 @@ void SeedboxAudioProcessorEditor::refreshDisplay() {
   const float peakDb = toDb(learn.audio.combinedPeak);
 
   std::ostringstream stream;
-  stream << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance
-         << "\nCLK " << clockMode
+  stream << cachedDisplayText_ << "\nCLK " << clockMode
          << "\nOUT " << std::fixed << std::setprecision(1) << rmsDb << "dB/" << peakDb << "dB";
   displayLabel_.setText(stream.str(), juce::dontSendNotification);
 }
@@ -948,8 +958,8 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
   const int lower = std::tolower(code);
 
   if (code == juce::KeyPress::spaceKey) {
-    const bool next = !processor_.appState().transportLatchEnabled();
-    processor_.appState().setTransportLatchFromHost(next);
+    const bool next = !processor_.readThreadApp().transportLatchEnabled();
+    processor_.controlThreadApp().setTransportLatch(next);
     if (advancedUiEnabled() && perfPage_) {
       perfPage_->refresh();
     }
@@ -963,7 +973,7 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
 
   if (lower >= '1' && lower <= '4') {
     const int index = lower - '1';
-    processor_.appState().setFocusSeed(static_cast<std::uint8_t>(index));
+    processor_.controlThreadApp().setFocusSeed(static_cast<std::uint8_t>(index));
     if (panelView_) panelView_->refresh();
     if (advancedUiEnabled()) refreshAllPages();
     return true;
@@ -982,7 +992,8 @@ bool SeedboxAudioProcessorEditor::keyPressed(const juce::KeyPress& key) {
       const int next = (choice->getIndex() + 1) % total;
       const float normalized = static_cast<float>(next) / static_cast<float>(std::max(1, total - 1));
       choice->setValueNotifyingHost(normalized);
-      processor_.appState().setSeedEngine(processor_.appState().focusSeed(), static_cast<std::uint8_t>(next));
+      processor_.controlThreadApp().setSeedEngine(processor_.controlThreadApp().focusSeed(),
+                                                  static_cast<std::uint8_t>(next));
       if (panelView_) panelView_->refresh();
       return true;
     }
@@ -1024,7 +1035,7 @@ void SeedboxAudioProcessorEditor::handleTapTempo() {
   const double now = juce::Time::getMillisecondCounterHiRes();
   if (lastTapMs_ > 0.0) {
     const double delta = now - lastTapMs_;
-    processor_.appState().recordTapTempoInterval(static_cast<uint32_t>(delta));
+    processor_.controlThreadApp().recordTapTempoInterval(static_cast<uint32_t>(delta));
   }
   lastTapMs_ = now;
 }
@@ -1034,7 +1045,7 @@ void SeedboxAudioProcessorEditor::nudgeVisibleControl(double delta) {
     if (panelView_) panelView_->nudgeActiveControl(delta);
     return;
   }
-  const auto mode = processor_.appState().mode();
+  const auto mode = processor_.readThreadApp().mode();
   switch (mode) {
     case AppState::Mode::ENGINE:
       if (enginePage_) enginePage_->nudgeFirstKnob(delta);
@@ -1058,7 +1069,7 @@ bool SeedboxAudioProcessorEditor::advancedUiEnabled() const { return useLegacyUi
 
 void SeedboxAudioProcessorEditor::setAdvancedVisible(bool visible) {
   showAdvanced_ = useLegacyUi_ || visible;
-  const int appModeId = static_cast<int>(processor_.appState().mode()) + 1;
+  const int appModeId = static_cast<int>(processor_.readThreadApp().mode()) + 1;
   modeSelector_.setSelectedId(appModeId, juce::dontSendNotification);
   updateVisiblePage();
   refreshAllPages();
@@ -1100,7 +1111,7 @@ void SeedboxAudioProcessorEditor::updateVisiblePage() {
     if (audioSelector_) audioSelector_->setVisible(false);
     return;
   }
-  const auto mode = processor_.appState().mode();
+  const auto mode = processor_.readThreadApp().mode();
   if (homePage_) homePage_->setVisible(mode == AppState::Mode::HOME);
   if (seedsPage_) seedsPage_->setVisible(mode == AppState::Mode::SEEDS);
   if (enginePage_) enginePage_->setVisible(mode == AppState::Mode::ENGINE);
@@ -1140,7 +1151,7 @@ void SeedboxAudioProcessorEditor::buildAudioSelector() {
       *processor_.deviceManager(), numInputs > 0 ? 1 : 0, std::max(1, numInputs), numOutputs > 0 ? 1 : 0,
       std::max(1, numOutputs), false, false, true, false);
   addAndMakeVisible(audioSelector_.get());
-  audioSelector_->setVisible(advancedUiEnabled() && processor_.appState().mode() == AppState::Mode::SETTINGS);
+  audioSelector_->setVisible(advancedUiEnabled() && processor_.readThreadApp().mode() == AppState::Mode::SETTINGS);
 }
 
 void SeedboxAudioProcessorEditor::setLastDeviceInitError(const juce::String& errorMessage) {

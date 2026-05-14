@@ -2,15 +2,16 @@
 
 #if SEEDBOX_JUCE
 
+#include <array>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <functional>
 #include <optional>
 #include <unordered_map>
-#include <vector>
 
 #include "app/AppState.h"
 #include "app/Preset.h"
+#include "juce/AppStateThreadViews.h"
 #include "juce/HostControlBridge.h"
 
 namespace seedbox::juce_bridge {
@@ -22,7 +23,8 @@ class SeedboxAudioProcessorEditor;
 // original firmware untouched. MIDI in/out stays routed through MidiRouter;
 // audio rendering still happens through hal::audio.
 class SeedboxAudioProcessor : public juce::AudioProcessor,
-                              private juce::AudioProcessorValueTreeState::Listener {
+                              private juce::AudioProcessorValueTreeState::Listener,
+                              private juce::Timer {
  public:
   SeedboxAudioProcessor();
   ~SeedboxAudioProcessor() override;
@@ -55,6 +57,9 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void setStateInformation(const void* data, int sizeInBytes) override;
 
   AppState& appState() { return app_; }
+  const HostReadThreadAccess& readThreadApp() const { return readThreadApp_; }
+  HostControlThreadAccess& controlThreadApp() { return controlThreadApp_; }
+  const HostControlThreadAccess& controlThreadApp() const { return controlThreadApp_; }
   juce::AudioProcessorValueTreeState& parameters() { return parameters_; }
   void requestShutdown();
   void applySeedEdit(const juce::Identifier& key, double value,
@@ -74,6 +79,8 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
 
   class ProcessorMidiBackend : public MidiRouter::Backend {
    public:
+    static constexpr std::size_t kQueueCapacity = 256;
+
     ProcessorMidiBackend(MidiRouter& router, MidiRouter::Port port);
 
     MidiRouter::PortInfo describe() const override;
@@ -94,11 +101,14 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
     void handle(const BufferedMidiMessage& msg);
     void emit(const juce::MidiMessage& msg, int position);
 
-    std::vector<BufferedMidiMessage> incoming_;
+    std::array<BufferedMidiMessage, kQueueCapacity> incoming_{};
+    std::size_t queuedCount_{0};
+    std::uint32_t droppedCount_{0};
     juce::MidiBuffer* midiOut_{nullptr};
   };
 
   void parameterChanged(const juce::String& parameterID, float newValue) override;
+  void timerCallback() override;
   static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
   void applyPendingPresetIfAny();
   void syncSeedStateFromApp();
@@ -108,8 +118,12 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   juce::ValueTree findSeedNode(int idx) const;
   void setSeedProp(int idx, const juce::Identifier& key, const juce::var& value);
   juce::String serializePresetToBase64(const seedbox::Preset& preset) const;
+  void prepareScratchBuffers(int samplesPerBlock);
 
   AppState app_;
+  HostAudioThreadAccess audioThreadApp_;
+  HostReadThreadAccess readThreadApp_;
+  HostControlThreadAccess controlThreadApp_;
   HostControlBridge hostControl_;
   ProcessorMidiBackend* midiBackend_{nullptr};
   juce::AudioProcessorValueTreeState parameters_;
@@ -124,6 +138,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::uint8_t quantizeScaleParam_{0};
   std::uint8_t quantizeRootParam_{0};
   bool testToneEnabled_{false};
+  int preparedScratchFrames_{0};
 };
 
 }  // namespace seedbox::juce_bridge

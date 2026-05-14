@@ -36,7 +36,7 @@ blocks. They are not mere helpers; they are the place where that state lives.
 | --- | --- | --- |
 | `AudioRuntimeState` | host-audio flags, limiter state, test-tone phase, callback count | state must survive every audio block |
 | `ClockTransportController` | transport latch, clock-provider ownership, external-clock watchdog state | time ownership has to persist between ticks |
-| `InputGateMonitor` | cached dry input, RMS/peak probe, gate-edge state | owns the live-input gate envelope and dry buffer cache |
+| `InputGateMonitor` | dry-input view, RMS/peak probe, gate-edge state | owns the gate envelope state, but now only borrows the host dry-input span for the current block |
 | `PresetController` | active preset slot, queueing, crossfade bookkeeping | owns the preset-transition envelope |
 | `SeedLock` | per-seed and global lock truth | lock policy must outlive individual gestures |
 
@@ -59,6 +59,7 @@ small orchestration slices that still reach into `AppState` internals.
 | `PresetStorageService` | preset save/recall/page storage flow | still coupled to `AppState` page/preset shell |
 | `DisplayTelemetryService` | display snapshot and learn-frame assembly | orchestration layer over cached runtime state |
 | `PresetTransitionRunner` | queued preset apply + crossfade stepping | important seam, but still lives as a friend-driven runtime slice |
+| `HostAudioRealtimeService` | callback-safe JUCE heartbeat | extracted to keep host audio timing work out of the larger `AppState.cpp` weather system |
 
 ### Host boundary helpers
 
@@ -68,7 +69,10 @@ be the first place we audit for real-time safety.
 
 | Class | Role | Boundary concern |
 | --- | --- | --- |
-| `HostControlBridge` | JUCE parameter and transport bridge into `AppState` | host thread behavior and RT-safety |
+| `HostAudioThreadAccess` | JUCE-side typed view for callback-safe app hooks | keeps audio callbacks on a narrower surface than raw `AppState` |
+| `HostReadThreadAccess` | JUCE-side typed view for cached snapshot/state reads | keeps editor/panel polling on an explicit read surface and lets UI consume `displayCache_` without reaching through broad `AppState` |
+| `HostControlThreadAccess` | JUCE-side typed view for timers, editor actions, and host parameter changes | keeps non-audio host mutations on an explicit surface |
+| `HostControlBridge` | JUCE parameter and transport bridge into `AppState` | host-thread mutation policy, transport sync, and separation from audio-thread work |
 | `SeedboxAudioProcessor` | plugin `processBlock`, state serialization, scratch buffers | audio-thread boundary and host persistence |
 | `JuceHost` | standalone device-manager callback path | audio-device callback safety and host MIDI handoff |
 
@@ -85,8 +89,9 @@ The current runtime spine is:
    `AppState.cpp`.
 4. `EngineRouter` remains the engine registry/dispatch point beneath the app
    layer.
-5. JUCE helpers (`SeedboxAudioProcessor`, `JuceHost`, `HostControlBridge`) are
-   boundary adapters, not alternate runtime models.
+5. JUCE helpers (`HostAudioThreadAccess`, `HostReadThreadAccess`, `HostControlThreadAccess`,
+   `HostControlBridge`, `SeedboxAudioProcessor`, `JuceHost`) are boundary
+   adapters, not alternate runtime models.
 
 The generated service graph in
 [`app_services.mmd`](/Users/bseverns/Documents/GitHub/seedbox/docs/architecture/app_services.mmd)
@@ -95,16 +100,34 @@ shows the current dependency picture.
 ## Host / JUCE Boundary
 
 The most important architectural caveat right now is that "control-rate" in the
-repo does not automatically mean "non-audio-thread" in JUCE.
+repo still spans two different JUCE execution sites:
 
-- `SeedboxAudioProcessor::processBlock` currently calls `app_.tick()` on the
-  audio thread.
+- `SeedboxAudioProcessor::processBlock` now reaches `AppState` through
+  `HostAudioThreadAccess`.
 - `JuceHost::audioDeviceIOCallbackWithContext` does the same in standalone.
-- `InputGateMonitor::setDryInput` currently stages audio through `std::vector`
-  ownership, which is convenient but not yet real-time-safe.
+- JUCE editor/panel reads now go through `HostReadThreadAccess`, including the
+  cached display snapshot and dirty-flag surface.
+- `HostAudioThreadAccess` now has a dedicated transport-sync BPM hook, so host
+  position updates do not reuse the UI/control BPM path.
+- a processor-owned JUCE timer now reaches maintenance work through
+  `HostControlThreadAccess` in the plugin lane, even when no editor is open.
+- `JuceHost` now owns the same kind of non-audio maintenance timer in the
+  standalone shim.
+- `InputGateMonitor::setDryInput` now borrows the current host block instead of
+  owning copied audio, but it still executes on the audio callback path.
+- JUCE OLED/debug text now consumes `displayCache_` and only rebuilds those
+  text frames when `displayDirty_` is set; live learn-frame meters still update
+  on the UI timer.
 
-That means some services that are conceptually "control-rate" still execute on
-the host audio callback in the JUCE lane. The first-pass audit lives in
+That split is materially better than the old "everything rides through
+`tick()`" model, but it is not the final state:
+
+- plugin audio callbacks now avoid the heaviest UI / storage / panel work
+- standalone callbacks no longer lock in the JUCE MIDI backend
+- plugin MIDI ingress no longer uses per-block heap growth
+- `tickHostAudio()` is still broader than a strict RT-minimal contract
+
+The first-pass audit lives in
 [`juce_rt_audit.md`](/Users/bseverns/Documents/GitHub/seedbox/docs/architecture/juce_rt_audit.md).
 
 ## Refactor Status
@@ -129,7 +152,8 @@ These are the areas most likely to keep moving:
 - `SeedPrimeRuntimeService`
 - `HostControlService`
 - `DisplayTelemetryService`
-- the JUCE dry-input path around `InputGateMonitor`
+- the JUCE split between `tickHostAudio()` and `serviceHostMaintenance()`
+- the remaining thread-contract cleanup in `SeedboxAudioProcessor`
 
 The rule of thumb is simple: prefer a useful seam that teaches the system over
 an abstract seam that hides it.

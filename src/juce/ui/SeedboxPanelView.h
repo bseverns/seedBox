@@ -22,7 +22,7 @@ class SeedboxPanelView : public juce::Component {
   void paint(juce::Graphics& g) override;
   void resized() override;
 
-  void refresh();
+  void refresh(bool displayDirty = true);
   void setAudioManager(juce::AudioDeviceManager* audioManager);
   void setModifierStates(bool toneHeld, bool shiftHeld, bool altHeld);
   void syncKeyboardModifiers(bool toneHeld, bool shiftHeld, bool altHeld);
@@ -131,6 +131,7 @@ class SeedboxPanelView : public juce::Component {
   juce::Slider* lastActive_{nullptr};
   double lastTapMs_{0.0};
   juce::AudioDeviceManager* audioManager_{nullptr};
+  juce::String cachedOledText_{};
 };
 
 }  // namespace seedbox::juce_bridge

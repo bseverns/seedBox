@@ -43,45 +43,42 @@ void InputGateMonitor::setFloor(float floor) { floor_ = std::max(1e-6f, floor); 
 
 void InputGateMonitor::setDryInput(const float* left, const float* right, std::size_t frames) {
   if (!left || frames == 0) {
-    dryLeft_.clear();
-    dryRight_.clear();
+    dryLeft_ = nullptr;
+    dryRight_ = nullptr;
+    dryFrames_ = 0;
     updateInputGateState(0.0f, 0.0f);
     return;
   }
 
-  dryLeft_.assign(left, left + frames);
-  if (right) {
-    dryRight_.assign(right, right + frames);
-  } else {
-    dryRight_.assign(dryLeft_.begin(), dryLeft_.end());
-  }
-
+  dryLeft_ = left;
+  dryRight_ = right;
+  dryFrames_ = frames;
   refreshFromDryInput(frames);
 }
 
 void InputGateMonitor::refreshFromDryInput(std::size_t probeFrames) {
-  if (dryLeft_.empty()) {
+  if (!hasDryInput()) {
     updateInputGateState(0.0f, 0.0f);
     return;
   }
 
-  const std::size_t frames = std::min(probeFrames, dryLeft_.size());
+  const std::size_t frames = std::min(probeFrames, dryFrames_);
   if (frames == 0) {
     updateInputGateState(0.0f, 0.0f);
     return;
   }
 
-  const float* dryLeft = dryLeft_.data();
-  const float* dryRight = (!dryRight_.empty() && dryRight_.size() >= frames) ? dryRight_.data() : dryLeft;
+  const float* dryLeft = dryLeft_;
+  const float* dryRight = dryRight_ ? dryRight_ : dryLeft;
   const EnergyProbe probe = measureEnergy(dryLeft, dryRight, frames);
   updateInputGateState(probe.rms, probe.peak);
 }
 
 const float* InputGateMonitor::dryRight(std::size_t frames) const {
-  if (dryLeft_.empty()) {
+  if (!hasDryInput() || frames == 0) {
     return nullptr;
   }
-  return (!dryRight_.empty() && dryRight_.size() >= frames) ? dryRight_.data() : dryLeft_.data();
+  return dryRight_ ? dryRight_ : dryLeft_;
 }
 
 bool InputGateMonitor::gateReady(std::uint64_t tick, std::uint32_t divisionTicks) const {

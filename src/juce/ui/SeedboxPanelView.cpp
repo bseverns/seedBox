@@ -256,7 +256,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
   seedKnob_.knob.setRange(0.0, 3.0, 1.0);
   seedKnob_.knob.onValueChange = [this]() {
     const auto value = static_cast<int>(std::round(seedKnob_.knob.getValue()));
-    processor_.appState().setFocusSeed(static_cast<std::uint8_t>(value));
+    processor_.controlThreadApp().setFocusSeed(static_cast<std::uint8_t>(value));
     if (auto* param = processor_.parameters().getParameter("focusSeed")) {
       param->setValueNotifyingHost(value / 3.0f);
     }
@@ -265,7 +265,7 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     lastActive_ = &seedKnob_.knob;
   };
   seedKnob_.knob.onPress = [this]() {
-    const int next = (static_cast<int>(processor_.appState().focusSeed()) + 1) % 4;
+    const int next = (static_cast<int>(processor_.readThreadApp().focusSeed()) + 1) % 4;
     seedKnob_.knob.setValue(next, juce::sendNotificationSync);
   };
 
@@ -307,7 +307,8 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     const int next = (current + 1) % choice->choices.size();
     const float normalized = static_cast<float>(next) / static_cast<float>(std::max(1, choice->choices.size() - 1));
     choice->setValueNotifyingHost(normalized);
-    processor_.appState().setSeedEngine(processor_.appState().focusSeed(), static_cast<std::uint8_t>(next));
+    processor_.controlThreadApp().setSeedEngine(processor_.controlThreadApp().focusSeed(),
+                                                static_cast<std::uint8_t>(next));
     updateEngineLabel();
   };
 
@@ -366,32 +367,32 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
 
   jackIcons_.add(new JackIcon("MIDI In", [this]() {
     juce::PopupMenu menu;
-    const bool follow = processor_.appState().followExternalClockEnabled();
+    const bool follow = processor_.readThreadApp().followExternalClockEnabled();
 
     menu.addItem("Use MIDI In as clock source", true, follow,
-                 [this]() { processor_.appState().setClockSourceExternalFromHost(true); });
+                 [this]() { processor_.controlThreadApp().setClockSourceExternal(true); });
     menu.addItem("Use internal clock", true, !follow,
-                 [this]() { processor_.appState().setClockSourceExternalFromHost(false); });
+                 [this]() { processor_.controlThreadApp().setClockSourceExternal(false); });
     menu.addSeparator();
     menu.addItem("Follow external clock", true, follow,
-                 [this]() { processor_.appState().setFollowExternalClockFromHost(true); });
+                 [this]() { processor_.controlThreadApp().setFollowExternalClock(true); });
     menu.addItem("Ignore external clock", true, !follow,
-                 [this]() { processor_.appState().setFollowExternalClockFromHost(false); });
+                 [this]() { processor_.controlThreadApp().setFollowExternalClock(false); });
     return menu;
   }));
   jackIcons_.add(new JackIcon("MIDI Out", [this]() {
     juce::PopupMenu menu;
-    const bool follow = processor_.appState().followExternalClockEnabled();
+    const bool follow = processor_.readThreadApp().followExternalClockEnabled();
 
     menu.addItem("Send MIDI clock from host", true, follow,
-                 [this]() { processor_.appState().setClockSourceExternalFromHost(true); });
+                 [this]() { processor_.controlThreadApp().setClockSourceExternal(true); });
     menu.addItem("Keep SeedBox internal clock", true, !follow,
-                 [this]() { processor_.appState().setClockSourceExternalFromHost(false); });
+                 [this]() { processor_.controlThreadApp().setClockSourceExternal(false); });
     menu.addSeparator();
     menu.addItem("Follow external transport/clock", true, follow,
-                 [this]() { processor_.appState().setFollowExternalClockFromHost(true); });
+                 [this]() { processor_.controlThreadApp().setFollowExternalClock(true); });
     menu.addItem("Stop following host clock", true, !follow,
-                 [this]() { processor_.appState().setFollowExternalClockFromHost(false); });
+                 [this]() { processor_.controlThreadApp().setFollowExternalClock(false); });
     return menu;
   }));
   jackIcons_.add(new JackIcon("Headphone", [this]() {
@@ -543,22 +544,25 @@ void SeedboxPanelView::layoutControls() {
   engineHintLabel_.setBounds(engineLine.translated(0, 18));
 }
 
-void SeedboxPanelView::refresh() {
-  AppState::DisplaySnapshot snapshot{};
-  processor_.appState().captureDisplaySnapshot(snapshot);
-  juce::String display;
-  display << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance;
-  oledLabel_.setText(display, juce::dontSendNotification);
+void SeedboxPanelView::refresh(bool displayDirty) {
+  const auto& app = processor_.readThreadApp();
+  if (displayDirty || cachedOledText_.isEmpty()) {
+    const auto& snapshot = app.displayCache();
+    juce::String display;
+    display << snapshot.title << "\n" << snapshot.status << "\n" << snapshot.metrics << "\n" << snapshot.nuance;
+    cachedOledText_ = display;
+    oledLabel_.setText(cachedOledText_, juce::dontSendNotification);
+  }
 
   AppState::LearnFrame learn{};
-  processor_.appState().captureLearnFrame(learn);
-  const bool waiting = processor_.appState().waitingForExternalClock();
+  app.captureLearnFrame(learn);
+  const bool waiting = app.waitingForExternalClock();
   juce::String clockMode = "INTERNAL";
   if (waiting) {
     clockMode = "WAITING";
   } else if (processor_.followHostTransportEnabled()) {
     clockMode = "HOST";
-  } else if (processor_.appState().followExternalClockEnabled()) {
+  } else if (app.followExternalClockEnabled()) {
     clockMode = "MIDI";
   }
 
@@ -571,11 +575,11 @@ void SeedboxPanelView::refresh() {
   juce::String meter = "OUT " + juce::String(rmsDb, 1) + "dB/" + juce::String(peakDb, 1) + "dB";
   clockStatusLabel_.setText("CLK " + clockMode + " | " + meter, juce::dontSendNotification);
 
-  const auto& seeds = processor_.appState().seeds();
-  const std::size_t focus = seeds.empty() ? 0 : std::min<std::size_t>(processor_.appState().focusSeed(), seeds.size() - 1);
+  const auto& seeds = app.seeds();
+  const std::size_t focus = seeds.empty() ? 0 : std::min<std::size_t>(app.focusSeed(), seeds.size() - 1);
   const Seed* focusSeed = seeds.empty() ? nullptr : &seeds[focus];
 
-  seedKnob_.knob.setValue(static_cast<double>(processor_.appState().focusSeed()), juce::dontSendNotification);
+  seedKnob_.knob.setValue(static_cast<double>(app.focusSeed()), juce::dontSendNotification);
   if (focusSeed != nullptr) {
     densityKnob_.knob.setValue(focusSeed->density, juce::dontSendNotification);
     toneKnob_.knob.setValue(focusSeed->tone, juce::dontSendNotification);
@@ -647,14 +651,14 @@ void SeedboxPanelView::applySensitivity() {
 
 void SeedboxPanelView::handleTap(bool longPress) {
   if (longPress) {
-    const bool next = !processor_.appState().transportLatchEnabled();
-    processor_.appState().setTransportLatchFromHost(next);
+    const bool next = !processor_.readThreadApp().transportLatchEnabled();
+    processor_.controlThreadApp().setTransportLatch(next);
     lastTapMs_ = 0.0;
     return;
   }
   const double now = juce::Time::getMillisecondCounterHiRes();
   if (lastTapMs_ > 0.0) {
-    processor_.appState().recordTapTempoInterval(static_cast<uint32_t>(now - lastTapMs_));
+    processor_.controlThreadApp().recordTapTempoInterval(static_cast<uint32_t>(now - lastTapMs_));
   }
   lastTapMs_ = now;
 }
@@ -664,7 +668,8 @@ void SeedboxPanelView::handleReseed() {
     saveQuickPreset();
     return;
   }
-  processor_.appState().seedPageReseed(processor_.appState().masterSeed(), AppState::SeedPrimeMode::kLfsr);
+  processor_.controlThreadApp().seedPageReseed(processor_.controlThreadApp().masterSeed(),
+                                               AppState::SeedPrimeMode::kLfsr);
 }
 
 void SeedboxPanelView::handleLock() {
@@ -672,12 +677,12 @@ void SeedboxPanelView::handleLock() {
     recallQuickPreset();
     return;
   }
-  processor_.appState().seedPageToggleLock(processor_.appState().focusSeed());
+  processor_.controlThreadApp().seedPageToggleLock(processor_.controlThreadApp().focusSeed());
   updateLockIndicator();
 }
 
 void SeedboxPanelView::saveQuickPreset() {
-  const auto preset = processor_.appState().snapshotPresetForHost("panel");
+  const auto preset = processor_.controlThreadApp().snapshotPreset("panel");
   processor_.setPanelQuickPreset(preset);
 }
 
@@ -687,15 +692,15 @@ void SeedboxPanelView::recallQuickPreset() {
 }
 
 void SeedboxPanelView::updateLockIndicator() {
-  const bool locked = processor_.appState().isSeedLocked(processor_.appState().focusSeed());
+  const auto& app = processor_.readThreadApp();
+  const bool locked = app.isSeedLocked(app.focusSeed());
   lockButton_.setToggleState(locked, juce::dontSendNotification);
 }
 
 void SeedboxPanelView::updateEngineLabel() {
-  const int engineId = static_cast<int>(processor_.appState().seeds().empty() ? 0
-                                                                              : processor_.appState().seeds()
-                                                                                    [processor_.appState().focusSeed()]
-                                                                                        .engine);
+  const auto& app = processor_.readThreadApp();
+  const auto& seeds = app.seeds();
+  const int engineId = static_cast<int>(seeds.empty() ? 0 : seeds[app.focusSeed()].engine);
   engineLabel_ = engineName(engineId);
   engineNameLabel_.setText("Mode: " + engineLabel_, juce::dontSendNotification);
   engineHintLabel_.setText(engineHint(engineId), juce::dontSendNotification);

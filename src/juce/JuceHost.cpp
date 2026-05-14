@@ -6,7 +6,6 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include <algorithm>
-#include <mutex>
 #include <utility>
 
 #include "hal/hal_audio.h"
@@ -14,8 +13,12 @@
 namespace seedbox::juce_bridge {
 
 namespace {
+constexpr std::size_t kMinPreparedScratchFrames = 8192;
+constexpr int kHostMaintenanceHz = 15;
 class JuceMidiBackend : public MidiRouter::Backend {
  public:
+  static constexpr std::size_t kQueueCapacity = 256;
+
   JuceMidiBackend(MidiRouter& router, MidiRouter::Port port, std::shared_ptr<juce::MidiOutput> output)
       : MidiRouter::Backend(router, port), midiOut_(std::move(output)) {}
 
@@ -30,18 +33,19 @@ class JuceMidiBackend : public MidiRouter::Backend {
   }
 
   void begin() override {
-    std::scoped_lock lock(mutex_);
-    incoming_.clear();
+    readIndex_.store(0, std::memory_order_relaxed);
+    writeIndex_.store(0, std::memory_order_relaxed);
   }
 
   void poll() override {
-    std::vector<juce::MidiMessage> queue;
-    {
-      std::scoped_lock lock(mutex_);
-      queue.swap(incoming_);
-    }
-    for (const auto& msg : queue) {
-      handle(msg);
+    while (true) {
+      const auto read = readIndex_.load(std::memory_order_relaxed);
+      const auto write = writeIndex_.load(std::memory_order_acquire);
+      if (read == write) {
+        break;
+      }
+      handle(incoming_[read]);
+      readIndex_.store((read + 1u) % kQueueCapacity, std::memory_order_release);
     }
   }
 
@@ -66,8 +70,15 @@ class JuceMidiBackend : public MidiRouter::Backend {
   }
 
   void queueIncoming(const juce::MidiMessage& msg) {
-    std::scoped_lock lock(mutex_);
-    incoming_.push_back(msg);
+    const auto write = writeIndex_.load(std::memory_order_relaxed);
+    const auto next = (write + 1u) % kQueueCapacity;
+    const auto read = readIndex_.load(std::memory_order_acquire);
+    if (next == read) {
+      droppedCount_.fetch_add(1u, std::memory_order_relaxed);
+      return;
+    }
+    incoming_[write] = msg;
+    writeIndex_.store(next, std::memory_order_release);
   }
 
   void setOutput(std::shared_ptr<juce::MidiOutput> out) { midiOut_ = std::move(out); }
@@ -104,25 +115,52 @@ class JuceMidiBackend : public MidiRouter::Backend {
     }
   }
 
-  std::mutex mutex_;
-  std::vector<juce::MidiMessage> incoming_;
+  std::array<juce::MidiMessage, kQueueCapacity> incoming_{};
+  std::atomic<std::size_t> readIndex_{0};
+  std::atomic<std::size_t> writeIndex_{0};
+  std::atomic<std::uint32_t> droppedCount_{0};
   std::shared_ptr<juce::MidiOutput> midiOut_{};
 };
 
-std::vector<float>& scratch(std::vector<float>& buffer, std::size_t frames) {
-  if (buffer.size() != frames) {
-    buffer.assign(frames, 0.0f);
-  } else {
-    std::fill(buffer.begin(), buffer.end(), 0.0f);
-  }
-  return buffer;
-}
-
 }  // namespace
 
-JuceHost::JuceHost(AppState& app) : app_(app) {}
+class JuceHost::MaintenanceTimer final : private juce::Timer {
+ public:
+  explicit MaintenanceTimer(HostControlThreadAccess& controlThread) : controlThread_(controlThread) {}
+
+  void start() { startTimerHz(kHostMaintenanceHz); }
+  void stop() { stopTimer(); }
+
+ private:
+  void timerCallback() override { controlThread_.serviceMaintenance(); }
+
+  HostControlThreadAccess& controlThread_;
+};
+
+JuceHost::JuceHost(AppState& app) : app_(app), audioThreadApp_(app), readThreadApp_(app), controlThreadApp_(app) {}
 
 JuceHost::~JuceHost() { stop(); }
+
+void JuceHost::prepareScratchBuffers(int blockSize) {
+  preparedScratchFrames_ = static_cast<std::size_t>(std::max(blockSize, static_cast<int>(kMinPreparedScratchFrames)));
+  inputScratchLeft_.assign(preparedScratchFrames_, 0.0f);
+  inputScratchRight_.assign(preparedScratchFrames_, 0.0f);
+  scratchLeft_.assign(preparedScratchFrames_, 0.0f);
+  scratchRight_.assign(preparedScratchFrames_, 0.0f);
+}
+
+void JuceHost::startMaintenanceTimer() {
+  if (!maintenanceTimer_) {
+    maintenanceTimer_ = std::make_unique<MaintenanceTimer>(controlThreadApp_);
+  }
+  maintenanceTimer_->start();
+}
+
+void JuceHost::stopMaintenanceTimer() {
+  if (maintenanceTimer_) {
+    maintenanceTimer_->stop();
+  }
+}
 
 void JuceHost::initialiseWithDefaults() {
   ensureMidiOutput();
@@ -136,17 +174,20 @@ void JuceHost::initialiseWithDefaults() {
 }
 
 void JuceHost::configureForTests(double sampleRate, int blockSize) {
+  prepareScratchBuffers(blockSize);
   if (!bootstrapped_) {
     bootstrapped_ = true;
     app_.initJuceHost(static_cast<float>(sampleRate), static_cast<std::size_t>(blockSize));
   } else {
     hal::audio::configureHostStream(static_cast<float>(sampleRate), static_cast<std::size_t>(blockSize));
   }
+  startMaintenanceTimer();
 }
 
 void JuceHost::audioDeviceAboutToStart(juce::AudioIODevice* device) {
   const double sr = device ? device->getCurrentSampleRate() : 0.0;
   const int block = device ? device->getCurrentBufferSizeSamples() : 0;
+  prepareScratchBuffers(block);
   if (!bootstrapped_) {
     bootstrapped_ = true;
     app_.initJuceHost(static_cast<float>(sr), static_cast<std::size_t>(block));
@@ -154,9 +195,13 @@ void JuceHost::audioDeviceAboutToStart(juce::AudioIODevice* device) {
     hal::audio::configureHostStream(static_cast<float>(sr), static_cast<std::size_t>(block));
   }
   hal::audio::start();
+  startMaintenanceTimer();
 }
 
-void JuceHost::audioDeviceStopped() { hal::audio::stop(); }
+void JuceHost::audioDeviceStopped() {
+  stopMaintenanceTimer();
+  hal::audio::stop();
+}
 
 void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
                                                 int numInputChannels, float* const* outputChannelData,
@@ -165,32 +210,34 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannel
   for (int ch = 0; ch < numOutputChannels; ++ch) {
     juce::FloatVectorOperations::clear(outputChannelData[ch], numSamples);
   }
+  std::size_t frames = static_cast<std::size_t>(std::max(0, numSamples));
+  if (frames > preparedScratchFrames_) {
+    jassertfalse;
+    audioThreadApp_.setDryInput(nullptr, nullptr, 0);
+    return;
+  }
   float* left = numOutputChannels > 0 ? outputChannelData[0] : nullptr;
   float* right = numOutputChannels > 1 ? outputChannelData[1] : left;
-  std::size_t frames = static_cast<std::size_t>(std::max(0, numSamples));
-  left = left ? left : scratch(scratchLeft_, frames).data();
-  right = right ? right : scratch(scratchRight_, frames).data();
+  if (!left) {
+    std::fill_n(scratchLeft_.data(), frames, 0.0f);
+    left = scratchLeft_.data();
+  }
+  if (!right) {
+    std::fill_n(scratchRight_.data(), frames, 0.0f);
+    right = scratchRight_.data();
+  }
 
   const bool hasInput = inputChannelData && numInputChannels > 0 && frames > 0;
+  const bool hasRightInput = hasInput && numInputChannels > 1 && inputChannelData[1];
   if (hasInput && inputChannelData[0]) {
-    auto& inLeftScratch = scratch(inputScratchLeft_, frames);
-    juce::FloatVectorOperations::copy(inLeftScratch.data(), inputChannelData[0], numSamples);
-
-    const bool hasRight = numInputChannels > 1 && inputChannelData[1];
-    const float* rightInput = nullptr;
-    if (hasRight) {
-      auto& inRightScratch = scratch(inputScratchRight_, frames);
-      juce::FloatVectorOperations::copy(inRightScratch.data(), inputChannelData[1], numSamples);
-      rightInput = inRightScratch.data();
-    } else {
-      inputScratchRight_.clear();
+    juce::FloatVectorOperations::copy(inputScratchLeft_.data(), inputChannelData[0], numSamples);
+    if (hasRightInput) {
+      juce::FloatVectorOperations::copy(inputScratchRight_.data(), inputChannelData[1], numSamples);
     }
-
-    app_.setDryInputFromHost(inLeftScratch.data(), rightInput, frames);
+    audioThreadApp_.setDryInput(inputScratchLeft_.data(), hasRightInput ? inputScratchRight_.data() : nullptr,
+                                frames);
   } else {
-    inputScratchLeft_.clear();
-    inputScratchRight_.clear();
-    app_.setDryInputFromHost(nullptr, nullptr, 0);
+    audioThreadApp_.setDryInput(nullptr, nullptr, 0);
   }
 
   hal::audio::renderHostBuffer(left, right, frames);
@@ -198,17 +245,15 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannel
   const bool enginesAudible = hal::audio::bufferHasEngineEnergy(left, right, frames,
                                                                 hal::audio::kEnginePassthroughFloor,
                                                                 hal::audio::kEngineIdleRmsSlack);
-  const bool dryAudible = hasInput && !inputScratchLeft_.empty() &&
+  const bool dryAudible = hasInput &&
                           hal::audio::bufferHasEngineEnergy(inputScratchLeft_.data(),
-                                                            inputScratchRight_.empty()
-                                                                ? nullptr
-                                                                : inputScratchRight_.data(),
+                                                            hasRightInput ? inputScratchRight_.data() : nullptr,
                                                             frames, hal::audio::kEnginePassthroughFloor,
                                                             hal::audio::kEngineIdleRmsSlack);
 
   if (dryAudible && !enginesAudible && numOutputChannels > 0) {
     const float* inLeft = inputScratchLeft_.data();
-    const float* inRight = inputScratchRight_.empty() ? nullptr : inputScratchRight_.data();
+    const float* inRight = hasRightInput ? inputScratchRight_.data() : nullptr;
 
     juce::FloatVectorOperations::copy(outputChannelData[0], inLeft, numSamples);
     if (numOutputChannels > 1) {
@@ -216,7 +261,7 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannel
     }
   }
 
-  app_.tick();
+  audioThreadApp_.tick();
 }
 
 void JuceHost::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& message) {
@@ -226,6 +271,7 @@ void JuceHost::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessa
 }
 
 void JuceHost::stop() {
+  stopMaintenanceTimer();
   deviceManager_.removeAudioCallback(this);
   deviceManager_.removeMidiInputDeviceCallback({}, this);
   hal::audio::stop();

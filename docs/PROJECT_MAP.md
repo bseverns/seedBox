@@ -22,7 +22,7 @@ The native simulator board (`src/hal/board_native.{h,cpp}`) feeds scripted butto
 
 ## Audio-rate vs control-rate boundaries
 - **Audio-rate path:** `SeedboxAudioProcessor::processBlock` (`src/juce/SeedboxAudioProcessor.cpp:126-220`) buffers host I/O, pumps it through `hal::audio::renderHostBuffer`/`Callback`, and lets `EngineRouter` + the engine voices (e.g., `src/engine/Sampler.cpp`) synthesize every sample block.
-- **Control-rate path:** At the end of each block `processBlock` calls `app_.tick()` (`src/app/AppState.cpp:666-775`), which polls `InputEvents`, negotiates clocks, handles page gestures, and steps `PatternScheduler` once per block so UI and storage work in lockstep with the audio engine.
+- **Control-rate path:** The JUCE lane is now split. `processBlock` calls `app_.tickHostAudio()` (`src/app/AppState.cpp`) for the scheduler heartbeat, clock edges, crossfades, and stats, while non-audio JUCE timers in the plugin/standalone host call `app_.serviceHostMaintenance()` for panel polling, deferred preset commits, and display refresh. That keeps the heaviest UI/storage work off the audio callback without inventing a second runtime.
 
 ## Top 10 files likely to touch next
 1. `src/app/AppState.cpp` – central gesture/clock/resets logic that coordinates the scheduler, presets, and UI flows.
@@ -32,6 +32,6 @@ The native simulator board (`src/hal/board_native.{h,cpp}`) feeds scripted butto
 5. `src/engine/Sampler.cpp` – the default audio engine and voice allocator that ultimately shapes what the sequencer hears.
 6. `src/io/MidiRouter.cpp` – MIDI transport/clock routing and handler plumbing that drives both hardware and the JUCE host.
 7. `src/io/Store.cpp` – preset persistence and clock metadata serialization that `AppState` uses when the storage button is pressed.
-8. `src/juce/SeedboxAudioProcessor.cpp` – host audio callback plus `app_.tick()` scheduling; it bridges control and audio-rate worlds.
+8. `src/juce/SeedboxAudioProcessor.cpp` – host audio callback plus `tickHostAudio()` scheduling; it bridges control and audio-rate worlds.
 9. `src/ui/TextFrame.cpp` – assembles the OLED snapshot (clock glyph, bpm, engine hints) the UI pages push to the screen.
 10. `src/hal/board_native.cpp` – simulation script runner that keeps native tests and replay hooks aligned with hardware assumptions.

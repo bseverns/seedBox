@@ -51,7 +51,7 @@ void SeedboxApplication::initialise(const juce::String&) {
   bool restoredWindow = false;
   if (auto* settings = appProperties_->getUserSettings()) {
     const int lastMode = settings->getIntValue("lastMode", static_cast<int>(AppState::Mode::HOME));
-    processor_->appState().setModeFromHost(static_cast<AppState::Mode>(lastMode));
+    processor_->controlThreadApp().setMode(static_cast<AppState::Mode>(lastMode));
 
     const auto windowState = settings->getValue("windowState");
     if (!windowState.isEmpty()) {
@@ -68,7 +68,7 @@ void SeedboxApplication::initialise(const juce::String&) {
 void SeedboxApplication::shutdown() {
   if (appProperties_) {
     if (auto* settings = appProperties_->getUserSettings()) {
-      settings->setValue("lastMode", static_cast<int>(processor_->appState().mode()));
+      settings->setValue("lastMode", static_cast<int>(processor_->readThreadApp().mode()));
       if (mainWindow_) {
         settings->setValue("windowState", mainWindow_->getWindowStateAsString());
       }

@@ -19,6 +19,8 @@
 namespace seedbox::juce_bridge {
 
 namespace {
+constexpr int kMinPreparedScratchFrames = 8192;
+constexpr int kHostMaintenanceHz = 15;
 constexpr auto kParamMasterSeed = "masterSeed";
 constexpr auto kParamFocusSeed = "focusSeed";
 constexpr auto kParamSeedEngine = "seedEngine";
@@ -68,12 +70,21 @@ constexpr std::array<const char*, 16> kParameterIds = {kParamMasterSeed,      kP
                                                         kParamTestTone};
 }
 
+void SeedboxAudioProcessor::prepareScratchBuffers(int samplesPerBlock) {
+  preparedScratchFrames_ = std::max(samplesPerBlock, kMinPreparedScratchFrames);
+  inputScratch_.setSize(2, preparedScratchFrames_, false, false, true);
+  renderScratch_.setSize(2, preparedScratchFrames_, false, false, true);
+}
+
 SeedboxAudioProcessor::SeedboxAudioProcessor()
     : AudioProcessor(BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Main", juce::AudioChannelSet::stereo(), true)),
       app_(hal::board()),
-      hostControl_(app_),
+      audioThreadApp_(app_),
+      readThreadApp_(app_),
+      controlThreadApp_(app_),
+      hostControl_(audioThreadApp_, controlThreadApp_),
       parameters_(*this, nullptr, "SeedBoxParameters", createParameterLayout()) {
   auto backend = std::make_unique<ProcessorMidiBackend>(app_.midi, MidiRouter::Port::kUsb);
   midiBackend_ = backend.get();
@@ -87,6 +98,7 @@ SeedboxAudioProcessor::SeedboxAudioProcessor()
 }
 
 SeedboxAudioProcessor::~SeedboxAudioProcessor() {
+  stopTimer();
   for (auto* id : kParameterIds) {
     parameters_.removeParameterListener(id, this);
   }
@@ -105,6 +117,7 @@ void SeedboxAudioProcessor::requestShutdown() {
 }
 
 void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
+  prepareScratchBuffers(samplesPerBlock);
   if (!prepared_) {
     prepared_ = true;
     app_.initJuceHost(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
@@ -118,9 +131,13 @@ void SeedboxAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     hal::audio::configureHostStream(static_cast<float>(sampleRate), static_cast<std::size_t>(samplesPerBlock));
     hal::audio::start();
   }
+  startTimerHz(kHostMaintenanceHz);
 }
 
-void SeedboxAudioProcessor::releaseResources() { hal::audio::stop(); }
+void SeedboxAudioProcessor::releaseResources() {
+  stopTimer();
+  hal::audio::stop();
+}
 
 bool SeedboxAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
   const auto output = layouts.getMainOutputChannelSet();
@@ -140,22 +157,26 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
 
   auto inputBus = getBusBuffer(buffer, true, 0);
   auto outputBus = getBusBuffer(buffer, false, 0);
+  if (numSamples > preparedScratchFrames_) {
+    jassertfalse;
+    outputBus.clear();
+    midiMessages.clear();
+    audioThreadApp_.setDryInput(nullptr, nullptr, 0);
+    return;
+  }
 
   if (numInputs > 0) {
-    inputScratch_.setSize(numInputs, numSamples, false, false, true);
     for (int ch = 0; ch < numInputs; ++ch) {
       juce::FloatVectorOperations::copy(inputScratch_.getWritePointer(ch), inputBus.getReadPointer(ch), numSamples);
     }
     const float* inLeft = inputScratch_.getReadPointer(0);
-    const bool hasRight = inputScratch_.getNumChannels() > 1;
+    const bool hasRight = numInputs > 1;
     const float* inRight = hasRight ? inputScratch_.getReadPointer(1) : nullptr;
-    app_.setDryInputFromHost(inLeft, inRight, static_cast<std::size_t>(numSamples));
+    audioThreadApp_.setDryInput(inLeft, inRight, static_cast<std::size_t>(numSamples));
   } else {
-    inputScratch_.setSize(0, 0, false, false, true);
-    app_.setDryInputFromHost(nullptr, nullptr, 0);
+    audioThreadApp_.setDryInput(nullptr, nullptr, 0);
   }
 
-  renderScratch_.setSize(std::max(2, numOutputs), numSamples, false, false, true);
   renderScratch_.clear();
   midiBackend_->setOutboundBuffer(&midiMessages);
 
@@ -167,17 +188,11 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
       parameters_.getRawParameterValue(kParamTestTone)->load() >= 0.5f;
   if (testToneEnabled != testToneEnabled_) {
     testToneEnabled_ = testToneEnabled;
-    app_.setTestToneEnabledFromHost(testToneEnabled_);
+    audioThreadApp_.setTestToneEnabled(testToneEnabled_);
   }
 
   for (const auto metadata : midiMessages) {
-    const auto& msg = metadata.getMessage();
-    if (msg.isController()) {
-      const auto channel = static_cast<std::uint8_t>(std::max(0, msg.getChannel() - 1));
-      app_.onExternalControlChange(channel,
-                                   static_cast<std::uint8_t>(msg.getControllerNumber()),
-                                   static_cast<std::uint8_t>(msg.getControllerValue()));
-    }
+    midiBackend_->queueIncoming({metadata.getMessage(), metadata.samplePosition});
   }
   midiMessages.clear();
 
@@ -194,11 +209,10 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   float* outLeft = outputBus.getWritePointer(0);
   float* outRight = outputBus.getNumChannels() > 1 ? outputBus.getWritePointer(1) : outLeft;
 
-  const bool dryAudible = numInputs > 0 && inputScratch_.getNumSamples() == numSamples &&
+  const bool dryAudible = numInputs > 0 &&
                           hal::audio::bufferHasEngineEnergy(
                               inputScratch_.getReadPointer(0),
-                              inputScratch_.getNumChannels() > 1 ? inputScratch_.getReadPointer(1)
-                                                                 : nullptr,
+                              numInputs > 1 ? inputScratch_.getReadPointer(1) : nullptr,
                               static_cast<std::size_t>(numSamples),
                               hal::audio::kEnginePassthroughFloor, hal::audio::kEngineIdleRmsSlack);
 
@@ -212,7 +226,7 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     }
   } else {
     const float* inLeft = inputScratch_.getReadPointer(0);
-    const bool hasRight = inputScratch_.getNumChannels() > 1;
+    const bool hasRight = numInputs > 1;
     const float* inRight = hasRight ? inputScratch_.getReadPointer(1) : inLeft;
 
     juce::FloatVectorOperations::copy(outLeft, inLeft, numSamples);
@@ -224,17 +238,26 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     }
   }
 
-  app_.tick();
+  audioThreadApp_.tick();
 }
 
 juce::AudioProcessorEditor* SeedboxAudioProcessor::createEditor() { return new SeedboxAudioProcessorEditor(*this); }
+
+void SeedboxAudioProcessor::timerCallback() {
+  if (!prepared_) {
+    return;
+  }
+  // Keep maintenance alive even when no editor is visible so deferred preset
+  // commits and reseed/display upkeep do not depend on UI lifetime.
+  controlThreadApp_.serviceMaintenance();
+}
 
 void SeedboxAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {
   syncSeedStateFromApp();
   auto state = parameters_.copyState();
   state.setProperty(kParamPresetSlot, juce::String(app_.activePresetSlot()), nullptr);
 
-  const seedbox::Preset snapshot = app_.snapshotPresetForHost(app_.activePresetSlot());
+  const seedbox::Preset snapshot = controlThreadApp_.snapshotPreset(app_.activePresetSlot());
   auto serialized = snapshot.serialize();
   juce::MemoryBlock presetBlock(serialized.data(), serialized.size());
   state.setProperty(kStatePresetData, presetBlock.toBase64Encoding(), nullptr);
@@ -281,7 +304,7 @@ void SeedboxAudioProcessor::setStateInformation(const void* data, int sizeInByte
       seedbox::Preset preset;
       if (seedbox::Preset::deserialize(payload, preset)) {
         if (prepared_) {
-          app_.applyPresetFromHost(preset, false);
+          controlThreadApp_.applyPreset(preset, false);
         } else {
           pendingPreset_ = std::move(preset);
         }
@@ -323,7 +346,7 @@ bool SeedboxAudioProcessor::applyPanelQuickPreset() {
     return false;
   }
   if (prepared_) {
-    app_.applyPresetFromHost(*panelPreset_, false);
+    controlThreadApp_.applyPreset(*panelPreset_, false);
   } else {
     pendingPreset_ = *panelPreset_;
   }
@@ -331,93 +354,18 @@ bool SeedboxAudioProcessor::applyPanelQuickPreset() {
 }
 
 void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
-  if (hostControl_.handleParameterChange(parameterID, newValue)) {
-    parameterState_[parameterID.toStdString()] = newValue;
+  HostControlBridge::ParameterContext context{
+      parameterState_,
+      quantizeScaleParam_,
+      quantizeRootParam_,
+      [this]() { syncSeedStateFromApp(); },
+      [this](std::uint8_t engineId) {
+        setSeedProp(static_cast<int>(controlThreadApp_.focusSeed()), kPropEngineId, static_cast<int>(engineId));
+      },
+  };
+  if (hostControl_.handleParameterChange(parameterID, newValue, context)) {
     return;
   }
-
-  if (parameterID == kParamMasterSeed) {
-    app_.reseed(static_cast<std::uint32_t>(newValue));
-    syncSeedStateFromApp();
-    parameterState_[kParamMasterSeed] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamFocusSeed) {
-    app_.setFocusSeed(static_cast<std::uint8_t>(newValue));
-    parameterState_[kParamFocusSeed] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSeedEngine) {
-    app_.setSeedEngine(app_.focusSeed(), static_cast<std::uint8_t>(newValue));
-    setSeedProp(static_cast<int>(app_.focusSeed()), kPropEngineId,
-                static_cast<int>(static_cast<std::uint8_t>(newValue)));
-    parameterState_[kParamSeedEngine] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamSwingPercent) {
-    app_.setSwingPercentFromHost(newValue);
-    parameterState_[kParamSwingPercent] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamQuantizeScale) {
-    quantizeScaleParam_ = static_cast<std::uint8_t>(newValue);
-    const auto control = static_cast<std::uint8_t>((quantizeScaleParam_ * 32u) + (quantizeRootParam_ % 12u));
-    app_.applyQuantizeControlFromHost(control);
-    parameterState_[kParamQuantizeScale] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamQuantizeRoot) {
-    quantizeRootParam_ = static_cast<std::uint8_t>(newValue);
-    const auto control = static_cast<std::uint8_t>((quantizeScaleParam_ * 32u) + (quantizeRootParam_ % 12u));
-    app_.applyQuantizeControlFromHost(control);
-    parameterState_[kParamQuantizeRoot] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamDebugMeters) {
-    app_.setDebugMetersEnabledFromHost(newValue >= 0.5f);
-    parameterState_[kParamDebugMeters] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamGranularSourceStep) {
-    const float previous = parameterState_[kParamGranularSourceStep];
-    const auto delta = static_cast<int>(newValue - previous);
-    if (delta != 0) {
-      app_.seedPageCycleGranularSource(app_.focusSeed(), delta);
-    }
-    parameterState_[kParamGranularSourceStep] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamGateDivision) {
-    const auto division = static_cast<AppState::GateDivision>(static_cast<int>(newValue));
-    app_.setInputGateDivisionFromHost(division);
-    parameterState_[kParamGateDivision] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamGateFloor) {
-    app_.setInputGateFloorFromHost(newValue);
-    parameterState_[kParamGateFloor] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamForceIdlePassthrough) {
-    parameterState_[kParamForceIdlePassthrough] = newValue;
-    return;
-  }
-
-  if (parameterID == kParamTestTone) {
-    parameterState_[kParamTestTone] = newValue;
-    return;
-  }
-
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SeedboxAudioProcessor::createParameterLayout() {
@@ -476,7 +424,7 @@ void SeedboxAudioProcessor::applyPendingPresetIfAny() {
   if (!pendingPreset_.has_value()) {
     return;
   }
-  app_.applyPresetFromHost(*pendingPreset_, false);
+  controlThreadApp_.applyPreset(*pendingPreset_, false);
   pendingPreset_.reset();
 }
 
@@ -513,8 +461,8 @@ juce::var SeedboxAudioProcessor::getSeedProp(int idx, const juce::Identifier& ke
 
 void SeedboxAudioProcessor::applySeedEdit(const juce::Identifier& key, double value,
                                           const std::function<void(Seed&)>& applyFn) {
-  const std::uint8_t focus = app_.focusSeed();
-  app_.applySeedEditFromHost(focus, applyFn);
+  const std::uint8_t focus = controlThreadApp_.focusSeed();
+  controlThreadApp_.applySeedEdit(focus, applyFn);
   setSeedProp(static_cast<int>(focus), key, value);
 }
 
@@ -548,21 +496,21 @@ void SeedboxAudioProcessor::applySeedStateToApp() {
     const std::uint8_t index = static_cast<std::uint8_t>(i);
     const auto engineId = static_cast<std::uint8_t>(static_cast<int>(getSeedProp(static_cast<int>(i), kPropEngineId, seed.engine)));
     if (engineId != seed.engine) {
-      app_.setSeedEngine(index, engineId);
+      controlThreadApp_.setSeedEngine(index, engineId);
     }
 
     auto applyFloat = [&](const juce::Identifier& key, float current, float min, float max,
                          const std::function<void(Seed&, float)>& setter) {
       const float target = static_cast<float>(getSeedProp(static_cast<int>(i), key, current));
       const float clamped = juce::jlimit(min, max, target);
-      app_.applySeedEditFromHost(index, [&](Seed& s) { setter(s, clamped); });
+      controlThreadApp_.applySeedEdit(index, [&](Seed& s) { setter(s, clamped); });
     };
 
     auto applyInt = [&](const juce::Identifier& key, int current, int min, int max,
                         const std::function<void(Seed&, int)>& setter) {
       const int target = static_cast<int>(getSeedProp(static_cast<int>(i), key, current));
       const int clamped = juce::jlimit(min, max, target);
-      app_.applySeedEditFromHost(index, [&](Seed& s) { setter(s, clamped); });
+      controlThreadApp_.applySeedEdit(index, [&](Seed& s) { setter(s, clamped); });
     };
 
     applyFloat(kPropTone, seed.tone, 0.0f, 1.0f, [](Seed& s, float v) { s.tone = v; });
@@ -593,10 +541,10 @@ void SeedboxAudioProcessor::applySeedStateToApp() {
 void SeedboxAudioProcessor::applyGateSettingsFromParameters() {
   const float divisionRaw = parameters_.getRawParameterValue(kParamGateDivision)->load();
   const auto division = static_cast<AppState::GateDivision>(static_cast<int>(divisionRaw));
-  app_.setInputGateDivisionFromHost(division);
+  controlThreadApp_.setInputGateDivision(division);
 
   const float gateFloor = parameters_.getRawParameterValue(kParamGateFloor)->load();
-  app_.setInputGateFloorFromHost(gateFloor);
+  controlThreadApp_.setInputGateFloor(gateFloor);
 }
 
 SeedboxAudioProcessor::ProcessorMidiBackend::ProcessorMidiBackend(MidiRouter& router, MidiRouter::Port port)
@@ -612,14 +560,16 @@ MidiRouter::PortInfo SeedboxAudioProcessor::ProcessorMidiBackend::describe() con
   return info;
 }
 
-void SeedboxAudioProcessor::ProcessorMidiBackend::begin() { incoming_.clear(); }
+void SeedboxAudioProcessor::ProcessorMidiBackend::begin() {
+  queuedCount_ = 0;
+  droppedCount_ = 0;
+}
 
 void SeedboxAudioProcessor::ProcessorMidiBackend::poll() {
-  auto queue = std::move(incoming_);
-  incoming_.clear();
-  for (const auto& msg : queue) {
-    handle(msg);
+  for (std::size_t i = 0; i < queuedCount_; ++i) {
+    handle(incoming_[i]);
   }
+  queuedCount_ = 0;
 }
 
 void SeedboxAudioProcessor::ProcessorMidiBackend::sendClock() { emit(juce::MidiMessage::midiClock(), 0); }
@@ -646,7 +596,11 @@ void SeedboxAudioProcessor::ProcessorMidiBackend::sendAllNotesOff(std::uint8_t c
 }
 
 void SeedboxAudioProcessor::ProcessorMidiBackend::queueIncoming(const BufferedMidiMessage& msg) {
-  incoming_.push_back(msg);
+  if (queuedCount_ >= incoming_.size()) {
+    ++droppedCount_;
+    return;
+  }
+  incoming_[queuedCount_++] = msg;
 }
 
 void SeedboxAudioProcessor::ProcessorMidiBackend::handle(const BufferedMidiMessage& msg) {

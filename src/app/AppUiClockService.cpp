@@ -104,7 +104,13 @@ void AppUiClockService::onExternalClockTick(AppState& app) const {
     // preset-boundary commits all advance from the same tick source.
     app.midiClockIn_.onTick();
     app.handleGateTick();
+#if SEEDBOX_HW
     app.maybeCommitPendingPreset(app.scheduler_.ticks());
+#else
+    if (!app.audioRuntime_.hostAudioMode()) {
+      app.maybeCommitPendingPreset(app.scheduler_.ticks());
+    }
+#endif
   }
 }
 

@@ -169,7 +169,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
  private:
   void timerCallback() override;
   void drawDebugOverlay(juce::Graphics& g) const;
-  void refreshDisplay();
+  void refreshDisplay(bool displayDirty);
   void syncKeyboardButtons();
   bool handleButtonKey(int keyCode, bool pressed);
   void updateButtonState(hal::Board::ButtonID id, bool pressed, bool& lastState);
@@ -209,6 +209,7 @@ class SeedboxAudioProcessorEditor : public juce::AudioProcessorEditor, private j
   bool altKeyDown_{false};
   double lastTapMs_{0.0};
   juce::String lastDeviceInitError_;
+  juce::String cachedDisplayText_{};
 };
 
 }  // namespace seedbox::juce_bridge

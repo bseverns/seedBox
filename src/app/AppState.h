@@ -58,6 +58,7 @@ class AppUiClockService;
 class SeedLockService;
 class PresetStorageService;
 class DisplayTelemetryService;
+class HostAudioRealtimeService;
 
 // AppState is the mothership for everything the performer can poke at run time.
 // It owns the seed table, orchestrates scheduling, and provides a place for the
@@ -204,7 +205,7 @@ public:
 #if !SEEDBOX_HW
   GranularEngine::SimHardwareVoice debugGranularSimVoice(uint8_t index) const;
 #endif
-  const GranularEngine::Stats& granularStats() const { return granularStats_; }
+  const GranularEngine::Stats& granularStats() const { return engines_.granular().stats(); }
 
   void seedPageToggleLock(uint8_t index);
   void seedPageToggleGlobalLock();
@@ -248,7 +249,15 @@ public:
   // plumbing so the plugin can persist/restore state without opening up the
   // whole API surface.
   seedbox::Preset snapshotPresetForHost(std::string_view slot) const { return snapshotPreset(slot); }
-  void applyPresetFromHost(const seedbox::Preset& preset, bool crossfade) { requestPresetChange(preset, crossfade, PresetBoundary::Step); }
+  void applyPresetFromHost(const seedbox::Preset& preset, bool crossfade) {
+#if !SEEDBOX_HW
+    if (audioRuntime_.hostAudioMode() && !crossfade) {
+      applyPreset(preset, false);
+      return;
+    }
+#endif
+    requestPresetChange(preset, crossfade, PresetBoundary::Step);
+  }
   RandomnessPanel& randomnessPanel() { return randomnessPanel_; }
   const RandomnessPanel& randomnessPanel() const { return randomnessPanel_; }
 
@@ -281,6 +290,7 @@ public:
   void setFollowExternalClockFromHost(bool enabled);
   void setClockSourceExternalFromHost(bool external);
   void setInternalBpmFromHost(float bpm);
+  void syncInternalBpmFromHostTransport(float bpm);
   void setDiagnosticsEnabledFromHost(bool enabled);
   bool diagnosticsEnabled() const { return diagnosticsEnabled_; }
   DiagnosticsSnapshot diagnosticsSnapshot() const;
@@ -294,6 +304,11 @@ public:
   void setDryInputFromHost(const float* left, const float* right, std::size_t frames);
   bool applySeedEditFromHost(uint8_t seedIndex, const std::function<void(Seed&)>& edit);
   float currentTapTempoBpm() const;
+
+#if !SEEDBOX_HW
+  void tickHostAudio();
+  void serviceHostMaintenance();
+#endif
 
   MidiRouter midi;
 
@@ -340,6 +355,7 @@ private:
   friend class SeedLockService;
   friend class PresetStorageService;
   friend class DisplayTelemetryService;
+  friend class HostAudioRealtimeService;
   static const char* modeLabel(Mode mode);
   ClockProvider* clock() const { return clockTransport_.clock(); }
   void selectClockProvider(ClockProvider* provider);
@@ -392,7 +408,6 @@ private:
   bool swingPageRequested_{false};
   bool swingEditing_{false};
   DisplaySnapshot displayCache_{};
-  GranularEngine::Stats granularStats_{};
   UiState uiStateCache_{};
   RandomnessPanel randomnessPanel_{};
   LearnFrame::AudioMetrics latestAudioMetrics_{};

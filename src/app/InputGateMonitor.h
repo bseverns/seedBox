@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 class InputGateMonitor {
  public:
@@ -15,9 +14,9 @@ class InputGateMonitor {
   void setDryInput(const float* left, const float* right, std::size_t frames);
   void refreshFromDryInput(std::size_t probeFrames);
 
-  bool hasDryInput() const { return !dryLeft_.empty(); }
-  std::size_t dryFrames() const { return dryLeft_.size(); }
-  const float* dryLeft() const { return dryLeft_.empty() ? nullptr : dryLeft_.data(); }
+  bool hasDryInput() const { return dryLeft_ != nullptr && dryFrames_ > 0; }
+  std::size_t dryFrames() const { return dryFrames_; }
+  const float* dryLeft() const { return hasDryInput() ? dryLeft_ : nullptr; }
   const float* dryRight(std::size_t frames) const;
 
   bool gateReady(std::uint64_t tick, std::uint32_t divisionTicks) const;
@@ -36,6 +35,7 @@ class InputGateMonitor {
   bool hot_{false};
   bool gateEdgePending_{false};
   std::uint64_t lastGateTick_{0};
-  std::vector<float> dryLeft_{};
-  std::vector<float> dryRight_{};
+  const float* dryLeft_{nullptr};
+  const float* dryRight_{nullptr};
+  std::size_t dryFrames_{0};
 };

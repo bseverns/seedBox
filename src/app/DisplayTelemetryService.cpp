@@ -46,7 +46,7 @@ void DisplayTelemetryService::captureDisplaySnapshot(const AppState& app, AppSta
   input.engines = &app.engines_;
   input.seedLock = &app.seedLock_;
   input.schedulerSeed = app.debugScheduledSeed(app.focusSeed_);
-  input.granularStats = &app.granularStats_;
+  input.granularStats = &app.engines_.granular().stats();
   // DisplaySnapshotBuilder owns the rendering language; this service just
   // assembles the truth bundle it needs.
   builder.build(out, *uiOut, input);
