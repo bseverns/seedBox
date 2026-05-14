@@ -23,6 +23,7 @@ void test_juce_host_render_boot_seeds_remain_audible_when_focus_changes();
 void test_juce_host_arms_granular_live_input_for_effect_processing();
 void test_display_snapshot_builder_renders_empty_state();
 void test_display_snapshot_builder_switches_settings_hints();
+void test_diagnostics_snapshot_includes_shared_host_counters();
 void test_audio_runtime_state_tracks_flags_and_processes_audio();
 void test_input_gate_monitor_tracks_dry_input_and_arms_once_per_hot_edge();
 void test_preset_round_trip_via_eeprom_store();
@@ -90,6 +91,7 @@ int main(int, char**) {
   RUN_TEST(test_juce_host_arms_granular_live_input_for_effect_processing);
   RUN_TEST(test_display_snapshot_builder_renders_empty_state);
   RUN_TEST(test_display_snapshot_builder_switches_settings_hints);
+  RUN_TEST(test_diagnostics_snapshot_includes_shared_host_counters);
   RUN_TEST(test_audio_runtime_state_tracks_flags_and_processes_audio);
   RUN_TEST(test_input_gate_monitor_tracks_dry_input_and_arms_once_per_hot_edge);
   RUN_TEST(test_preset_round_trip_via_eeprom_store);

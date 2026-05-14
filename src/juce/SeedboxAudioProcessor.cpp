@@ -108,6 +108,20 @@ bool SeedboxAudioProcessor::followHostTransportEnabled() const {
   return parameters_.getRawParameterValue(kParamFollowHostTransport)->load() >= 0.5f;
 }
 
+std::uint32_t SeedboxAudioProcessor::midiDroppedCount() const {
+  return midiBackend_ ? midiBackend_->droppedCount() : 0u;
+}
+
+AppState::DiagnosticsSnapshot::HostRuntime SeedboxAudioProcessor::hostDiagnostics() const {
+  AppState::DiagnosticsSnapshot::HostRuntime host{};
+  host.midiDroppedCount = midiDroppedCount();
+  host.oversizeBlockDropCount = oversizeBlockDropCount_;
+  host.lastOversizeBlockFrames =
+      static_cast<std::uint32_t>(std::max(lastOversizeBlockFrames_, 0));
+  host.preparedScratchFrames = static_cast<std::uint32_t>(std::max(preparedScratchFrames_, 0));
+  return host;
+}
+
 void SeedboxAudioProcessor::requestShutdown() {
 #if JucePlugin_Build_Standalone
   if (auto* app = juce::JUCEApplicationBase::getInstance()) {
@@ -158,6 +172,8 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   auto inputBus = getBusBuffer(buffer, true, 0);
   auto outputBus = getBusBuffer(buffer, false, 0);
   if (numSamples > preparedScratchFrames_) {
+    ++oversizeBlockDropCount_;
+    lastOversizeBlockFrames_ = numSamples;
     jassertfalse;
     outputBus.clear();
     midiMessages.clear();
@@ -249,6 +265,7 @@ void SeedboxAudioProcessor::timerCallback() {
   }
   // Keep maintenance alive even when no editor is visible so deferred preset
   // commits and reseed/display upkeep do not depend on UI lifetime.
+  controlThreadApp_.publishHostDiagnostics(hostDiagnostics());
   controlThreadApp_.serviceMaintenance();
 }
 

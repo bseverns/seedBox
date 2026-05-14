@@ -135,6 +135,12 @@ public:
   using DisplaySnapshot = seedbox::DisplaySnapshot;
 
   struct DiagnosticsSnapshot {
+    struct HostRuntime {
+      std::uint32_t midiDroppedCount{0};
+      std::uint32_t oversizeBlockDropCount{0};
+      std::uint32_t lastOversizeBlockFrames{0};
+      std::uint32_t preparedScratchFrames{0};
+    } host{};
     PatternScheduler::Diagnostics scheduler{};
     uint64_t audioCallbackCount{0};
   };
@@ -294,6 +300,7 @@ public:
   void setDiagnosticsEnabledFromHost(bool enabled);
   bool diagnosticsEnabled() const { return diagnosticsEnabled_; }
   DiagnosticsSnapshot diagnosticsSnapshot() const;
+  void setHostDiagnosticsFromHost(const DiagnosticsSnapshot::HostRuntime& host);
   void setTestToneEnabledFromHost(bool enabled) { audioRuntime_.setTestToneEnabled(enabled); }
   bool testToneEnabled() const { return audioRuntime_.testToneEnabled(); }
   bool waitingForExternalClock() const { return clockTransport_.waitingForExternalClock(); }
@@ -421,6 +428,7 @@ private:
   float targetBpm_{120.f};
   OnePoleSmoother bpmSmoother_{};
   bool diagnosticsEnabled_{false};
+  DiagnosticsSnapshot::HostRuntime hostDiagnostics_{};
   AudioRuntimeState audioRuntime_{};
   InputGateMonitor inputGate_{};
   GateDivision gateDivision_{GateDivision::kBars};

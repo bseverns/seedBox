@@ -70,6 +70,11 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   const std::optional<seedbox::Preset>& panelQuickPreset() const { return panelPreset_; }
   bool hostTransportPlaying() const { return hostControl_.hostPlaying(); }
   bool followHostTransportEnabled() const;
+  std::uint32_t midiDroppedCount() const;
+  AppState::DiagnosticsSnapshot::HostRuntime hostDiagnostics() const;
+  std::uint32_t oversizeBlockDropCount() const { return oversizeBlockDropCount_; }
+  int lastOversizeBlockFrames() const { return lastOversizeBlockFrames_; }
+  int preparedScratchFrames() const { return preparedScratchFrames_; }
 
  private:
   struct BufferedMidiMessage {
@@ -96,6 +101,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
 
     void queueIncoming(const BufferedMidiMessage& msg);
     void setOutboundBuffer(juce::MidiBuffer* buffer) { midiOut_ = buffer; }
+    std::uint32_t droppedCount() const { return droppedCount_; }
 
    private:
     void handle(const BufferedMidiMessage& msg);
@@ -139,6 +145,8 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::uint8_t quantizeRootParam_{0};
   bool testToneEnabled_{false};
   int preparedScratchFrames_{0};
+  std::uint32_t oversizeBlockDropCount_{0};
+  int lastOversizeBlockFrames_{0};
 };
 
 }  // namespace seedbox::juce_bridge

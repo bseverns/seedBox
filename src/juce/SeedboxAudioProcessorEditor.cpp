@@ -815,6 +815,12 @@ void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
   const juce::String sampleRate = juce::String(hal::audio::sampleRate(), 0);
   const juce::String frames = juce::String(static_cast<juce::int64>(hal::audio::framesPerBlock()));
   const juce::String ticks = juce::String(static_cast<juce::int64>(app.schedulerTicks()));
+  const auto diagnostics = app.diagnosticsSnapshot();
+  const auto& host = diagnostics.host;
+  const juce::String midiDropped = juce::String(static_cast<juce::int64>(host.midiDroppedCount));
+  const juce::String oversizeDrops = juce::String(static_cast<juce::int64>(host.oversizeBlockDropCount));
+  const juce::String lastOversizeFrames = juce::String(static_cast<juce::int64>(host.lastOversizeBlockFrames));
+  const juce::String preparedFrames = juce::String(static_cast<juce::int64>(host.preparedScratchFrames));
 
   std::vector<juce::String> lines;
   lines.emplace_back("UI DEBUG OVERLAY");
@@ -824,6 +830,8 @@ void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
   lines.emplace_back("Clock: " + juce::String(clockName) + " | BPM " + bpm + " | Swing " + swing);
   lines.emplace_back("Audio: " + sampleRate + " Hz | " + frames + " frames");
   lines.emplace_back("Scheduler ticks: " + ticks);
+  lines.emplace_back("Host diag: MIDI drops " + midiDropped + " | Oversize drops " + oversizeDrops +
+                     " | Last/Prepared " + lastOversizeFrames + "/" + preparedFrames);
   lines.emplace_back("Flags: JUCE=" + juce::String(SeedBoxConfig::kJuceBuild ? "ON" : "OFF") +
                      " SIM=" + juce::String(SeedBoxConfig::kSimBuild ? "ON" : "OFF") +
                      " HW=" + juce::String(SeedBoxConfig::kHardwareBuild ? "ON" : "OFF") +

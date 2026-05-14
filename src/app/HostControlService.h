@@ -17,6 +17,7 @@ public:
   void setClockSourceExternal(AppState& app, bool external) const;
   void setInternalBpm(AppState& app, float bpm) const;
   void setDiagnosticsEnabled(AppState& app, bool enabled) const;
+  void setHostDiagnostics(AppState& app, const AppState::DiagnosticsSnapshot::HostRuntime& host) const;
   AppState::DiagnosticsSnapshot diagnosticsSnapshot(const AppState& app) const;
   void setSeedPrimeBypass(AppState& app, bool enabled) const;
   void setLiveCaptureVariation(AppState& app, std::uint8_t variationSteps) const;

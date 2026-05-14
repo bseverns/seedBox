@@ -1038,6 +1038,11 @@ AppState::DiagnosticsSnapshot AppState::diagnosticsSnapshot() const {
   return service.diagnosticsSnapshot(*this);
 }
 
+void AppState::setHostDiagnosticsFromHost(const DiagnosticsSnapshot::HostRuntime& host) {
+  static const HostControlService service{};
+  service.setHostDiagnostics(*this, host);
+}
+
 void AppState::setSeedPrimeBypassFromHost(bool enabled) {
   static const HostControlService service{};
   service.setSeedPrimeBypass(*this, enabled);

@@ -7,10 +7,30 @@
 #include <functional>
 #include <string_view>
 
+#include <juce_events/juce_events.h>
+
 #include "app/AppState.h"
 #include "app/Preset.h"
 
 namespace seedbox::juce_bridge {
+
+namespace detail {
+inline void assertNotMessageThread() {
+#if JUCE_DEBUG
+  if (auto* mm = juce::MessageManager::getInstanceWithoutCreating()) {
+    jassert(!mm->isThisTheMessageThread());
+  }
+#endif
+}
+
+inline void assertMessageThread() {
+#if JUCE_DEBUG
+  if (auto* mm = juce::MessageManager::getInstanceWithoutCreating()) {
+    jassert(mm->isThisTheMessageThread());
+  }
+#endif
+}
+}  // namespace detail
 
 // Narrow JUCE-side views over AppState so audio-thread and host-thread code do
 // not both reach for the same broad public surface by habit.
@@ -18,15 +38,38 @@ class HostAudioThreadAccess {
  public:
   explicit HostAudioThreadAccess(AppState& app) : app_(app) {}
 
+  // Audio-thread only. Must not allocate, touch storage, or rebuild display
+  // state; this just stages the current dry-input span for callback-safe use.
   void setDryInput(const float* left, const float* right, std::size_t frames) {
+    detail::assertNotMessageThread();
     app_.setDryInputFromHost(left, right, frames);
   }
 
-  void setTestToneEnabled(bool enabled) { app_.setTestToneEnabledFromHost(enabled); }
-  void syncTransportBpm(float bpm) { app_.syncInternalBpmFromHostTransport(bpm); }
-  void transportStart() { app_.onExternalTransportStart(); }
-  void transportStop() { app_.onExternalTransportStop(); }
-  void tick() { app_.tickHostAudio(); }
+  // Audio-thread only. Must stay a simple runtime flag write.
+  void setTestToneEnabled(bool enabled) {
+    detail::assertNotMessageThread();
+    app_.setTestToneEnabledFromHost(enabled);
+  }
+  // Audio-thread only. Host transport BPM sync should not dirty display state.
+  void syncTransportBpm(float bpm) {
+    detail::assertNotMessageThread();
+    app_.syncInternalBpmFromHostTransport(bpm);
+  }
+  // Audio-thread only. Transport edges must remain callback-safe.
+  void transportStart() {
+    detail::assertNotMessageThread();
+    app_.onExternalTransportStart();
+  }
+  void transportStop() {
+    detail::assertNotMessageThread();
+    app_.onExternalTransportStop();
+  }
+  // Audio-thread only. This is the narrowed host heartbeat and must not reach
+  // storage or full display rebuild paths.
+  void tick() {
+    detail::assertNotMessageThread();
+    app_.tickHostAudio();
+  }
 
  private:
   AppState& app_;
@@ -51,6 +94,7 @@ class HostReadThreadAccess {
   bool waitingForExternalClock() const { return app_.waitingForExternalClock(); }
   bool followExternalClockEnabled() const { return app_.followExternalClockEnabled(); }
   bool transportLatchEnabled() const { return app_.transportLatchEnabled(); }
+  AppState::DiagnosticsSnapshot diagnosticsSnapshot() const { return app_.diagnosticsSnapshot(); }
   bool displayDirty() const { return app_.displayDirty(); }
   bool isSeedLocked(std::uint8_t index) const { return app_.isSeedLocked(index); }
   void captureDisplaySnapshot(AppState::DisplaySnapshot& out) const { app_.captureDisplaySnapshot(out); }
@@ -64,7 +108,14 @@ class HostControlThreadAccess {
  public:
   explicit HostControlThreadAccess(AppState& app) : app_(app) {}
 
-  void serviceMaintenance() { app_.serviceHostMaintenance(); }
+  void serviceMaintenance() {
+    detail::assertMessageThread();
+    app_.serviceHostMaintenance();
+  }
+  void publishHostDiagnostics(const AppState::DiagnosticsSnapshot::HostRuntime& host) {
+    detail::assertMessageThread();
+    app_.setHostDiagnosticsFromHost(host);
+  }
   std::uint32_t masterSeed() const { return app_.masterSeed(); }
   void reseed(std::uint32_t masterSeed) { app_.reseed(masterSeed); }
   void setMode(AppState::Mode mode) { app_.setModeFromHost(mode); }
@@ -88,7 +139,10 @@ class HostControlThreadAccess {
   void setInputGateFloor(float floor) { app_.setInputGateFloorFromHost(floor); }
   void setTestToneEnabled(bool enabled) { app_.setTestToneEnabledFromHost(enabled); }
   void panicMidi() { app_.midi.panic(); }
-  void clearDisplayDirtyFlag() { app_.clearDisplayDirtyFlag(); }
+  void clearDisplayDirtyFlag() {
+    detail::assertMessageThread();
+    app_.clearDisplayDirtyFlag();
+  }
   void seedPageToggleLock(std::uint8_t index) { app_.seedPageToggleLock(index); }
   void seedPageReseed(std::uint32_t masterSeed, AppState::SeedPrimeMode mode) {
     app_.seedPageReseed(masterSeed, mode);

@@ -67,8 +67,17 @@ void HostControlService::setDiagnosticsEnabled(AppState& app, bool enabled) cons
   }
 }
 
+void HostControlService::setHostDiagnostics(AppState& app,
+                                            const AppState::DiagnosticsSnapshot::HostRuntime& host) const {
+  // Host-side safety counters are collected by the JUCE shells, then mirrored
+  // here on the non-audio maintenance path so every consumer sees one shared
+  // diagnostics snapshot instead of plugin- or standalone-local side channels.
+  app.hostDiagnostics_ = host;
+}
+
 AppState::DiagnosticsSnapshot HostControlService::diagnosticsSnapshot(const AppState& app) const {
   AppState::DiagnosticsSnapshot snap{};
+  snap.host = app.hostDiagnostics_;
   snap.scheduler = app.scheduler_.diagnostics();
   snap.audioCallbackCount = app.audioRuntime_.audioCallbackCount();
   return snap;

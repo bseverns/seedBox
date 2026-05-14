@@ -81,6 +81,8 @@ class JuceMidiBackend : public MidiRouter::Backend {
     writeIndex_.store(next, std::memory_order_release);
   }
 
+  std::uint32_t droppedCount() const { return droppedCount_.load(std::memory_order_relaxed); }
+
   void setOutput(std::shared_ptr<juce::MidiOutput> out) { midiOut_ = std::move(out); }
 
  private:
@@ -126,20 +128,41 @@ class JuceMidiBackend : public MidiRouter::Backend {
 
 class JuceHost::MaintenanceTimer final : private juce::Timer {
  public:
-  explicit MaintenanceTimer(HostControlThreadAccess& controlThread) : controlThread_(controlThread) {}
+  explicit MaintenanceTimer(JuceHost& host, HostControlThreadAccess& controlThread)
+      : host_(host), controlThread_(controlThread) {}
 
   void start() { startTimerHz(kHostMaintenanceHz); }
   void stop() { stopTimer(); }
 
  private:
-  void timerCallback() override { controlThread_.serviceMaintenance(); }
+  void timerCallback() override {
+    controlThread_.publishHostDiagnostics(host_.hostDiagnostics());
+    controlThread_.serviceMaintenance();
+  }
 
+  JuceHost& host_;
   HostControlThreadAccess& controlThread_;
 };
 
 JuceHost::JuceHost(AppState& app) : app_(app), audioThreadApp_(app), readThreadApp_(app), controlThreadApp_(app) {}
 
 JuceHost::~JuceHost() { stop(); }
+
+std::uint32_t JuceHost::midiDroppedCount() const {
+  if (auto* backend = dynamic_cast<JuceMidiBackend*>(midiBackend_)) {
+    return backend->droppedCount();
+  }
+  return 0u;
+}
+
+AppState::DiagnosticsSnapshot::HostRuntime JuceHost::hostDiagnostics() const {
+  AppState::DiagnosticsSnapshot::HostRuntime host{};
+  host.midiDroppedCount = midiDroppedCount();
+  host.oversizeBlockDropCount = oversizeBlockDropCount_;
+  host.lastOversizeBlockFrames = static_cast<std::uint32_t>(lastOversizeBlockFrames_);
+  host.preparedScratchFrames = static_cast<std::uint32_t>(preparedScratchFrames_);
+  return host;
+}
 
 void JuceHost::prepareScratchBuffers(int blockSize) {
   preparedScratchFrames_ = static_cast<std::size_t>(std::max(blockSize, static_cast<int>(kMinPreparedScratchFrames)));
@@ -151,7 +174,7 @@ void JuceHost::prepareScratchBuffers(int blockSize) {
 
 void JuceHost::startMaintenanceTimer() {
   if (!maintenanceTimer_) {
-    maintenanceTimer_ = std::make_unique<MaintenanceTimer>(controlThreadApp_);
+    maintenanceTimer_ = std::make_unique<MaintenanceTimer>(*this, controlThreadApp_);
   }
   maintenanceTimer_->start();
 }
@@ -212,6 +235,8 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannel
   }
   std::size_t frames = static_cast<std::size_t>(std::max(0, numSamples));
   if (frames > preparedScratchFrames_) {
+    ++oversizeBlockDropCount_;
+    lastOversizeBlockFrames_ = frames;
     jassertfalse;
     audioThreadApp_.setDryInput(nullptr, nullptr, 0);
     return;

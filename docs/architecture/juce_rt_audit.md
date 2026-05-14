@@ -112,8 +112,10 @@ Sources:
 | `app_.midi.poll()` in standalone host | [JuceHost.cpp:211](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L211) | no repo allocation in current backend | no mutex in current backend | no | improved | `JuceHost` now uses a bounded preallocated queue and drops overflow instead of locking |
 | plugin `ProcessorMidiBackend` queueing | [SeedboxAudioProcessor.cpp:659](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L659) | bounded assignment only | no repo lock | no | hardened | plugin MIDI ingress now uses fixed-capacity storage and drops overflow instead of allocating |
 | `app_.tickHostAudio()` | [SeedboxAudioProcessor.cpp:238](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L238) | not allocation-free by formal contract | no repo lock visible | no direct storage/display work | reduced, still under audit | now a thin wrapper over `HostAudioRealtimeService`, which owns the callback-safe heartbeat |
-| `app_.serviceHostMaintenance()` in plugin timer | [SeedboxAudioProcessor.cpp:245](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L245) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | this is now where deferred preset commits, reseed requests, and display snapshots are serviced in the plugin lane |
-| `app_.serviceHostMaintenance()` in standalone timer | [JuceHost.cpp:132](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L132) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | standalone now has the same basic maintenance split as the plugin lane |
+| `app_.setHostDiagnosticsFromHost(...)` in plugin timer | [SeedboxAudioProcessor.cpp:263](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L263) | trivial struct copy only | not on audio thread | no | improved | plugin maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot |
+| `app_.serviceHostMaintenance()` in plugin timer | [SeedboxAudioProcessor.cpp:264](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L264) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | this is now where deferred preset commits, reseed requests, and display snapshots are serviced in the plugin lane |
+| `app_.setHostDiagnosticsFromHost(...)` in standalone timer | [JuceHost.cpp:136](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L136) | trivial struct copy only | not on audio thread | no | improved | standalone maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot |
+| `app_.serviceHostMaintenance()` in standalone timer | [JuceHost.cpp:137](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L137) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | standalone now has the same basic maintenance split as the plugin lane |
 | JUCE cached display text refresh | [SeedboxAudioProcessorEditor.cpp:872](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessorEditor.cpp#L872) | no snapshot rebuild on clean frames | no repo lock | no | improved | editor/panel now consume `displayCache_` and only rebuild OLED/debug text when `displayDirty_` flips; live output meters still poll `LearnFrame` |
 | `parameterChanged(...)` -> `HostControlBridge::handleParameterChange(...)` | [SeedboxAudioProcessor.cpp:353](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L353) | map updates only in current shell | no repo lock | may touch preset/seed/UI state by design | audited, still message-thread-sensitive | host-thread parameter mutations are now centralized, but still need an explicit contract table |
 
@@ -190,6 +192,25 @@ That does not eliminate all UI polling, but it removes needless display-frame
 rebuilds from clean timer ticks and makes the host lane honor the cached
 snapshot that `serviceHostMaintenance()` already owns.
 
+### 3b. `tickHostAudio()` is smaller, but its callback-reachable calls still need an explicit table
+
+`HostAudioRealtimeService::tick(...)` is now small enough to enumerate
+directly:
+
+| Callback-reachable runtime call | Current role | Known RT risk | Current judgment |
+| --- | --- | --- | --- |
+| `updateTempoSmoothing()` | nudges scheduler BPM toward target | touches scheduler state every block when BPM moves | acceptable, but still scheduler-facing |
+| `updateExternalClockWatchdog()` | falls back from stale external clock to internal clock | may flip runtime clock policy | acceptable only because it stays out of UI/storage work |
+| `selectClockProvider(...)` | swaps to internal clock when needed | runtime pointer/policy mutation | acceptable, but worth keeping isolated |
+| `clock()->onTick()` | advances the current clock edge | boundedness depends on clock implementation | still a core RT audit point |
+| `handleGateTick()` | advances live-input gate/reseed cadence | can trigger reseed-facing runtime work | still a core RT audit point |
+| `stepPresetCrossfade()` | advances preset blend envelope | must stay allocation-free | acceptable so far, still under audit |
+| `++frame_` | publishes block/frame progress | trivial | safe |
+
+That is the next real ring of the tree. The callback is no longer a grab bag,
+but several of those calls are still only "safe by current discipline" rather
+than by a stronger formal contract.
+
 ### 4. Both MIDI ingress paths are now bounded, but callback work still needs trimming
 
 `JuceHost` no longer uses the old mutex-protected incoming MIDI queue. It now
@@ -204,6 +225,17 @@ paths. The remaining work is now more architectural than mechanical:
 - keep shrinking `tickHostAudio()`
 - audit parameter-thread mutations separately
 - decide how overflow should be surfaced or observed in development builds
+
+### 4a. `midi.poll()` now deserves its own explicit boundary table
+
+| Callback site | Current backend shape | Allocation / lock posture | Remaining concern |
+| --- | --- | --- | --- |
+| plugin `app_.midi.poll()` | bounded fixed-capacity `ProcessorMidiBackend` queue | no heap growth, no repo lock | dispatch path still reaches runtime MIDI handlers on the callback |
+| standalone `app_.midi.poll()` | bounded fixed-capacity `JuceMidiBackend` ring | no heap growth, no mutex | same runtime dispatch concern, plus external JUCE device behavior remains host-owned |
+
+The mechanical queue hardening is done. What remains is semantic: keep proving
+that the MIDI handlers reached from `poll()` stay within the same callback-safe
+contract as the rest of `tickHostAudio()`.
 
 ### 5. Parameter/UI thread mutations are a separate boundary
 
@@ -231,6 +263,11 @@ It is still not a trivial path, though:
 That is not the same class of bug as the audio-thread issues above, but it
 means the JUCE boundary should be documented as two-thread, not one-thread.
 
+The host-boundary counters are now part of that shared contract too. Plugin and
+standalone both publish their bounded MIDI-drop and oversize-block counters into
+`AppState::DiagnosticsSnapshot::host` from the maintenance timer, so callback
+failures are no longer trapped in shell-local debug state alone.
+
 ## Current Host Entry-Point Contract
 
 This is the practical contract after the current refactor. It is now partly
@@ -242,7 +279,9 @@ itself still exposes the broader public surface underneath.
 | --- | --- | --- | --- |
 | `setDryInputFromHost(...)` | `HostAudioThreadAccess` | audio thread only | borrowed span only; no owned heap staging |
 | `tickHostAudio()` | `HostAudioThreadAccess` | audio thread only | still needs further trimming |
+| `diagnosticsSnapshot()` | `HostReadThreadAccess` | JUCE read thread only | shared read surface for scheduler, audio, and host-boundary counters |
 | `displayCache()`, `displayDirty()`, `uiStateCache()` | `HostReadThreadAccess` | JUCE read thread only | cached UI/snapshot reads; no direct mutation |
+| `setHostDiagnosticsFromHost(...)` | `HostControlThreadAccess` | non-audio host thread | mirrors JUCE shell callback counters into shared diagnostics state |
 | `serviceHostMaintenance()` | `HostControlThreadAccess` | non-audio host thread | allowed to touch UI/storage-facing upkeep |
 | `clearDisplayDirtyFlag()` | `HostControlThreadAccess` | non-audio host thread | acknowledges a consumed cached snapshot after UI refresh |
 | `syncInternalBpmFromHostTransport(...)` | `HostAudioThreadAccess` | audio thread only | sanitized host transport BPM sync; does not dirty display state |
@@ -257,6 +296,30 @@ itself still exposes the broader public surface underneath.
 | `setInputGateFloorFromHost(...)` | parameter path | host/control thread | dry-input gate threshold mutation |
 | `setFocusSeed(...)`, `setSeedEngine(...)`, `applySeedEditFromHost(...)` | parameter path and editor UI | host/control thread | seed/runtime mutation surface |
 | `applyPresetFromHost(...)` | state restore, panel quick preset | host/control thread | immediate apply in host-audio mode when crossfade is off |
+
+## Parameter Change Table
+
+This table classifies the current APVTS parameters handled by
+`HostControlBridge::handleParameterChange(...)`.
+
+| Parameter | Thread | Immediate? | Can allocate in bridge? | Touches scheduler/runtime timing? | Dirty display? | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `masterSeed` | host/control thread | yes | not in bridge; downstream reseed work may | yes | yes, via reseed path | full runtime reseed plus seed-state sync |
+| `focusSeed` | host/control thread | yes | no bridge allocation expected | no direct timing change | yes | changes focused edit target |
+| `seedEngine` | host/control thread | yes | no bridge allocation expected | may rebuild scheduler-facing assignments | yes | also persists focused engine metadata |
+| `swingPercent` | host/control thread | yes | no bridge allocation expected | yes | yes | alters scheduler groove |
+| `quantizeScale` | host/control thread | yes | no bridge allocation expected | yes | yes | participates in quantize control state machine |
+| `quantizeRoot` | host/control thread | yes | no bridge allocation expected | yes | yes | participates in quantize control state machine |
+| `transportLatch` | host/control thread | yes | no bridge allocation expected | yes | yes | mutates transport policy |
+| `clockSourceExternal` | host/control thread | yes | no bridge allocation expected | yes | yes | clock-provider policy switch |
+| `followExternalClock` | host/control thread | yes | no bridge allocation expected | yes | yes | external-clock follow policy |
+| `followHostTransport` | host/control thread | yes | no bridge allocation expected | yes, host transport policy | no direct app dirty | bridge-local host play-state policy |
+| `debugMeters` | host/control thread | yes | no bridge allocation expected | no | yes | toggles telemetry/UI mode |
+| `granularSourceStep` | host/control thread | yes | no bridge allocation expected | may affect render/input routing | yes | delta-based focused-seed mutation |
+| `gateDivision` | host/control thread | yes | no bridge allocation expected | yes | yes | changes live-input reseed grid |
+| `gateFloor` | host/control thread | yes | no bridge allocation expected | no direct timing change | yes | changes live-input sensitivity |
+| `forceIdlePassthrough` | host/control thread | yes | map write only | affects callback output policy, not scheduler | no direct app dirty | processor-side passthrough policy flag |
+| `testTone` | host/control thread | yes | map write only | affects callback render choice | no direct app dirty | processor-side flag; callback applies runtime toggle |
 
 ## Real-Time Safe Eventually Checklist
 
