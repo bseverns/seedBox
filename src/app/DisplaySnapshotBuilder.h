@@ -44,6 +44,8 @@ public:
     const GranularEngine::Stats* granularStats{nullptr};
   };
 
+  // Build the human-facing "what is SeedBox doing right now?" frame used by
+  // OLED, simulator, and debugging surfaces.
   void build(seedbox::DisplaySnapshot& out, UiState& uiOut, const Input& input) const;
 
 private:

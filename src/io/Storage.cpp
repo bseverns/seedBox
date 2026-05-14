@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -429,7 +430,10 @@ bool saveScene(const char* path) {
       const auto written = file.write(bytes.data(), bytes.size());
       file.sync();
       file.close();
-      return written == static_cast<int>(bytes.size());
+      if (bytes.size() > static_cast<std::size_t>(std::numeric_limits<decltype(written)>::max())) {
+        return false;
+      }
+      return written == static_cast<decltype(written)>(bytes.size());
 #else
       const std::filesystem::path hostPath = buildHostPath(spec.key);
       std::ofstream out(hostPath, std::ios::binary | std::ios::trunc);
@@ -445,4 +449,3 @@ bool saveScene(const char* path) {
 }
 
 }  // namespace Storage
-

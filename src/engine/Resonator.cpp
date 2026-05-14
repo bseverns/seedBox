@@ -22,6 +22,7 @@ float lerp(float a, float b, float t) {
   return a + (b - a) * t;
 }
 
+#if !SEEDBOX_HW
 std::size_t wrapDelayTap(std::size_t writePos, std::size_t bufferSize, std::size_t delaySamples) {
   if (bufferSize == 0) {
     return 0;
@@ -29,6 +30,7 @@ std::size_t wrapDelayTap(std::size_t writePos, std::size_t bufferSize, std::size
   const std::size_t clampedDelay = std::min(delaySamples, bufferSize - 1);
   return (writePos + bufferSize - clampedDelay) % bufferSize;
 }
+#endif
 
 constexpr std::array<ResonatorBank::ModalPreset, 6> kDefaultPresets{{
     {"Brass shell",

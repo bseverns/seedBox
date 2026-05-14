@@ -31,9 +31,10 @@ truth about what we heard.
 3. `scripts/compute_golden_hashes.py` now scans `build/fixtures/` for both WAV
    and `.txt` artifacts and updates `tests/native_golden/golden.json` with their
    hashes, audio metadata (rate/frames/channels), or log metadata (line + byte
-   counts). Drop `--note name="liner note"` to annotate any entry, and then run
-   `scripts/generate_native_golden_header.py` so `fixtures_autogen.hpp` stays in
-   lockstep.
+   counts). Drop `--note name="liner note"` to annotate any entry. A write pass
+   also regenerates `fixtures_autogen.hpp` and the static fixture browser at
+   `build/fixtures/index.html`, so the manifest, Unity header, and human-facing
+   gallery stay in lockstep.
 4. The Unity test refuses to pass if **any** declared artifact is missing or if
    the manifest hash falls out of sync. Broken receipts? Broken build.
 
@@ -42,7 +43,7 @@ truth about what we heard.
 - `test_render_long_take_golden` bounces six stems through the reseed playbook at 120 BPM for a full 30-second ride. The shuffle order comes from master seed `0x30F00D`, so every pass is wild but repeatable.
 - Skip the full suite when you just want the mixtape: `./tests/native_golden/render_long_take.sh` sets `ENABLE_GOLDEN=1` and filters PlatformIO down to the long-take capture. When PlatformIO ghosts you, the script now auto-hands the job to the offline harness so you still get fresh audio on disk.
 - The WAV lands at `build/fixtures/long-random-take.wav`. Fire up `python -m http.server` in the repo root and you get a local playback link at [http://localhost:8000/build/fixtures/long-random-take.wav](http://localhost:8000/build/fixtures/long-random-take.wav).
-- After any recut, run `python3 scripts/compute_golden_hashes.py --write` so `tests/native_golden/golden.json` keeps shouting the right hash (the script bails without Python 3.7+, so dodge the legacy `python` alias and go straight for `python3`).
+- After any recut, run `python3 scripts/compute_golden_hashes.py --write` so `tests/native_golden/golden.json` keeps shouting the right hash and `build/fixtures/index.html` stays fresh (the script bails without Python 3.7+, so dodge the legacy `python` alias and go straight for `python3`).
 
 ## Refresh loop (aka “cutting a new pressing”)
 
@@ -50,7 +51,7 @@ truth about what we heard.
 # 1. Render the fixtures with golden mode on.
 pio test -e native_golden
 
-# 2. Recompute hashes and commit the manifest update.
+# 2. Recompute hashes, refresh the browser/header, and commit the manifest update.
 python3 scripts/compute_golden_hashes.py --write
 
 # 3. (Optional) annotate liner notes.
@@ -71,6 +72,8 @@ manifest locally. We wrapped the whole dance in a single script:
 ./scripts/offline_native_golden.sh
 # Only refresh the long take without touching the other fixtures
 ./scripts/offline_native_golden.sh --filter long-random-take
+# Add a custom tone study to the checked-in fixture crate
+./scripts/offline_native_golden.sh --input-tone a4=440:0.35:2.0 --filter input-tone
 # Render WAVs/logs but leave the manifest alone for a quick audition run
 ./scripts/offline_native_golden.sh --skip-manifest
 ```
@@ -82,6 +85,11 @@ compiler and Python 3. The helper now calls the same spatial renders the Unity
 tests lean on (engine hybrid stack, macro orbit stack, the 7.1 stage bus), so
 even an offline `--filter stage71` cut keeps the manifest populated instead of
 dropping fixtures on the floor.
+
+Need extra tone probes? Pass `--input-tone [name=]freq_hz[:amplitude[:duration_seconds]]`.
+The helper emits `input-tone-*` WAV + control-log pairs beside the baked-in
+fixtures so the browser and manifest can treat them like the rest of the crate.
+If you omit `name=`, the helper derives one from the tone parameters.
 
 Need a quick audit without touching disk? Drop the `--write` flag for a dry
 run; the script prints a table of fixture names, hashes, and frame counts. If
@@ -103,6 +111,17 @@ themselves can live wherever makes debugging painless.
   fair game for scribbling context.
 - `tooling` — declares that both the manifest and hash math come from
   `scripts/compute_golden_hashes.py` so newcomers know which lever to pull.
+
+The same write pass also rebuilds `build/fixtures/index.html`. For interactive
+tone generation from the browser surface, launch the dedicated local dev server:
+
+```bash
+python3 scripts/serve_golden_fixture_browser.py
+```
+
+That server prints the exact local URL it bound. Plain static servers still
+work for playback and browsing, but they intentionally cannot invoke the
+golden-render pipeline.
 
 That manifest doubles as documentation in the new
 [`docs/roadmaps/native_golden.md`](../../docs/roadmaps/native_golden.md) entry,

@@ -475,6 +475,17 @@ def main(argv):
         action="append",
         help="Override notes for a fixture: --note drone-intro='fresh note'",
     )
+    parser.add_argument(
+        "--skip-browser",
+        action="store_true",
+        help="Skip regenerating the HTML fixture browser when writing the manifest",
+    )
+    parser.add_argument(
+        "--browser-output",
+        default=Path("build/fixtures/index.html"),
+        type=Path,
+        help="Where the generated fixture browser should land (default: build/fixtures/index.html)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -501,6 +512,18 @@ def main(argv):
             ]
         )
         print("fixture header refreshed -> tests/native_golden/fixtures_autogen.hpp")
+        if not args.skip_browser:
+            browser_generator = (Path(__file__).resolve().parent / "generate_golden_fixture_browser.py").resolve()
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    str(browser_generator),
+                    "--manifest",
+                    str(args.manifest),
+                    "--output",
+                    str(args.browser_output),
+                ]
+            )
     else:
         print("\n(dry run — re-run with --write to update the manifest)")
     return 0

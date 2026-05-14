@@ -44,6 +44,7 @@ static uint8_t clampVoices(uint8_t voices) {
   return voices;
 }
 
+#if !SEEDBOX_HW
 float clampUnit(float value) {
   return std::clamp(value, 0.0f, 1.0f);
 }
@@ -60,6 +61,7 @@ std::size_t wrapDelayTap(std::size_t writePos, std::size_t bufferSize, std::size
   const std::size_t clampedDelay = std::min(delaySamples, bufferSize - 1);
   return (writePos + bufferSize - clampedDelay) % bufferSize;
 }
+#endif
 }
 
 #if SEEDBOX_HW

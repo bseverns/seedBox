@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Offline helper that mirrors the PlatformIO-native golden renders. We compile
@@ -108,37 +109,181 @@ std::string to_lower_copy(std::string value) {
     return value;
 }
 
-std::vector<std::string> parse_filter_tokens() {
-    const char* raw = std::getenv("SEEDBOX_OFFLINE_GOLDEN_FILTER");
-    if (raw == nullptr || *raw == '\0') {
-        return {};
-    }
+std::string trim_copy(std::string value) {
+    const auto is_space = [](unsigned char ch) { return std::isspace(ch) != 0; };
+    value.erase(value.begin(),
+                std::find_if(value.begin(), value.end(), [&](char ch) { return !is_space(static_cast<unsigned char>(ch)); }));
+    value.erase(
+        std::find_if(value.rbegin(), value.rend(), [&](char ch) { return !is_space(static_cast<unsigned char>(ch)); }).base(),
+        value.end());
+    return value;
+}
 
+std::vector<std::string> split_tokens(const std::string& source, std::string_view separators) {
     std::vector<std::string> tokens;
     std::string current;
-    const std::string source(raw);
-
     auto flush = [&]() {
-        if (current.empty()) {
-            return;
+        const auto trimmed = trim_copy(current);
+        if (!trimmed.empty()) {
+            tokens.push_back(trimmed);
         }
-        tokens.push_back(to_lower_copy(current));
         current.clear();
     };
 
     for (char ch : source) {
-        if (ch == ',' || ch == ';' || std::isspace(static_cast<unsigned char>(ch))) {
+        if (separators.find(ch) != std::string_view::npos) {
             flush();
         } else {
             current.push_back(ch);
         }
     }
     flush();
+    return tokens;
+}
+
+std::vector<std::string> parse_filter_tokens() {
+    const char* raw = std::getenv("SEEDBOX_OFFLINE_GOLDEN_FILTER");
+    if (raw == nullptr || *raw == '\0') {
+        return {};
+    }
+
+    auto tokens = split_tokens(raw, ",; \t\r\n");
+    for (auto& token : tokens) {
+        token = to_lower_copy(token);
+    }
 
     tokens.erase(
         std::remove_if(tokens.begin(), tokens.end(), [](const std::string& token) { return token.empty(); }),
         tokens.end());
     return tokens;
+}
+
+struct InputToneSpec {
+    std::string fixture_name;
+    double freq_hz = 110.0;
+    double amplitude = 0.5;
+    double duration_seconds = 1.0;
+};
+
+std::string decimal_slug(double value, int decimals) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(decimals) << value;
+    std::string slug = oss.str();
+    while (!slug.empty() && slug.back() == '0') {
+        slug.pop_back();
+    }
+    if (!slug.empty() && slug.back() == '.') {
+        slug.pop_back();
+    }
+    if (slug.empty()) {
+        slug = "0";
+    }
+    std::replace(slug.begin(), slug.end(), '.', 'p');
+    std::replace(slug.begin(), slug.end(), '-', 'm');
+    return slug;
+}
+
+std::string sanitize_fixture_slug(const std::string& raw) {
+    std::string slug;
+    slug.reserve(raw.size());
+    bool last_was_dash = false;
+    for (char ch : raw) {
+        const auto lower = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        if ((lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9')) {
+            slug.push_back(lower);
+            last_was_dash = false;
+        } else if (!last_was_dash) {
+            slug.push_back('-');
+            last_was_dash = true;
+        }
+    }
+    while (!slug.empty() && slug.front() == '-') {
+        slug.erase(slug.begin());
+    }
+    while (!slug.empty() && slug.back() == '-') {
+        slug.pop_back();
+    }
+    if (slug.empty()) {
+        slug = "tone";
+    }
+    if (slug.rfind("input-tone-", 0) != 0) {
+        slug = "input-tone-" + slug;
+    }
+    return slug;
+}
+
+double parse_required_double(const std::string& token, const char* field_name) {
+    try {
+        std::size_t parsed = 0;
+        const double value = std::stod(token, &parsed);
+        if (parsed != token.size()) {
+            throw std::invalid_argument("junk suffix");
+        }
+        return value;
+    } catch (const std::exception&) {
+        throw std::runtime_error(std::string("Invalid ") + field_name + " value '" + token + "'");
+    }
+}
+
+InputToneSpec parse_input_tone_spec(const std::string& raw_spec) {
+    const auto spec = trim_copy(raw_spec);
+    if (spec.empty()) {
+        throw std::runtime_error("Empty input tone spec");
+    }
+
+    std::string name_part;
+    std::string param_part = spec;
+    const auto equals_pos = spec.find('=');
+    if (equals_pos != std::string::npos) {
+        name_part = trim_copy(spec.substr(0, equals_pos));
+        param_part = trim_copy(spec.substr(equals_pos + 1));
+    }
+
+    const auto pieces = split_tokens(param_part, ":");
+    if (pieces.empty() || pieces.size() > 3) {
+        throw std::runtime_error(
+            "Input tone spec must look like [name=]freq[:amplitude[:duration_seconds]]");
+    }
+
+    InputToneSpec tone;
+    tone.freq_hz = parse_required_double(pieces[0], "frequency");
+    if (pieces.size() >= 2) {
+        tone.amplitude = parse_required_double(pieces[1], "amplitude");
+    }
+    if (pieces.size() >= 3) {
+        tone.duration_seconds = parse_required_double(pieces[2], "duration");
+    }
+
+    if (!(tone.freq_hz > 0.0 && tone.freq_hz <= 24000.0)) {
+        throw std::runtime_error("Input tone frequency must land in (0, 24000] Hz");
+    }
+    if (!(tone.amplitude > 0.0 && tone.amplitude <= 1.0)) {
+        throw std::runtime_error("Input tone amplitude must land in (0, 1]");
+    }
+    if (!(tone.duration_seconds > 0.0 && tone.duration_seconds <= 60.0)) {
+        throw std::runtime_error("Input tone duration must land in (0, 60] seconds");
+    }
+
+    if (name_part.empty()) {
+        name_part = "input-tone-" + decimal_slug(tone.freq_hz, 2) + "hz-a" +
+                    decimal_slug(tone.amplitude * 100.0, 0) + "-d" +
+                    decimal_slug(tone.duration_seconds * 1000.0, 0) + "ms";
+    }
+    tone.fixture_name = sanitize_fixture_slug(name_part);
+    return tone;
+}
+
+std::vector<InputToneSpec> parse_input_tone_specs() {
+    const char* raw = std::getenv("SEEDBOX_OFFLINE_GOLDEN_INPUT_TONES");
+    if (raw == nullptr || *raw == '\0') {
+        return {};
+    }
+
+    std::vector<InputToneSpec> tones;
+    for (const auto& token : split_tokens(raw, ";\n")) {
+        tones.push_back(parse_input_tone_spec(token));
+    }
+    return tones;
 }
 
 bool token_matches_kind(const std::string& token, FixtureKind kind) {
@@ -187,6 +332,44 @@ std::vector<int16_t> render_reseed_variant(
     const std::vector<reseed::StemDefinition>* stems_override = nullptr);
 
 std::vector<int16_t> render_granular_fixture();
+
+std::vector<int16_t> render_input_tone(const char* fixture_name,
+                                       double freq_hz,
+                                       double amplitude,
+                                       double duration_seconds) {
+    const std::size_t frames =
+        std::max<std::size_t>(1u, static_cast<std::size_t>(std::lround(duration_seconds * kSampleRate)));
+    std::vector<int16_t> samples(frames);
+    constexpr double kTwoPi = 6.283185307179586476925286766559;
+    const std::size_t fade_samples =
+        std::min<std::size_t>(frames / 2u, static_cast<std::size_t>(std::lround(kSampleRate * 0.01)));
+
+    for (std::size_t i = 0; i < frames; ++i) {
+        const double t = static_cast<double>(i) / kSampleRate;
+        double envelope = 1.0;
+        if (fade_samples > 0u) {
+            if (i < fade_samples) {
+                envelope = static_cast<double>(i) / static_cast<double>(fade_samples);
+            } else if (i + fade_samples >= frames) {
+                envelope = static_cast<double>(frames - i - 1u) / static_cast<double>(fade_samples);
+            }
+        }
+        envelope = std::clamp(envelope, 0.0, 1.0);
+
+        const double cycle = std::sin(kTwoPi * freq_hz * t);
+        const double scaled = std::clamp(cycle * amplitude * envelope, -1.0, 1.0);
+        const auto quantized = static_cast<long>(std::lround(scaled * 32767.0));
+        samples[i] = static_cast<int16_t>(std::clamp<long>(quantized, -32768L, 32767L));
+    }
+    std::ostringstream control;
+    control << "# " << fixture_name << " control log" << '\n';
+    control << "frames=" << frames << " sample_rate_hz=" << static_cast<int>(kSampleRate)
+            << " freq_hz=" << freq_hz << " amplitude=" << amplitude
+            << " duration_seconds=" << duration_seconds
+            << " fade_samples=" << fade_samples << '\n';
+    (void)emit_control_log_impl(fixture_name, control.str());
+    return samples;
+}
 
 std::vector<int16_t> make_drone() {
     std::vector<int16_t> samples(kDroneFrames);
@@ -1384,12 +1567,21 @@ int main() {
         std::filesystem::create_directories(root);
 
         const auto filters = parse_filter_tokens();
+        const auto input_tones = parse_input_tone_specs();
         if (!filters.empty()) {
             std::cout << "[offline-native-golden] active filters:";
             for (const auto& token : filters) {
                 std::cout << ' ' << token;
             }
             std::cout << std::endl;
+        }
+        if (!input_tones.empty()) {
+            std::cout << "[offline-native-golden] custom input tones:" << std::endl;
+            for (const auto& tone : input_tones) {
+                std::cout << "  " << tone.fixture_name << " freq=" << tone.freq_hz
+                          << "Hz amp=" << tone.amplitude
+                          << " duration=" << tone.duration_seconds << "s" << std::endl;
+            }
         }
 
         maybe_emit_audio("drone-intro", 1, [] { return make_drone(); }, filters);
@@ -1448,6 +1640,16 @@ int main() {
         maybe_emit_log("burst-cluster-control", [] { return render_burst_log(); }, filters);
         maybe_emit_log(
             "reseed-log", [] { return render_reseed_log_fixture(); }, filters, ".json");
+        for (const auto& tone : input_tones) {
+            maybe_emit_audio(
+                tone.fixture_name.c_str(),
+                1,
+                [&tone] {
+                    return render_input_tone(
+                        tone.fixture_name.c_str(), tone.freq_hz, tone.amplitude, tone.duration_seconds);
+                },
+                filters);
+        }
 
         std::cout << "Native golden fixtures refreshed." << std::endl;
         return 0;
@@ -1456,4 +1658,3 @@ int main() {
         return 1;
     }
 }
-

@@ -2,12 +2,16 @@
 # Offline golden harness: build + run the native renderer without PlatformIO.
 #
 # Usage:
-#   ./scripts/offline_native_golden.sh [--filter name] [...]
+#   ./scripts/offline_native_golden.sh [--filter name] [--input-tone spec] [...]
 #
 # Options:
 #   --filter <name>    Only refresh fixtures whose manifest name or path contains
 #                      <name>. Repeat the flag for multiple filters. Tokens are
 #                      case-insensitive and can be comma-separated ("audio,logs").
+#   --input-tone <spec>
+#                      Add a custom sine-tone fixture using
+#                      [name=]freq_hz[:amplitude[:duration_seconds]].
+#                      Example: --input-tone a4=440:0.35:2.0
 #   --skip-manifest    Rebuild fixtures but leave tests/native_golden/golden.json
 #                      untouched. Handy when you just want WAVs on disk.
 #
@@ -23,6 +27,7 @@ BUILD_DIR="${ROOT_DIR}/build"
 BINARY="${BUILD_DIR}/native_golden_offline"
 
 FILTERS=()
+INPUT_TONES=()
 REFRESH_MANIFEST=1
 
 while [[ $# -gt 0 ]]; do
@@ -41,6 +46,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-manifest)
       REFRESH_MANIFEST=0
+      shift
+      ;;
+    --input-tone)
+      if [[ $# -lt 2 ]]; then
+        echo "error: --input-tone flag requires an argument" >&2
+        exit 1
+      fi
+      INPUT_TONES+=("$2")
+      shift 2
+      ;;
+    --input-tone=*)
+      INPUT_TONES+=("${1#--input-tone=}")
       shift
       ;;
     --help|-h)
@@ -62,6 +79,12 @@ if [[ ${#FILTERS[@]} -gt 0 ]]; then
   FILTER_VALUE=$(IFS=','; printf '%s' "${FILTERS[*]}")
   # shellcheck disable=SC2034  # exported for the child binary
   export SEEDBOX_OFFLINE_GOLDEN_FILTER="${FILTER_VALUE}"
+fi
+
+if [[ ${#INPUT_TONES[@]} -gt 0 ]]; then
+  INPUT_TONE_VALUE=$(IFS=';'; printf '%s' "${INPUT_TONES[*]}")
+  # shellcheck disable=SC2034  # exported for the child binary
+  export SEEDBOX_OFFLINE_GOLDEN_INPUT_TONES="${INPUT_TONE_VALUE}"
 fi
 
 mkdir -p "${BUILD_DIR}"
@@ -97,6 +120,7 @@ SOURCES=(
   src/engine/Patterns.cpp
   src/engine/EuclidEngine.cpp
   src/engine/BurstEngine.cpp
+  src/engine/ToyGenerator.cpp
   src/util/ScaleQuantizer.cpp
   src/util/ScaleQuantizerFlow.cpp
 )
@@ -112,8 +136,6 @@ echo "[offline-native-golden] rendering fixtures..."
 if [[ ${REFRESH_MANIFEST} -eq 1 ]]; then
   echo "[offline-native-golden] refreshing manifest..."
   python3 scripts/compute_golden_hashes.py --write
-  echo "[offline-native-golden] regenerating fixture header..."
-  python3 scripts/generate_native_golden_header.py
 else
   echo "[offline-native-golden] skipping manifest refresh (per --skip-manifest)"
 fi

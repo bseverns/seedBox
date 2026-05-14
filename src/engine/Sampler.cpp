@@ -37,6 +37,7 @@ float sampleRateOrFallback(float sampleRate) {
   return sampleRate > 0.0f ? sampleRate : kFallbackSampleRate;
 }
 
+#if !SEEDBOX_HW
 float envelopeOneShot(float t, float attack, float decay, float sustain, float release) {
   if (t <= 0.0f) {
     return 0.0f;
@@ -65,6 +66,7 @@ float envelopeOneShot(float t, float attack, float decay, float sustain, float r
 float totalOneShotSeconds(float attack, float decay, float release) {
   return std::max(0.0f, attack) + std::max(0.0f, decay) + std::max(0.0f, release);
 }
+#endif
 }
 
 Engine::Type Sampler::type() const noexcept { return Engine::Type::kSampler; }

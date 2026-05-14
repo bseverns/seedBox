@@ -6,6 +6,9 @@ having to re-render on every review. The placeholders are gone—these files are
 fresh captures from `tools/native_golden_offline.cpp` so you can trust the
 hashes to actually mean something.
 
+The crate now also ships `index.html`, a generated browser that reads the same
+manifest metadata and links directly to the checked-in audio/log artifacts.
+
 For the public-facing explanation of why these fixtures matter, start with
 [`docs/SeedGallery.md`](../../docs/SeedGallery.md).
 
@@ -55,7 +58,11 @@ For the public-facing explanation of why these fixtures matter, start with
 
 - Run `./scripts/offline_native_golden.sh` whenever you change an engine or the
   native golden harness. It compiles `tools/native_golden_offline.cpp`, renders
-  everything into `build/fixtures/`, and refreshes the manifest.
+  everything into `build/fixtures/`, refreshes the manifest, and rebuilds the
+  static browser.
+- For ad-hoc tone probes, add `--input-tone [name=]freq_hz[:amplitude[:duration_seconds]]`.
+  Example: `./scripts/offline_native_golden.sh --input-tone a4=440:0.35:2.0 --filter input-tone`
+  emits `input-tone-a4.wav` plus its matching control log into this crate.
 - The helper now prints `[delta] fixture-name -> path expected OLD got NEW`
   instead of bailing out when a DSP tweak changes the hash. That's your cue to
   inspect the diff, then re-run `python3 scripts/compute_golden_hashes.py --write`
@@ -64,6 +71,11 @@ For the public-facing explanation of why these fixtures matter, start with
   rehash with `python3 scripts/compute_golden_hashes.py --write` (the script
   insists on Python 3.7+, so calling it through `python3` saves you from dusty
   aliases).
+- To browse the crate and mint new input-tone fixtures from the browser, run
+  `python3 scripts/serve_golden_fixture_browser.py` from the repo root and open
+  the printed local URL.
+- Plain static servers still work for playback-only browsing, but they cannot
+  execute the golden pipeline from the browser surface.
 - Never hand-edit the fixtures; the hashes in
   [`tests/native_golden/golden.json`](../../tests/native_golden/golden.json) must
   stay in lock-step with these files. Update the manifest immediately after

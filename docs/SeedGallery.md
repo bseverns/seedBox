@@ -87,6 +87,7 @@ That makes them useful as both engineering proof and listening pedagogy.
 ## Gallery surfaces already in the repo
 
 - Artifact catalog: [`tests/native_golden/golden.json`](../tests/native_golden/golden.json)
+- Generated fixture browser: [`build/fixtures/index.html`](../build/fixtures/index.html)
 - Checked-in fixture crate: [`build/fixtures/README.md`](../build/fixtures/README.md)
 - Render/test code: [`tests/native_golden/test_main.cpp`](../tests/native_golden/test_main.cpp)
 - Helper renders: [`tests/native_golden/wav_helpers.cpp`](../tests/native_golden/wav_helpers.cpp)

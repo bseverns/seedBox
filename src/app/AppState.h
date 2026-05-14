@@ -18,8 +18,11 @@
 #include "Seed.h"
 #include "app/DisplaySnapshot.h"
 #include "app/AudioRuntimeState.h"
+#include "app/InputGateMonitor.h"
 #include "app/Preset.h"
 #include "app/PresetController.h"
+#include "app/StatusSnapshot.h"
+#include "app/TapTempoTracker.h"
 #include "app/ClockTransportController.h"
 #include "util/Smoother.h"
 #include "engine/Patterns.h"
@@ -43,6 +46,18 @@ struct StereoBufferView;
 namespace Storage {
 bool saveScene(const char* path);
 }
+
+class ModeEventRouter;
+class PresetTransitionRunner;
+class Mn42ControlRouter;
+class HostControlService;
+class SeedMutationService;
+class GateQuantizeService;
+class SeedPrimeRuntimeService;
+class AppUiClockService;
+class SeedLockService;
+class PresetStorageService;
+class DisplayTelemetryService;
 
 // AppState is the mothership for everything the performer can poke at run time.
 // It owns the seed table, orchestrates scheduling, and provides a place for the
@@ -154,26 +169,7 @@ public:
     } generator{};
   };
 
-  struct StatusSnapshot {
-    char mode[12];
-    char page[12];
-    std::uint32_t masterSeed{0};
-    std::uint32_t activePresetId{0};
-    char activePresetSlot[33];
-    float bpm{0.0f};
-    std::uint64_t schedulerTick{0};
-    bool externalClockDominant{false};
-    bool followExternalClockEnabled{false};
-    bool waitingForExternalClock{false};
-    bool quietMode{false};
-    bool globalSeedLocked{false};
-    bool focusSeedLocked{false};
-    bool hasFocusedSeed{false};
-    std::uint8_t focusSeedIndex{0};
-    std::uint32_t focusSeedId{0};
-    std::uint8_t focusSeedEngineId{0};
-    char focusSeedEngineName[16];
-  };
+  using StatusSnapshot = seedbox::StatusSnapshot;
 
   // Populate the snapshot struct with text destined for the OLED / debug
   // display. Think of this as the "mixing console" view for teaching labs.
@@ -310,9 +306,6 @@ private:
 
   void primeSeeds(uint32_t masterSeed);
   void updateClockDominance();
-  void applyMn42ModeBits(uint8_t value);
-  bool applyMn42ParamControl(uint8_t controller, uint8_t value);
-  void handleTransportGate(uint8_t value);
   void requestPresetChange(const seedbox::Preset& preset, bool crossfade, PresetBoundary boundary);
   void maybeCommitPendingPreset(uint64_t currentTick);
   void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
@@ -323,12 +316,8 @@ private:
   void clearPresetCrossfade();
   seedbox::Preset snapshotPreset(std::string_view slot) const;
   void applyPreset(const seedbox::Preset& preset, bool crossfade);
-  Seed blendSeeds(const Seed& from, const Seed& to, float t) const;
-  void applyRepeatBias(const std::vector<Seed>& previousSeeds, std::vector<Seed>& generated);
   void stepGateDivision(int delta);
   void handleGateTick();
-  void updateInputGateState(float rms, float peak);
-  uint32_t gateDivisionTicks() const;
   void updateExternalClockWatchdog();
   void applyQuantizeControl(uint8_t value);
   void captureDisplaySnapshot(DisplaySnapshot& out, UiState* ui) const;
@@ -336,17 +325,21 @@ private:
   void applyModeTransition(const InputEvents::Event& evt);
   bool handleSeedPrimeGesture(const InputEvents::Event& evt);
   void dispatchToPage(const InputEvents::Event& evt);
-  void handleHomeEvent(const InputEvents::Event& evt);
-  void handleSeedsEvent(const InputEvents::Event& evt);
-  void handleEngineEvent(const InputEvents::Event& evt);
-  void handlePerfEvent(const InputEvents::Event& evt);
-  void handleSettingsEvent(const InputEvents::Event& evt);
-  void handleUtilEvent(const InputEvents::Event& evt);
-  void handleSwingEvent(const InputEvents::Event& evt);
   void handleReseedRequest();
   void triggerLiveCaptureReseed();
   void triggerPanic();
   friend class InputGestureRouter;
+  friend class ModeEventRouter;
+  friend class PresetTransitionRunner;
+  friend class Mn42ControlRouter;
+  friend class HostControlService;
+  friend class SeedMutationService;
+  friend class GateQuantizeService;
+  friend class SeedPrimeRuntimeService;
+  friend class AppUiClockService;
+  friend class SeedLockService;
+  friend class PresetStorageService;
+  friend class DisplayTelemetryService;
   static const char* modeLabel(Mode mode);
   ClockProvider* clock() const { return clockTransport_.clock(); }
   void selectClockProvider(ClockProvider* provider);
@@ -381,8 +374,7 @@ private:
   std::vector<uint8_t> seedEngineSelections_{};
   SeedLock seedLock_{};
   SeedPrimeMode seedPrimeMode_{SeedPrimeMode::kLfsr};
-  std::vector<uint32_t> tapTempoHistory_{};
-  std::uint64_t lastTapTempoTapUs_{0};
+  TapTempoTracker tapTempo_{};
   uint32_t liveCaptureCounter_{0};
   uint8_t liveCaptureSlot_{0};
   uint8_t liveCaptureVariation_{0};
@@ -410,17 +402,12 @@ private:
   Page currentPage_{Page::kSeeds};
   uint8_t quantizeScaleIndex_{0};
   uint8_t quantizeRoot_{0};
-  float inputGateFloor_{hal::audio::kEnginePassthroughFloor};
-  float inputGateLevel_{0.0f};
-  float inputGatePeak_{0.0f};
-  bool inputGateHot_{false};
-  bool gateEdgePending_{false};
   bool panicSkipNextTick_{false};
-  uint64_t lastGateTick_{0};
   float targetBpm_{120.f};
   OnePoleSmoother bpmSmoother_{};
   bool diagnosticsEnabled_{false};
   AudioRuntimeState audioRuntime_{};
+  InputGateMonitor inputGate_{};
   GateDivision gateDivision_{GateDivision::kBars};
   bool storageButtonHeld_{false};
   bool storageLongPress_{false};
@@ -428,6 +415,4 @@ private:
   bool lockButtonHeld_{false};
   uint32_t lockButtonPressTimestamp_{0};
   float swingPercent_{0.0f};
-  std::vector<float> dryInputLeft_{};
-  std::vector<float> dryInputRight_{};
 };

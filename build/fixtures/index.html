@@ -1,0 +1,1400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SeedBox Golden Fixture Browser</title>
+  <style>
+    :root {
+      --ink: #101820;
+      --paper: #f5efe2;
+      --panel: rgba(255, 250, 242, 0.9);
+      --panel-strong: rgba(255, 246, 233, 0.96);
+      --line: rgba(16, 24, 32, 0.14);
+      --muted: #5f6b70;
+      --accent: #cc5a2c;
+      --accent-2: #127a72;
+      --shadow: rgba(16, 24, 32, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(18, 122, 114, 0.22), transparent 32%),
+        radial-gradient(circle at top right, rgba(204, 90, 44, 0.18), transparent 28%),
+        linear-gradient(180deg, #efe6d2 0%, #f9f5ec 42%, #efe7d8 100%);
+      font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    .shell {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 28px;
+      background:
+        linear-gradient(135deg, rgba(16, 24, 32, 0.96), rgba(26, 44, 51, 0.94)),
+        linear-gradient(120deg, rgba(204, 90, 44, 0.24), transparent 55%);
+      color: #f5efe2;
+      box-shadow: 0 24px 60px var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -40px -70px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(204, 90, 44, 0.34), transparent 68%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.78rem;
+      color: inherit;
+      opacity: 0.8;
+    }
+    h1 {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      font-size: clamp(2.4rem, 5vw, 4.4rem);
+      line-height: 0.95;
+      max-width: 12ch;
+    }
+    .hero-copy {
+      max-width: 72ch;
+      margin: 14px 0 0;
+      color: rgba(245, 239, 226, 0.88);
+      font-size: 1.03rem;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .stat {
+      min-width: 132px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.05rem;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    a {
+      color: inherit;
+    }
+    .hero-links a,
+    .artifact-links a {
+      text-decoration: none;
+      border-bottom: 1px solid currentColor;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(240px, 420px) auto;
+      gap: 16px;
+      align-items: center;
+      margin: 26px 0 18px;
+    }
+    .search {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--ink);
+      font: inherit;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+    .tool-card {
+      margin: 0 0 30px;
+      padding: 20px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(241, 248, 246, 0.96), rgba(249, 242, 232, 0.96));
+      box-shadow: 0 20px 36px rgba(16, 24, 32, 0.08);
+    }
+    .tool-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+      gap: 22px;
+      align-items: start;
+    }
+    .tool-card h2 {
+      margin: 0 0 10px;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      font-size: clamp(1.7rem, 3vw, 2.2rem);
+    }
+    .tool-card p {
+      margin: 0 0 12px;
+    }
+    .tone-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .tone-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.94rem;
+      color: var(--muted);
+    }
+    .tone-form label.full {
+      grid-column: 1 / -1;
+    }
+    .tone-form input {
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 14px;
+      border: 1px solid rgba(16, 24, 32, 0.16);
+      background: rgba(255, 255, 255, 0.84);
+      color: var(--ink);
+      font: inherit;
+    }
+    .tone-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+      align-items: center;
+    }
+    .tone-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: var(--accent);
+      color: #fff7ef;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(204, 90, 44, 0.24);
+    }
+    .tone-button[disabled] {
+      opacity: 0.65;
+      cursor: wait;
+    }
+    .tone-status {
+      min-height: 1.4em;
+      font-size: 0.94rem;
+    }
+    .tone-status.error {
+      color: #9d2e12;
+    }
+    .tone-status.ok {
+      color: #127a72;
+    }
+    .tool-callout {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(16, 24, 32, 0.06);
+      border: 1px solid rgba(16, 24, 32, 0.08);
+    }
+    .tool-callout code {
+      display: inline-block;
+      margin-top: 6px;
+      white-space: pre-wrap;
+    }
+    .run-log {
+      margin-top: 16px;
+    }
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin: 28px 0 14px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      font-size: clamp(1.7rem, 3.2vw, 2.3rem);
+    }
+    .section-heading p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+    }
+    .fixture-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 20px 36px rgba(16, 24, 32, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .audio-card {
+      background:
+        linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(248, 242, 231, 0.96));
+    }
+    .log-card {
+      background:
+        linear-gradient(180deg, rgba(244, 249, 247, 0.96), rgba(236, 245, 241, 0.96));
+    }
+    .card-topline h2 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+    .card-topline .eyebrow {
+      color: var(--accent-2);
+    }
+    .notes {
+      margin: 12px 0 14px;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .chip {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(16, 24, 32, 0.06);
+      border: 1px solid rgba(16, 24, 32, 0.08);
+      font-size: 0.9rem;
+    }
+    .chip-label {
+      color: var(--muted);
+    }
+    .chip-value {
+      font-weight: 700;
+    }
+    audio {
+      width: 100%;
+      margin: 6px 0 10px;
+      accent-color: var(--accent);
+    }
+    .artifact-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin: 8px 0;
+      color: var(--accent-2);
+    }
+    .pathline {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      word-break: break-all;
+    }
+    .ledger-preview {
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+    .ledger-preview summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .ledger-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin: 10px 0 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      border-radius: 16px;
+      overflow: auto;
+      white-space: pre-wrap;
+      background: rgba(16, 24, 32, 0.9);
+      color: #eaf4f2;
+      font: 0.84rem/1.5 "SFMono-Regular", "Menlo", monospace;
+      max-height: 280px;
+    }
+    .empty-state {
+      color: var(--muted);
+      padding: 18px 2px 0;
+    }
+    .hidden {
+      display: none !important;
+    }
+    @media (max-width: 800px) {
+      .shell {
+        padding: 16px 14px 42px;
+      }
+      .hero {
+        padding: 22px 18px;
+      }
+      .tool-grid,
+      .tone-form,
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">SeedBox Native Golden Harness</p>
+      <h1>Golden Fixture Browser</h1>
+      <p class="hero-copy">
+        Deterministic renders, companion ledgers, and manifest receipts in one place.
+        This page is generated from <code>tests/native_golden/golden.json</code> so the browser
+        stays anchored to checked-in artifacts instead of hand-written marketing copy.
+      </p>
+      <div class="hero-meta">
+        <div class="stat"><strong>41</strong><span>Total artifacts</span></div>
+        <div class="stat"><strong>20</strong><span>Audio fixtures</span></div>
+        <div class="stat"><strong>21</strong><span>Logs and ledgers</span></div>
+        <div class="stat"><strong>174.9s</strong><span>Total audio duration</span></div>
+      </div>
+      <div class="hero-links">
+        <a href="../../tests/native_golden/golden.json">Open manifest</a>
+        <a href="../../tests/native_golden/README.md">Golden harness README</a>
+        <a href="../../docs/SeedGallery.md">Seed gallery docs</a>
+      </div>
+      <div class="hero-meta">
+        <div class="stat"><strong>2026-04-25T18:09:05Z</strong><span>Manifest generated</span></div>
+        <div class="stat"><strong>scripts/compute_golden_hashes.py</strong><span>Last updated by</span></div>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Fixture browser controls">
+      <input id="fixture-search" class="search" type="search" placeholder="Filter by fixture name, note, or path">
+      <p class="muted">Companion <code>*-control</code> ledgers are embedded in the matching audio cards.</p>
+    </section>
+
+    <section class="tool-card" aria-labelledby="tone-tool-heading">
+      <div class="tool-grid">
+        <div>
+          <p class="eyebrow">Local-only Tooling</p>
+          <h2 id="tone-tool-heading">Cut A New Input Tone</h2>
+          <p>
+            This surface can mint a new <code>input-tone-*</code> fixture through the offline golden
+            pipeline when the browser is served by <code>scripts/serve_golden_fixture_browser.py</code>.
+            The server compiles the native helper, writes the WAV + control log, refreshes the manifest,
+            and regenerates this page before the browser reloads.
+          </p>
+          <form id="tone-form" class="tone-form">
+            <label class="full">
+              Fixture name
+              <input id="tone-name" name="name" type="text" placeholder="a4-reference">
+            </label>
+            <label>
+              Frequency (Hz)
+              <input id="tone-frequency" name="frequency_hz" type="number" min="1" max="24000" step="0.01" value="440">
+            </label>
+            <label>
+              Amplitude
+              <input id="tone-amplitude" name="amplitude" type="number" min="0.01" max="1" step="0.01" value="0.35">
+            </label>
+            <label class="full">
+              Duration (seconds)
+              <input id="tone-duration" name="duration_seconds" type="number" min="0.01" max="60" step="0.01" value="2.0">
+            </label>
+            <div class="tone-actions full">
+              <button id="tone-submit" class="tone-button" type="submit">Render Tone Fixture</button>
+              <span id="tone-status" class="tone-status muted">Idle.</span>
+            </div>
+          </form>
+          <details class="ledger-preview run-log">
+            <summary>Latest pipeline transcript</summary>
+            <pre id="tone-log">No render yet.</pre>
+          </details>
+        </div>
+        <aside class="tool-callout">
+          <p><strong>Launch command</strong></p>
+          <code>python3 scripts/serve_golden_fixture_browser.py</code>
+          <p class="muted">
+            If you opened this page via a plain static server, the tone form will refuse with a same-origin API error.
+            That is intentional: only the dedicated local dev server is allowed to run the golden pipeline.
+          </p>
+        </aside>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <h2>Audio Pressings</h2>
+        <p>Playable WAV fixtures with hashes, notes, and inline control previews.</p>
+      </div>
+      <div class="grid" id="audio-grid">
+        
+            <article class="fixture-card audio-card" data-terms="burst-cluster burst engine cluster capture so you can hear the spacing instead of inferring it. build/fixtures/burst-cluster.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>burst-cluster</h2>
+              </div>
+              <p class="notes">Burst engine cluster capture so you can hear the spacing instead of inferring it.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">0.80s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">38288</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">3a3b6e190f850bdf</span></span>
+              </div>
+              <audio controls preload="none" src="burst-cluster.wav"></audio>
+              <div class="artifact-links">
+                <a href="burst-cluster.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/burst-cluster.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: burst-cluster-control (3 lines)</summary>
+              <div class="ledger-actions">
+                <a href="burst-cluster-control.txt">Open ledger</a>
+                <span>128 bytes</span>
+              </div>
+              <pre># Burst engine trigger cluster
+cluster_count=6 spacing_samples=720 master_seed=0xb0057bad
+pending:2048,2768,3488,4208,4928,5648</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="drone-intro 110 hz mono drone capture that proves the dsp plumbing is awake. build/fixtures/drone-intro.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>drone-intro</h2>
+              </div>
+              <p class="notes">110 Hz mono drone capture that proves the DSP plumbing is awake.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">f53315eb7db89d33</span></span>
+              </div>
+              <audio controls preload="none" src="drone-intro.wav"></audio>
+              <div class="artifact-links">
+                <a href="drone-intro.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/drone-intro.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: drone-intro-control (2 lines)</summary>
+              <div class="ledger-actions">
+                <a href="drone-intro-control.txt">Open ledger</a>
+                <span>86 bytes</span>
+              </div>
+              <pre># drone-intro control log
+frames=48000 sample_rate_hz=48000 freq_hz=110 amplitude=0.5</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="engine-hybrid-stack sampler/resonator/granular hybrid stack driven by the euclid/burst schedule with macro pan + modulation lanes. build/fixtures/engine-hybrid-stack.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>engine-hybrid-stack</h2>
+              </div>
+              <p class="notes">Sampler/resonator/granular hybrid stack driven by the Euclid/Burst schedule with macro pan + modulation lanes.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">15.12s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">726000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">e78a69cb203c4627</span></span>
+              </div>
+              <audio controls preload="none" src="engine-hybrid-stack.wav"></audio>
+              <div class="artifact-links">
+                <a href="engine-hybrid-stack.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/engine-hybrid-stack.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: engine-hybrid-stack-control (7818 lines)</summary>
+              <div class="ledger-actions">
+                <a href="engine-hybrid-stack-control.txt">Open ledger</a>
+                <span>482113 bytes</span>
+              </div>
+              <pre># engine-hybrid-stack control log
+sample_rate_hz=48000 frames=726000 bpm=128 beats=28
+euclid_steps=11 fills=6 rotate=2 steps_per_beat=4
+burst_cluster=4 spacing_samples=360 frames_per_step=5625
+euclid_seed=0xc0ffee burst_seed=0xb17eb5e
+events=244
+index,engine,when_samples,euclid_step,burst_idx,pan,sampler_brightness,sampler_drive,resonator_bloom,resonator_feedback,granular_density,macro_pan
+0,sampler,5625,1,0,0.299000,0.826166,0.588318,0.794316,0.902526,0.999519,0.868260
+1,resonator,5985,1,1,0.390000,0.827859,0.587571,0.793318,0.901912,0.999515,0.868525
+2,granular,6345,1,2,0.481000,0.829547,0.586823,0.792319,0.901296,0.999512,0.868791
+3,sampler,6705,1,3,0.572000,0.831229,0.586076,0.791318,0.900678,0.999508,0.869056
+4,resonator,16875,3,0,0.537000,0.876199,0.564994,0.762423,0.882589,0.999374,0.876378
+5,granular,17235,3,1,0.628000,0.877694,0.564249,0.761380,0.881926,0.999368,0.876631
+6,sampler,17595,3,2,0.719000,0.879181,0.563504,0.760335,0.881262,0.999362,0.876884
+7,resonator,17955,3,3,0.810000,0.880661,0.562760,0.759288,0.880596,0.999356,0.877137
+8,granular,28125,5,0,0.775000,0.919303,0.541789,0.729208,0.861194,0.999144,0.884107
+9,sampler,28485,5,1,0.866000,0.920552,0.541050,0.728126,0.860486,0.999135,0.884348
+10,resonator,28845,5,2,0.250000,0.921793,0.540310,0.727043,0.859777,0.999126,0.884588
+11,granular,29205,5,3,0.341000,0.923026,0.539571,0.725959,0.859067,0.999117,0.884828
+12,sampler,39375,7,0,0.306000,0.954156,0.518783,0.694924,0.838452,0.998813,0.891440
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="engine-macro-orbits macro-orbit mix: sampler/resonator/granular voices share the euclid/burst schedule while automation lanes sweep tone, tilt, and density across the stereo field. build/fixtures/engine-macro-orbits.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>engine-macro-orbits</h2>
+              </div>
+              <p class="notes">Macro-orbit mix: sampler/resonator/granular voices share the Euclid/Burst schedule while automation lanes sweep tone, tilt, and density across the stereo field.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">18.11s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">869268</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">600d12e4f06c256a</span></span>
+              </div>
+              <audio controls preload="none" src="engine-macro-orbits.wav"></audio>
+              <div class="artifact-links">
+                <a href="engine-macro-orbits.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/engine-macro-orbits.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: engine-macro-orbits-control (14359 lines)</summary>
+              <div class="ledger-actions">
+                <a href="engine-macro-orbits-control.txt">Open ledger</a>
+                <span>1024125 bytes</span>
+              </div>
+              <pre># engine-macro-orbits control log
+sample_rate_hz=48000 frames=869268 bpm=123 beats=32
+euclid_steps=15 fills=9 rotate=5 steps_per_beat=8
+burst_cluster=5 spacing_samples=300 frames_per_step=2926.83
+euclid_seed=0xbad0bee burst_seed=0xf11ed5e
+events=765
+index,engine,when_samples,euclid_step,burst_idx,pan_seed,macro_orbit,macro_tilt,sampler_contour,sampler_crunch,resonator_damping,resonator_spark,granular_spray
+0,resonator,2927,1,0,0.305600,0.867103,0.890761,0.880435,0.723032,0.861384,0.564668,0.907716
+1,sampler,3227,1,1,0.528800,0.867006,0.891009,0.881536,0.723680,0.860904,0.562764,0.907257
+2,granular,3527,1,2,0.752000,0.866908,0.891256,0.882634,0.724326,0.860424,0.560864,0.906798
+3,resonator,3827,1,3,0.255200,0.866811,0.891503,0.883728,0.724973,0.859944,0.558968,0.906341
+4,sampler,4127,1,4,0.478400,0.866713,0.891750,0.884817,0.725619,0.859462,0.557076,0.905884
+5,sampler,8780,3,0,0.636800,0.865188,0.895537,0.901172,0.735593,0.851922,0.528315,0.898929
+6,granular,9080,3,1,0.140000,0.865089,0.895779,0.902191,0.736233,0.851431,0.526501,0.898491
+7,resonator,9380,3,2,0.363200,0.864990,0.896020,0.903205,0.736872,0.850939,0.524691,0.898054
+8,sampler,9680,3,3,0.586400,0.864891,0.896261,0.904215,0.737511,0.850447,0.522887,0.897618
+9,granular,9980,3,4,0.809600,0.864791,0.896502,0.905220,0.738149,0.849955,0.521088,0.897183
+10,resonator,11707,4,0,0.802400,0.864218,0.897881,0.910919,0.741817,0.847108,0.510833,0.894713
+11,sampler,12007,4,1,0.305600,0.864119,0.898120,0.911893,0.742453,0.846611,0.509070,0.894289
+12,granular,12307,4,2,0.528800,0.864019,0.898358,0.912863,0.743088,0.846114,0.507312,0.893867
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="engine-multi-ledger euclid-driven sampler/resonator/granular crossfade with per-hit macro orbit + burst density baked into the log. build/fixtures/engine-multi-ledger.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>engine-multi-ledger</h2>
+              </div>
+              <p class="notes">Euclid-driven sampler/resonator/granular crossfade with per-hit macro orbit + burst density baked into the log.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">8.25s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">396000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">ab49f9ffe63cc8f1</span></span>
+              </div>
+              <audio controls preload="none" src="engine-multi-ledger.wav"></audio>
+              <div class="artifact-links">
+                <a href="engine-multi-ledger.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/engine-multi-ledger.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: engine-multi-ledger-control (30 lines)</summary>
+              <div class="ledger-actions">
+                <a href="engine-multi-ledger-control.txt">Open ledger</a>
+                <span>2358 bytes</span>
+              </div>
+              <pre># Multi-engine Euclid ledger (sampler/resonator/granular blend)
+sample_rate_hz=48000 bpm=96 beats=12 steps_per_beat=4 euclid_steps=9 euclid_fills=5 euclid_rotate=2 frames_per_step=7500 tail_frames=36000 master_seed=0xfaceaced
+Columns: index,step,engine,when_samples,pan_l,pan_r,freq_hz,env_peak,macro_orbit,burst_density
+0,1,resonator,7500,0.615742,0.787948,253.962406,0.764792,0.445684,0.866798
+1,3,sampler,22500,0.571244,0.820780,196.141728,0.789503,0.533939,0.977668
+2,5,granular,37500,0.542104,0.840312,297.249790,0.811659,0.613067,0.610870
+3,6,sampler,45000,0.534391,0.845237,190.891498,0.821296,0.647487,0.352240
+4,8,granular,60000,0.533764,0.845634,288.370703,0.836870,0.703109,0.012447
+5,10,resonator,75000,0.552692,0.833386,240.825139,0.846661,0.738074,0.160207
+6,12,sampler,90000,0.589055,0.808093,186.377905,0.850000,0.750000,0.647760
+7,14,granular,105000,0.638787,0.769384,286.383283,0.846661,0.738074,0.987553
+8,15,sampler,112500,0.666990,0.745067,184.853024,0.842540,0.723358,0.977668
+9,17,granular,127500,0.726296,0.687382,278.595158,0.829749,0.677674,0.610870
+10,19,resonator,142500,0.784528,0.620093,228.864771,0.811659,0.613067,0.133202
+11,21,sampler,157500,0.836654,0.547732,175.018272,0.789503,0.533939,0.022332
+12,23,granular,172500,0.879338,0.476199,271.659834,0.764792,0.445684,0.389130
+13,24,sampler,180000,0.896641,0.442758,177.737905,0.752000,0.400000,0.647760
+14,26,granular,195000,0.923154,0.384431,276.975482,0.726636,0.309413,0.987553
+15,28,resonator,210000,0.939713,0.341965,232.992493,0.703000,0.225000,0.839793
+16,30,sampler,225000,0.947642,0.319334,178.672693,0.682704,0.152513,0.352240
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="euclid-mask stereo euclid mask capture where each gate also swings the pan and envelope curves; paired with a control ledger. build/fixtures/euclid-mask.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>euclid-mask</h2>
+              </div>
+              <p class="notes">Stereo Euclid mask capture where each gate also swings the pan and envelope curves; paired with a control ledger.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.20s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">57600</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">df0820c3e71ba936</span></span>
+              </div>
+              <audio controls preload="none" src="euclid-mask.wav"></audio>
+              <div class="artifact-links">
+                <a href="euclid-mask.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/euclid-mask.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: euclid-mask-control (53 lines)</summary>
+              <div class="ledger-actions">
+                <a href="euclid-mask-control.txt">Open ledger</a>
+                <span>1973 bytes</span>
+              </div>
+              <pre># Euclid mask audio + control log
+steps=16 fills=5 rotate=3 seed_id=24 master_seed=0xe0c10bad frames=57600 frames_per_step=1200
+mask:X..X..X..X..X...
+index,gate,when_samples,freq_hz,pan_l,pan_r,env_peak
+0,1,0,156.000,0.988,0.156,0.820
+1,0,1200,167.169,0.971,0.239,0.160
+2,0,2400,176.739,0.948,0.319,0.160
+3,1,3600,185.022,0.918,0.397,0.820
+4,0,4800,192.737,0.881,0.473,0.160
+5,0,6000,200.851,0.839,0.545,0.160
+6,1,7200,210.328,0.790,0.613,0.820
+7,0,8400,221.866,0.736,0.677,0.160
+8,0,9600,235.673,0.677,0.736,0.160
+9,1,10800,251.363,0.613,0.790,0.820
+10,0,12000,268.007,0.545,0.839,0.160
+11,0,13200,284.338,0.473,0.881,0.160
+12,1,14400,299.061,0.397,0.918,0.820
+13,0,15600,311.200,0.319,0.948,0.160
+14,0,16800,320.379,0.239,0.971,0.160
+15,0,18000,326.972,0.156,0.988,0.160
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="granular-haze stereo grain cloud with slow swirl to make sync and width slips obvious. build/fixtures/granular-haze.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>granular-haze</h2>
+              </div>
+              <p class="notes">Stereo grain cloud with slow swirl to make sync and width slips obvious.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">0ba2bd0c8e981ef5</span></span>
+              </div>
+              <audio controls preload="none" src="granular-haze.wav"></audio>
+              <div class="artifact-links">
+                <a href="granular-haze.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/granular-haze.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: granular-haze-control (6 lines)</summary>
+              <div class="ledger-actions">
+                <a href="granular-haze-control.txt">Open ledger</a>
+                <span>411 bytes</span>
+              </div>
+              <pre># granular-haze control log
+frames=48000 sample_rate_hz=48000 voices=3
+voice,when_samples,id,pitch,transpose,grain_ms,spray_ms,window_skew,spread,source,sd_slot,carrier_hz,drift
+0,4000,40,-5.0000,0.0000,95.0000,24.0000,-0.4500,0.3500,live,0,146.8300,0.1200
+1,12000,41,0.0000,7.0000,130.0000,18.0000,0.2500,0.8000,sd,1,196.0000,0.2000
+2,20000,42,7.0000,-5.0000,80.0000,12.0000,0.6500,0.6000,sd,2,246.9400,0.0800</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="layered-euclid-burst  build/fixtures/layered-euclid-burst.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>layered-euclid-burst</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">16.09s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">772364</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">f58e14d36c461c3a</span></span>
+              </div>
+              <audio controls preload="none" src="layered-euclid-burst.wav"></audio>
+              <div class="artifact-links">
+                <a href="layered-euclid-burst.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/layered-euclid-burst.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: layered-euclid-burst-control (4187 lines)</summary>
+              <div class="ledger-actions">
+                <a href="layered-euclid-burst-control.txt">Open ledger</a>
+                <span>145817 bytes</span>
+              </div>
+              <pre># layered-euclid-burst control log
+sample_rate_hz=48000 frames=772364 bpm=110 beats=24
+euclid_steps=13 fills=7 rotate=4
+burst_cluster=3 spacing_samples=420
+euclid_seed=0xe0c11d burst_seed=0xb0057d
+events=153
+index,engine,when_samples,euclid_step,burst_idx,pan,sampler_tone,resonator_color,granular_spray
+0,sampler,6545,1,0,0.355600,0.877576,0.694019,0.966506
+1,resonator,6965,1,1,0.500000,0.879893,0.695238,0.965167
+2,granular,7385,1,2,0.644400,0.882193,0.696456,0.963810
+3,sampler,19636,3,0,0.826800,0.940615,0.731697,0.918494
+4,resonator,20056,3,1,0.211200,0.942300,0.732892,0.916823
+5,granular,20476,3,2,0.355600,0.943963,0.734085,0.915149
+6,sampler,32727,5,0,0.538000,0.982174,0.768290,0.867084
+7,resonator,33147,5,1,0.682400,0.983117,0.769438,0.865524
+8,granular,33567,5,2,0.826800,0.984035,0.770584,0.863974
+9,sampler,45818,7,0,0.249200,0.999552,0.803098,0.824205
+10,resonator,46238,7,1,0.393600,0.999692,0.804177,0.823065
+11,granular,46658,7,2,0.538000,0.999806,0.805254,0.821942
+12,sampler,52364,8,0,0.484800,0.998756,0.819623,0.808421
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="long-random-take  build/fixtures/long-random-take.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>long-random-take</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1:00.00</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">2880000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">97e954c9e2a909df</span></span>
+              </div>
+              <audio controls preload="none" src="long-random-take.wav"></audio>
+              <div class="artifact-links">
+                <a href="long-random-take.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/long-random-take.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: long-random-take-control (63 lines)</summary>
+              <div class="ledger-actions">
+                <a href="long-random-take-control.txt">Open ledger</a>
+                <span>2584 bytes</span>
+              </div>
+              <pre># long-random-take control log
+master_seed=0x30f00d bpm=120 passes=10
+event,name,lane,when_samples,seed_id,prng,engine
+0,ride oxidation,2,0,1,0x67a4ae7c,2
+1,snare clipping,1,24000,2,0x62ec999d,0
+2,tape rattle,4,48000,3,0xfaf708bc,0
+3,hat patina,3,72000,4,0x3c382882,0
+4,clank shimmer,5,96000,5,0x3babbdde,2
+5,kick compost,0,120000,6,0x3e6b3d,0
+6,snare clipping,1,144000,7,0x353b517f,0
+7,hat patina,3,168000,8,0x241847ca,0
+8,clank shimmer,5,192000,9,0xfa6332ce,2
+9,tape rattle,4,216000,10,0x87cde3c8,0
+10,ride oxidation,2,240000,11,0x3ba5a16d,2
+11,kick compost,0,264000,12,0x6df6657f,0
+12,kick compost,0,288000,13,0xa7a1ca6,0
+13,ride oxidation,2,312000,14,0x2b5887dc,2
+14,clank shimmer,5,336000,15,0xd8532add,2
+15,hat patina,3,360000,16,0x40515da7,0
+16,tape rattle,4,384000,17,0x302719bf,0
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="mixer-console stereo console mix of every engine hitting around -3 dbfs for bus sanity. build/fixtures/mixer-console.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>mixer-console</h2>
+              </div>
+              <p class="notes">Stereo console mix of every engine hitting around -3 dBFS for bus sanity.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">3ba5f705dc237611</span></span>
+              </div>
+              <audio controls preload="none" src="mixer-console.wav"></audio>
+              <div class="artifact-links">
+                <a href="mixer-console.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/mixer-console.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: mixer-console-control (10 lines)</summary>
+              <div class="ledger-actions">
+                <a href="mixer-console-control.txt">Open ledger</a>
+                <span>277 bytes</span>
+              </div>
+              <pre># mixer-console control log
+frames=48000 sample_rate_hz=48000
+mono_sources:
+  drone-intro -&gt; L=0.50 R=0.50
+  sampler-grains -&gt; L=0.35 R=0.55
+  resonator-tail -&gt; L=0.40 R=0.30
+stereo_sources:
+  granular-haze -&gt; gain=0.65/0.65
+bus_fx: crossfeed=0.12 saturate=1.10
+normalize=0.92</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="modulated-sampler  build/fixtures/modulated-sampler.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>modulated-sampler</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">stereo</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">d5e2176c84560f40</span></span>
+              </div>
+              <audio controls preload="none" src="modulated-sampler.wav"></audio>
+              <div class="artifact-links">
+                <a href="modulated-sampler.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/modulated-sampler.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: modulated-sampler-control (381 lines)</summary>
+              <div class="ledger-actions">
+                <a href="modulated-sampler-control.txt">Open ledger</a>
+                <span>12457 bytes</span>
+              </div>
+              <pre># modulated-sampler control log
+frames=48000 sample_rate_hz=48000
+automation_stride_frames=128
+frame,tone,spread,grain_lfo
+0,0.575000,0.525000,0.967978
+128,0.596354,0.509085,0.963820
+256,0.617655,0.493188,0.959429
+384,0.638847,0.477327,0.954816
+512,0.659878,0.461520,0.949993
+640,0.680695,0.445783,0.944975
+768,0.701245,0.430136,0.939776
+896,0.721476,0.414595,0.934414
+1024,0.741337,0.399178,0.928906
+1152,0.760778,0.383902,0.923270
+1280,0.779749,0.368785,0.917526
+1408,0.798203,0.353843,0.911695
+1536,0.816094,0.339094,0.905797
+1664,0.833375,0.324553,0.899854
+1792,0.850004,0.310237,0.893887
+1920,0.865937,0.296163,0.887919
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="quad-bus  build/fixtures/quad-bus.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>quad-bus</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">4-channel</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">8de941a4ffe7446d</span></span>
+              </div>
+              <audio controls preload="none" src="quad-bus.wav"></audio>
+              <div class="artifact-links">
+                <a href="quad-bus.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/quad-bus.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: quad-bus-control (17 lines)</summary>
+              <div class="ledger-actions">
+                <a href="quad-bus-control.txt">Open ledger</a>
+                <span>530 bytes</span>
+              </div>
+              <pre># quad-bus control log
+frames=48000 sample_rate_hz=48000
+channel_order=[frontL,frontR,rearL,rearR]
+mono routing:
+  drone-intro -&gt; [0.25,0.25,0.10,0.10]
+  sampler-grains -&gt; [0.20,0.35,0.30,0.18]
+  resonator-tail -&gt; [0.32,0.22,0.14,0.36]
+  reseed-A -&gt; [0.30,0.18,0.42,0.24]
+  reseed-B -&gt; [0.18,0.30,0.24,0.46]
+stereo routing:
+  granular-haze -&gt; L[0.28,0.10,0.26,-0.18] R[0.10,0.28,-0.18,0.26]
+  mixer-console -&gt; L[0.48,0.16,0.20,0.20] R[0.16,0.48,0.20,0.20]
+bus_fx:
+  front_side_feed=0.55
+  tilt=0.12
+  saturate=1.08
+normalize=0.92</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="reseed-a  build/fixtures/reseed-a.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>reseed-A</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">8.35s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">401033</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">6bdbf0d855da618f</span></span>
+              </div>
+              <audio controls preload="none" src="reseed-A.wav"></audio>
+              <div class="artifact-links">
+                <a href="reseed-A.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/reseed-A.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: reseed-A-control (15 lines)</summary>
+              <div class="ledger-actions">
+                <a href="reseed-A-control.txt">Open ledger</a>
+                <span>578 bytes</span>
+              </div>
+              <pre># reseed-A control log
+master_seed=0xcafe bpm=124 passes=3
+event,name,lane,when_samples,seed_id,prng,engine
+0,ride oxidation,2,0,1,0x3677e626,2
+1,snare clipping,1,23226,2,0x24ea3606,0
+2,hat patina,3,46452,3,0x730a5fca,0
+3,kick compost,0,69677,4,0x8581e904,0
+4,hat patina,3,92903,5,0xe1065a9a,0
+5,kick compost,0,116129,6,0xb8108dd8,0
+6,ride oxidation,2,139355,7,0x8d3ce7cf,2
+7,snare clipping,1,162581,8,0xe40fcf23,0
+8,snare clipping,1,185806,9,0x480f46fe,0
+9,ride oxidation,2,209032,10,0x8f6c6d8e,2
+10,kick compost,0,232258,11,0x6e3263b6,0
+11,hat patina,3,255484,12,0x3975ee4f,0</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="reseed-b  build/fixtures/reseed-b.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>reseed-B</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">9.32s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">447485</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">998a54390940abbc</span></span>
+              </div>
+              <audio controls preload="none" src="reseed-B.wav"></audio>
+              <div class="artifact-links">
+                <a href="reseed-B.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/reseed-B.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: reseed-B-control (15 lines)</summary>
+              <div class="ledger-actions">
+                <a href="reseed-B-control.txt">Open ledger</a>
+                <span>576 bytes</span>
+              </div>
+              <pre># reseed-B control log
+master_seed=0xbeef bpm=124 passes=3
+event,name,lane,when_samples,seed_id,prng,engine
+0,snare clipping,1,0,1,0x418393c4,0
+1,kick compost,0,23226,2,0x9f8081f6,0
+2,hat patina,3,46452,3,0x25e2988a,0
+3,ride oxidation,2,69677,4,0x87dbcbc0,2
+4,hat patina,3,92903,5,0x2cb45416,0
+5,ride oxidation,2,116129,6,0xa5d1550c,2
+6,snare clipping,1,139355,7,0xdf0a355,0
+7,kick compost,0,162581,8,0xa13f21c4,0
+8,kick compost,0,185806,9,0x52b08067,0
+9,snare clipping,1,209032,10,0x3f06715d,0
+10,hat patina,3,232258,11,0x1267d3e,0
+11,ride oxidation,2,255484,12,0xf329e397,2</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="reseed-c  build/fixtures/reseed-c.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>reseed-C</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">9.91s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">475637</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">1c89c168dc810f77</span></span>
+              </div>
+              <audio controls preload="none" src="reseed-C.wav"></audio>
+              <div class="artifact-links">
+                <a href="reseed-C.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/reseed-C.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: reseed-C-control (19 lines)</summary>
+              <div class="ledger-actions">
+                <a href="reseed-C-control.txt">Open ledger</a>
+                <span>744 bytes</span>
+              </div>
+              <pre># reseed-C control log
+master_seed=0xc0ffee bpm=132 passes=4
+event,name,lane,when_samples,seed_id,prng,engine
+0,hat patina,3,0,1,0xe32a3172,0
+1,ride oxidation,2,21818,2,0xa6cba0ed,2
+2,snare clipping,1,43636,3,0xc2db9224,0
+3,kick compost,0,65455,4,0x3e234208,0
+4,hat patina,3,87273,5,0xa7a8fa42,0
+5,snare clipping,1,109091,6,0xcacfa45d,0
+6,kick compost,0,130909,7,0xd08f89bc,0
+7,ride oxidation,2,152727,8,0x522c3b0,2
+8,snare clipping,1,174545,9,0xf5da93b8,0
+9,ride oxidation,2,196364,10,0xb59385ca,2
+10,kick compost,0,218182,11,0xff92abc7,0
+11,hat patina,3,240000,12,0x6a70af19,0
+12,snare clipping,1,261818,13,0xd0e4ffb0,0
+13,ride oxidation,2,283636,14,0xf4983f2a,2
+14,kick compost,0,305455,15,0xe8f3212,0
+15,hat patina,3,327273,16,0xf070f9bf,0</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="reseed-poly  build/fixtures/reseed-poly.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>reseed-poly</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">18.75s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">899798</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">c161cef3f5417d05</span></span>
+              </div>
+              <audio controls preload="none" src="reseed-poly.wav"></audio>
+              <div class="artifact-links">
+                <a href="reseed-poly.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/reseed-poly.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: reseed-poly-control (33 lines)</summary>
+              <div class="ledger-actions">
+                <a href="reseed-poly-control.txt">Open ledger</a>
+                <span>1327 bytes</span>
+              </div>
+              <pre># reseed-poly control log
+master_seed=0xc001cafe bpm=118 passes=5
+event,name,lane,when_samples,seed_id,prng,engine
+0,snare clipping,1,0,1,0x6d58665e,0
+1,hat patina,3,24407,2,0x997f03fc,0
+2,clank shimmer,5,48814,3,0x98aea72a,2
+3,tape rattle,4,73220,4,0x51c6ab98,0
+4,kick compost,0,97627,5,0x1c26d833,0
+5,ride oxidation,2,122034,6,0x64717c9e,2
+6,clank shimmer,5,146441,7,0x1099dbbf,2
+7,kick compost,0,170847,8,0x32529b16,0
+8,hat patina,3,195254,9,0x257bdcc1,0
+9,snare clipping,1,219661,10,0x5eeb8dba,0
+10,ride oxidation,2,244068,11,0x5361a375,2
+11,tape rattle,4,268475,12,0x7fb9348f,0
+12,clank shimmer,5,292881,13,0x80f8f784,2
+13,kick compost,0,317288,14,0xbafb003b,0
+14,snare clipping,1,341695,15,0x7c1901aa,0
+15,tape rattle,4,366102,16,0xa7912d16,0
+16,ride oxidation,2,390508,17,0xd0848ebb,2
+...</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="resonator-tail plucked resonator tail that spotlights damping and feedback tweaks. build/fixtures/resonator-tail.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>resonator-tail</h2>
+              </div>
+              <p class="notes">Plucked resonator tail that spotlights damping and feedback tweaks.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">e329aa6faffb39f4</span></span>
+              </div>
+              <audio controls preload="none" src="resonator-tail.wav"></audio>
+              <div class="artifact-links">
+                <a href="resonator-tail.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/resonator-tail.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: resonator-tail-control (6 lines)</summary>
+              <div class="ledger-actions">
+                <a href="resonator-tail-control.txt">Open ledger</a>
+                <span>297 bytes</span>
+              </div>
+              <pre># resonator-tail control log
+frames=48000 sample_rate_hz=48000 voices=3
+voice,when_samples,id,pitch,excite_ms,damping,brightness,feedback,mode,bank
+0,0,10,-12.0000,12.0000,0.3500,0.5500,0.7200,1,0
+1,6000,11,-2.0000,8.0000,0.6200,0.8000,0.8500,1,2
+2,12000,12,5.0000,5.0000,0.4800,0.4500,0.6000,0,4</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="sampler-grains stacked sampler grains (root/fifth/ninth) to catch voicing and detune drift. build/fixtures/sampler-grains.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>sampler-grains</h2>
+              </div>
+              <p class="notes">Stacked sampler grains (root/fifth/ninth) to catch voicing and detune drift.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">mono</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">630fbfadca574688</span></span>
+              </div>
+              <audio controls preload="none" src="sampler-grains.wav"></audio>
+              <div class="artifact-links">
+                <a href="sampler-grains.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/sampler-grains.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: sampler-grains-control (6 lines)</summary>
+              <div class="ledger-actions">
+                <a href="sampler-grains-control.txt">Open ledger</a>
+                <span>318 bytes</span>
+              </div>
+              <pre># sampler-grains control log
+frames=48000 sample_rate_hz=48000 voices=3
+voice,when_samples,id,sample,pitch,envA,envD,envS,envR,tone,spread
+0,0,1,0,-5.0000,0.0100,0.0800,0.6000,0.2000,0.3500,0.1000
+1,8000,2,3,2.0000,0.0050,0.1200,0.5000,0.3500,0.6500,0.4500
+2,16000,3,6,9.0000,0.0200,0.1800,0.4000,0.5000,0.8000,0.8500</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="stage71-bus 7.1 layout that names every lane (l,r,c,lfe,ls,rs,lrs,rrs) and stress-tests the stage crossfeed math. build/fixtures/stage71-bus.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>stage71-bus</h2>
+              </div>
+              <p class="notes">7.1 layout that names every lane (L,R,C,LFE,Ls,Rs,Lrs,Rrs) and stress-tests the stage crossfeed math.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">8-channel</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">629833da6365625b</span></span>
+              </div>
+              <audio controls preload="none" src="stage71-bus.wav"></audio>
+              <div class="artifact-links">
+                <a href="stage71-bus.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/stage71-bus.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: stage71-bus-control (16 lines)</summary>
+              <div class="ledger-actions">
+                <a href="stage71-bus-control.txt">Open ledger</a>
+                <span>1134 bytes</span>
+              </div>
+              <pre># stage71-bus control log
+frames=48000 sample_rate_hz=48000 channels=8
+channel_order=[L,R,C,LFE,Ls,Rs,Lrs,Rrs]
+channel_comments:
+  L=front left main // base reference for panning math
+  R=front right main // mirror of L so crossfeed drift shows up
+  C=center bus // mid collapse proves downmix math
+  LFE=sub energy // watches mid-side fold plus saturation
+  Ls/Rs=side surrounds // ride front-side feeds
+  Lrs/Rrs=rear surrounds // glue + tilt relative to sides
+stem,index,name,freq_hz,amplitude,pan_speed,ms_rate,surround_rate,gains(L,R,C,LFE,Ls,Rs,Lrs,Rrs)
+0,front beam,110.0000,0.7500,0.0800,0.2000,0.0500,[1.0000;0.9500;0.6000;0.1000;0.3000;0.1800;0.1200;0.0800]
+1,center pad,164.8100,0.5500,0.0300,0.1600,0.0400,[0.5000;0.5000;1.0000;0.2500;0.2200;0.2200;0.1800;0.1800]
+2,rear bloom,220.0000,0.6500,0.0500,0.1200,0.0900,[0.3500;0.3500;0.2500;0.1500;0.6000;0.5500;0.7000;0.7000]
+3,side grit,329.6300,0.4500,0.1100,0.2800,0.1300,[0.4200;0.4800;0.2000;0.1800;0.4000;0.4200;0.3000;0.3000]
+bus_fx: front_mid_to_center=0.55 front_mid_to_lfe=0.35 front_side_to_surround=0.22 rear_glue=0.18 crossfeed=0.12 saturate={LFE:1.20,rear:1.05}</pre>
+            </details>
+            
+            </article>
+            
+
+            <article class="fixture-card audio-card" data-terms="surround-bus  build/fixtures/surround-bus.wav">
+              <div class="card-topline">
+                <p class="eyebrow">Audio fixture</p>
+                <h2>surround-bus</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Duration</span><span class="chip-value">1.00s</span></span><span class="chip"><span class="chip-label">Rate</span><span class="chip-value">48000 Hz</span></span><span class="chip"><span class="chip-label">Layout</span><span class="chip-value">6-channel</span></span><span class="chip"><span class="chip-label">Frames</span><span class="chip-value">48000</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">ec0a317b727ea022</span></span>
+              </div>
+              <audio controls preload="none" src="surround-bus.wav"></audio>
+              <div class="artifact-links">
+                <a href="surround-bus.wav">Open WAV</a>
+                <a href="../../tests/native_golden/golden.json">Manifest entry source</a>
+              </div>
+              <p class="pathline">build/fixtures/surround-bus.wav</p>
+              
+            <details class="ledger-preview">
+              <summary>Companion ledger: surround-bus-control (15 lines)</summary>
+              <div class="ledger-actions">
+                <a href="surround-bus-control.txt">Open ledger</a>
+                <span>660 bytes</span>
+              </div>
+              <pre># surround-bus control log
+frames=48000 sample_rate_hz=48000
+channel_order=[L,R,C,LFE,SL,SR]
+mono routing:
+  drone-intro -&gt; [0.20,0.20,0.35,0.40,0.05,0.05]
+  sampler-grains -&gt; [0.32,0.42,0.28,0.10,0.18,0.24]
+  resonator-tail -&gt; [0.24,0.18,0.15,0.08,0.32,0.28]
+  reseed-A -&gt; [0.36,0.22,0.12,0.05,0.34,0.26]
+  reseed-B -&gt; [0.22,0.36,0.12,0.05,0.26,0.34]
+stereo routing:
+  granular-haze -&gt; L[0.40,0.10,0.18,0.08,0.30,-0.08] R[0.10,0.40,0.18,0.08,-0.08,0.30]
+  mixer-console -&gt; L[0.55,0.20,0.12,0.05,0.16,0.06] R[0.20,0.55,0.12,0.05,0.06,0.16]
+mid_side_fx: front-&gt;C+LFE ms=[0.65,0.35] surrounds_sidefeed=0.30
+rear_glue: crossfeed=0.18 saturate=1.06
+normalize=0.92</pre>
+            </details>
+            
+            </article>
+            
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <h2>Standalone Logs</h2>
+        <p>Manifest-side receipts that do not already ride along with an audio card.</p>
+      </div>
+      <div class="grid" id="log-grid">
+        
+            <article class="fixture-card log-card" data-terms="reseed-log  build/fixtures/reseed-log.json">
+              <div class="card-topline">
+                <p class="eyebrow">Standalone log</p>
+                <h2>reseed-log</h2>
+              </div>
+              <p class="notes muted">No liner notes yet.</p>
+              <div class="chip-row">
+                <span class="chip"><span class="chip-label">Lines</span><span class="chip-value">51</span></span><span class="chip"><span class="chip-label">Bytes</span><span class="chip-value">3815</span></span><span class="chip"><span class="chip-label">Hash</span><span class="chip-value">873935e11a5704f3</span></span>
+              </div>
+              <div class="artifact-links">
+                <a href="reseed-log.json">Open log</a>
+              </div>
+              <p class="pathline">build/fixtures/reseed-log.json</p>
+              <pre>{
+  &quot;sample_rate_hz&quot;: 48000,
+  &quot;bpm&quot;: 124,
+  &quot;passes&quot;: 3,
+  &quot;stems&quot;: [
+    {&quot;lane&quot;: 0, &quot;name&quot;: &quot;kick compost&quot;, &quot;engine&quot;: &quot;sampler&quot;},
+    {&quot;lane&quot;: 1, &quot;name&quot;: &quot;snare clipping&quot;, &quot;engine&quot;: &quot;sampler&quot;},
+    {&quot;lane&quot;: 2, &quot;name&quot;: &quot;ride oxidation&quot;, &quot;engine&quot;: &quot;resonator&quot;},
+    {&quot;lane&quot;: 3, &quot;name&quot;: &quot;hat patina&quot;, &quot;engine&quot;: &quot;sampler&quot;}
+  ],
+  &quot;bounces&quot;: [
+    {
+      &quot;tag&quot;: &quot;A&quot;,
+      &quot;seed&quot;: 51966,
+      &quot;wav&quot;: &quot;out/reseed-A.wav&quot;,
+      &quot;events&quot;: [
+        {&quot;step&quot;: 0, &quot;when_samples&quot;: 0, &quot;lane&quot;: 2, &quot;engine&quot;: &quot;resonator&quot;, &quot;seed_id&quot;: 1, &quot;prng&quot;: 913827366, &quot;name&quot;: &quot;ride oxidation&quot;},
+        {&quot;step&quot;: 1, &quot;when_samples&quot;: 23226, &quot;lane&quot;: 1, &quot;engine&quot;: &quot;sampler&quot;, &quot;seed_id&quot;: 2, &quot;prng&quot;: 619329030, &quot;name&quot;: &quot;snare clipping&quot;},
+        {&quot;step&quot;: 2, &quot;when_samples&quot;: 46452, &quot;lane&quot;: 3, &quot;engine&quot;: &quot;sampler&quot;, &quot;seed_id&quot;: 3, &quot;prng&quot;: 1930059722, &quot;name&quot;: &quot;hat patina&quot;},
+        {&quot;step&quot;: 3, &quot;when_samples&quot;: 69677, &quot;lane&quot;: 0, &quot;engine&quot;: &quot;sampler&quot;, &quot;seed_id&quot;: 4, &quot;prng&quot;: 2239883524, &quot;name&quot;: &quot;kick compost&quot;},
+...</pre>
+            </article>
+            
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const searchInput = document.getElementById("fixture-search");
+    const cards = Array.from(document.querySelectorAll(".fixture-card"));
+    const toneForm = document.getElementById("tone-form");
+    const toneSubmit = document.getElementById("tone-submit");
+    const toneStatus = document.getElementById("tone-status");
+    const toneLog = document.getElementById("tone-log");
+    searchInput.addEventListener("input", () => {
+      const term = searchInput.value.trim().toLowerCase();
+      for (const card of cards) {
+        const haystack = card.dataset.terms || "";
+        card.classList.toggle("hidden", term !== "" && !haystack.includes(term));
+      }
+    });
+
+    function setToneStatus(message, kind) {
+      toneStatus.textContent = message;
+      toneStatus.className = `tone-status ${kind || "muted"}`;
+    }
+
+    toneForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      toneSubmit.disabled = true;
+      setToneStatus("Rendering through the offline golden pipeline...", "");
+      toneLog.textContent = "Running...";
+
+      const payload = {
+        name: document.getElementById("tone-name").value.trim() || null,
+        frequency_hz: Number(document.getElementById("tone-frequency").value),
+        amplitude: Number(document.getElementById("tone-amplitude").value),
+        duration_seconds: Number(document.getElementById("tone-duration").value),
+      };
+
+      try {
+        const response = await fetch("/api/input-tone", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        toneLog.textContent = [result.stdout || "", result.stderr || ""].filter(Boolean).join("\n");
+
+        if (!response.ok || !result.ok) {
+          const error = result.error || "Tone render failed.";
+          const staticServerHint = response.status === 404
+            ? " Launch the page with `python3 scripts/serve_golden_fixture_browser.py`."
+            : "";
+          throw new Error(error + staticServerHint);
+        }
+
+        setToneStatus("Tone fixture rendered. Reloading the browser surface...", "ok");
+        window.setTimeout(() => window.location.reload(), 900);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Tone render failed.";
+        setToneStatus(message, "error");
+        if (toneLog.textContent === "Running...") {
+          toneLog.textContent = message;
+        }
+      } finally {
+        toneSubmit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

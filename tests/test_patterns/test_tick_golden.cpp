@@ -49,6 +49,8 @@ std::vector<std::uint32_t> computeExpectedTickLog(float bpm, float swing, std::s
 }
 
 void maybeWriteGolden(const Scenario& scenario, const std::vector<std::uint32_t>& log) {
+  (void)scenario;
+  (void)log;
 #if ENABLE_GOLDEN
   try {
     std::filesystem::create_directories("artifacts");

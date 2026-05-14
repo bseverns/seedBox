@@ -24,6 +24,7 @@ void test_juce_host_arms_granular_live_input_for_effect_processing();
 void test_display_snapshot_builder_renders_empty_state();
 void test_display_snapshot_builder_switches_settings_hints();
 void test_audio_runtime_state_tracks_flags_and_processes_audio();
+void test_input_gate_monitor_tracks_dry_input_and_arms_once_per_hot_edge();
 void test_preset_round_trip_via_eeprom_store();
 void test_init_sim_attaches_default_store();
 void test_preset_controller_snapshots_and_defaults();
@@ -59,6 +60,10 @@ void test_randomness_panel_entropy_zero_is_deterministic();
 void test_learn_frame_reports_generator_state();
 void test_status_snapshot_reports_focus_seed_and_clock_state();
 void test_status_json_contains_expected_fields();
+void test_status_snapshot_builder_defaults_empty_state();
+void test_status_snapshot_builder_serializes_json_escapes();
+void test_tap_tempo_tracker_builds_bpm_and_resets_pending_tap();
+void test_tap_tempo_tracker_caps_history();
 
 int main(int, char**) {
   UNITY_BEGIN();
@@ -86,6 +91,7 @@ int main(int, char**) {
   RUN_TEST(test_display_snapshot_builder_renders_empty_state);
   RUN_TEST(test_display_snapshot_builder_switches_settings_hints);
   RUN_TEST(test_audio_runtime_state_tracks_flags_and_processes_audio);
+  RUN_TEST(test_input_gate_monitor_tracks_dry_input_and_arms_once_per_hot_edge);
   RUN_TEST(test_preset_round_trip_via_eeprom_store);
   RUN_TEST(test_init_sim_attaches_default_store);
   RUN_TEST(test_preset_controller_snapshots_and_defaults);
@@ -121,5 +127,9 @@ int main(int, char**) {
   RUN_TEST(test_learn_frame_reports_generator_state);
   RUN_TEST(test_status_snapshot_reports_focus_seed_and_clock_state);
   RUN_TEST(test_status_json_contains_expected_fields);
+  RUN_TEST(test_status_snapshot_builder_defaults_empty_state);
+  RUN_TEST(test_status_snapshot_builder_serializes_json_escapes);
+  RUN_TEST(test_tap_tempo_tracker_builds_bpm_and_resets_pending_tap);
+  RUN_TEST(test_tap_tempo_tracker_caps_history);
   return UNITY_END();
 }
