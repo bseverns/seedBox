@@ -45,6 +45,14 @@ struct SignalStats {
   double meanAbs = 0.0;
 };
 
+struct BlockRmsStats {
+  std::size_t blocks = 0u;
+  double min = 0.0;
+  double max = 0.0;
+  double mean = 0.0;
+  double stddev = 0.0;
+};
+
 struct ProbeSummary {
   SignalStats inputStats{};
   SignalStats outputLeftStats{};
@@ -220,6 +228,74 @@ SignalStats computeStats(const std::vector<float>& samples) {
   }
   stats.rms = std::sqrt(sumSq / static_cast<double>(samples.size()));
   stats.meanAbs = sumAbs / static_cast<double>(samples.size());
+  return stats;
+}
+
+double computeMeanAbsDiff(const std::vector<float>& leftA, const std::vector<float>& rightA,
+                          const std::vector<float>& leftB, const std::vector<float>& rightB) {
+  const std::size_t frames = std::min({leftA.size(), rightA.size(), leftB.size(), rightB.size()});
+  if (frames == 0u) {
+    return 0.0;
+  }
+
+  double diffSum = 0.0;
+  for (std::size_t i = 0; i < frames; ++i) {
+    diffSum += std::abs(static_cast<double>(leftA[i]) - static_cast<double>(leftB[i]));
+    diffSum += std::abs(static_cast<double>(rightA[i]) - static_cast<double>(rightB[i]));
+  }
+  return diffSum / static_cast<double>(frames * 2u);
+}
+
+std::uint64_t countClipRiskSamples(const std::vector<float>& left, const std::vector<float>& right) {
+  const std::size_t frames = std::min(left.size(), right.size());
+  std::uint64_t count = 0u;
+  for (std::size_t i = 0; i < frames; ++i) {
+    if (std::abs(left[i]) >= 0.999f) {
+      ++count;
+    }
+    if (std::abs(right[i]) >= 0.999f) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+BlockRmsStats computeBlockRmsStats(const std::vector<float>& left, const std::vector<float>& right,
+                                   std::size_t blockSize) {
+  BlockRmsStats stats{};
+  const std::size_t frames = std::min(left.size(), right.size());
+  if (frames == 0u || blockSize == 0u) {
+    return stats;
+  }
+
+  std::vector<double> blockRms{};
+  blockRms.reserve((frames + blockSize - 1u) / blockSize);
+  for (std::size_t offset = 0; offset < frames; offset += blockSize) {
+    const std::size_t end = std::min(offset + blockSize, frames);
+    double sumSq = 0.0;
+    for (std::size_t i = offset; i < end; ++i) {
+      const double leftValue = static_cast<double>(left[i]);
+      const double rightValue = static_cast<double>(right[i]);
+      sumSq += (leftValue * leftValue) + (rightValue * rightValue);
+    }
+    const double denom = static_cast<double>((end - offset) * 2u);
+    blockRms.push_back(std::sqrt(sumSq / denom));
+  }
+
+  stats.blocks = blockRms.size();
+  stats.min = *std::min_element(blockRms.begin(), blockRms.end());
+  stats.max = *std::max_element(blockRms.begin(), blockRms.end());
+  double sum = 0.0;
+  for (const double value : blockRms) {
+    sum += value;
+  }
+  stats.mean = sum / static_cast<double>(blockRms.size());
+  double sumSqDiff = 0.0;
+  for (const double value : blockRms) {
+    const double diff = value - stats.mean;
+    sumSqDiff += diff * diff;
+  }
+  stats.stddev = std::sqrt(sumSqDiff / static_cast<double>(blockRms.size()));
   return stats;
 }
 
@@ -596,6 +672,8 @@ int main(int argc, char** argv) {
     resampled.left = resampleLinear(input.left, input.sampleRate, config.targetSampleRate);
     if (input.channels > 1u) {
       resampled.right = resampleLinear(input.right, input.sampleRate, config.targetSampleRate);
+    } else {
+      resampled.right = resampled.left;
     }
 
     AppState app(hal::board());
@@ -666,6 +744,11 @@ int main(int argc, char** argv) {
     const SignalStats resampledInputStats = computeStats(resampled.left);
     const SignalStats outputLeftStats = computeStats(outLeft);
     const SignalStats outputRightStats = computeStats(outRight);
+    const double outputMaxPeak = std::max(outputLeftStats.peak, outputRightStats.peak);
+    const double stereoMeanAbsDiff = computeMeanAbsDiff(outLeft, outLeft, outRight, outRight);
+    const double inputOutputMeanAbsDiff = computeMeanAbsDiff(outLeft, outRight, resampled.left, resampled.right);
+    const std::uint64_t clippedSampleCount = countClipRiskSamples(outLeft, outRight);
+    const BlockRmsStats outputBlockRmsStats = computeBlockRmsStats(outLeft, outRight, config.blockSize);
 
     double diffSum = 0.0;
     for (std::size_t i = 0; i < resampled.left.size(); ++i) {
@@ -709,6 +792,18 @@ int main(int argc, char** argv) {
     summary << "    \"leftRms\": " << outputLeftStats.rms << ",\n";
     summary << "    \"rightPeak\": " << outputRightStats.peak << ",\n";
     summary << "    \"rightRms\": " << outputRightStats.rms << ",\n";
+    summary << "    \"maxPeak\": " << outputMaxPeak << ",\n";
+    summary << "    \"clippedSampleCount\": " << clippedSampleCount << ",\n";
+    summary << "    \"stereoMeanAbsDiff\": " << stereoMeanAbsDiff << ",\n";
+    summary << "    \"inputOutputMeanAbsDiff\": " << inputOutputMeanAbsDiff << ",\n";
+    summary << "    \"blockRms\": {\n";
+    summary << "      \"blocks\": " << outputBlockRmsStats.blocks << ",\n";
+    summary << "      \"min\": " << outputBlockRmsStats.min << ",\n";
+    summary << "      \"max\": " << outputBlockRmsStats.max << ",\n";
+    summary << "      \"mean\": " << outputBlockRmsStats.mean << ",\n";
+    summary << "      \"stddev\": " << outputBlockRmsStats.stddev << ",\n";
+    summary << "      \"range\": " << (outputBlockRmsStats.max - outputBlockRmsStats.min) << "\n";
+    summary << "    },\n";
     summary << "    \"leftInputMeanAbsDiff\": "
             << (resampled.left.empty() ? 0.0 : diffSum / static_cast<double>(resampled.left.size())) << "\n";
     summary << "  },\n";

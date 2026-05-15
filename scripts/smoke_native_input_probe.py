@@ -174,6 +174,15 @@ def main(argv: list[str]) -> int:
 
     _assert_output_wav(output_wav)
     _assert_json_outputs(status_json, summary_json)
+    _run(
+        [
+            sys.executable,
+            str(repo_root / "scripts" / "check_musical_effect_contract.py"),
+            "--summary",
+            str(summary_json),
+        ],
+        repo_root,
+    )
 
     print(f"Native input probe smoke passed: {work_dir}")
     return 0

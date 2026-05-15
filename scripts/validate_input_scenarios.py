@@ -15,6 +15,55 @@ DOC_PATH = REPO_ROOT / "docs" / "fixtures" / "external_input_scenarios.md"
 CPP_PATH = REPO_ROOT / "tools" / "native_input_probe.cpp"
 
 
+def _validate_number(contract: dict[str, object], path: str, failures: list[str], *, minimum: float = 0.0) -> None:
+    current: object = contract
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            failures.append(f"musical_contract missing {path}")
+            return
+        current = current[part]
+    if not isinstance(current, (int, float)) or isinstance(current, bool) or float(current) < minimum:
+        failures.append(f"musical_contract {path} must be a number >= {minimum:g}")
+
+
+def _validate_bool(contract: dict[str, object], path: str, failures: list[str]) -> None:
+    current: object = contract
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            failures.append(f"musical_contract missing {path}")
+            return
+        current = current[part]
+    if not isinstance(current, bool):
+        failures.append(f"musical_contract {path} must be true or false")
+
+
+def _validate_contract(name: str, scenario: dict[str, object], failures: list[str]) -> None:
+    contract = scenario.get("musical_contract")
+    if not isinstance(contract, dict):
+        failures.append(f"manifest scenario {name} must define musical_contract")
+        return
+    role = contract.get("role")
+    if not isinstance(role, str) or not role:
+        failures.append(f"manifest scenario {name} musical_contract.role must be non-empty")
+
+    contract_failures: list[str] = []
+    for path in (
+        "non_silence.min_output_rms",
+        "non_silence.min_output_peak",
+        "no_clipping.max_output_peak",
+        "no_clipping.max_clipped_samples",
+        "input_output_difference.min_mean_abs_diff",
+        "stereo_difference.min_mean_abs_diff",
+        "temporal_variation.min_block_rms_range",
+        "reseed.min_count",
+    ):
+        _validate_number(contract, path, contract_failures)
+    _validate_bool(contract, "stereo_difference.required", contract_failures)
+    _validate_bool(contract, "temporal_variation.required", contract_failures)
+    for failure in contract_failures:
+        failures.append(f"manifest scenario {name} {failure}")
+
+
 def _load_manifest() -> dict[str, dict[str, object]]:
     failures: list[str] = []
     with MANIFEST_PATH.open("r", encoding="utf-8") as handle:
@@ -46,6 +95,7 @@ def _load_manifest() -> dict[str, dict[str, object]]:
             failures.append(f"manifest scenario {name} has an invalid note")
         if not isinstance(participates, bool):
             failures.append(f"manifest scenario {name} must set golden_permutations to true or false")
+        _validate_contract(name, scenario, failures)
         by_name[name] = scenario
 
     if failures:

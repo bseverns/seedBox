@@ -5,37 +5,187 @@
       "name": "mixed-boot",
       "category": "hybrid-overlay",
       "note": "Desktop boot preset with granular live-input focus plus resonator, burst, and Euclid scheduler voices.",
-      "golden_permutations": true
+      "golden_permutations": true,
+      "musical_contract": {
+        "role": "hybrid-overlay",
+        "non_silence": {
+          "min_output_rms": 0.001,
+          "min_output_peak": 0.005
+        },
+        "no_clipping": {
+          "max_output_peak": 0.98,
+          "max_clipped_samples": 0
+        },
+        "input_output_difference": {
+          "min_mean_abs_diff": 0.002
+        },
+        "stereo_difference": {
+          "required": true,
+          "min_mean_abs_diff": 0.0001
+        },
+        "temporal_variation": {
+          "required": true,
+          "min_block_rms_range": 0.00005
+        },
+        "reseed": {
+          "min_count": 0
+        }
+      }
     },
     {
       "name": "granular-live",
       "category": "direct-input-processor",
       "note": "Focused granular live-input render. The file is the effect material, not just a trigger source.",
-      "golden_permutations": true
+      "golden_permutations": true,
+      "musical_contract": {
+        "role": "focused-live-processor",
+        "non_silence": {
+          "min_output_rms": 0.001,
+          "min_output_peak": 0.005
+        },
+        "no_clipping": {
+          "max_output_peak": 0.98,
+          "max_clipped_samples": 0
+        },
+        "input_output_difference": {
+          "min_mean_abs_diff": 0.002
+        },
+        "stereo_difference": {
+          "required": true,
+          "min_mean_abs_diff": 0.0001
+        },
+        "temporal_variation": {
+          "required": true,
+          "min_block_rms_range": 0.00005
+        },
+        "reseed": {
+          "min_count": 0
+        }
+      }
     },
     {
       "name": "resonator-live",
       "category": "direct-input-processor",
       "note": "Focused resonator live-input render. The file excites the resonant body directly.",
-      "golden_permutations": true
+      "golden_permutations": true,
+      "musical_contract": {
+        "role": "focused-live-processor",
+        "non_silence": {
+          "min_output_rms": 0.001,
+          "min_output_peak": 0.005
+        },
+        "no_clipping": {
+          "max_output_peak": 0.98,
+          "max_clipped_samples": 0
+        },
+        "input_output_difference": {
+          "min_mean_abs_diff": 0.002
+        },
+        "stereo_difference": {
+          "required": true,
+          "min_mean_abs_diff": 0.0001
+        },
+        "temporal_variation": {
+          "required": true,
+          "min_block_rms_range": 0.00005
+        },
+        "reseed": {
+          "min_count": 0
+        }
+      }
     },
     {
       "name": "burst-overlay",
       "category": "scheduler-overlay",
       "note": "Burst-focused live-input render with a lighter granular support layer.",
-      "golden_permutations": true
+      "golden_permutations": true,
+      "musical_contract": {
+        "role": "scheduler-overlay",
+        "non_silence": {
+          "min_output_rms": 0.001,
+          "min_output_peak": 0.005
+        },
+        "no_clipping": {
+          "max_output_peak": 0.98,
+          "max_clipped_samples": 0
+        },
+        "input_output_difference": {
+          "min_mean_abs_diff": 0.002
+        },
+        "stereo_difference": {
+          "required": true,
+          "min_mean_abs_diff": 0.0001
+        },
+        "temporal_variation": {
+          "required": true,
+          "min_block_rms_range": 0.00005
+        },
+        "reseed": {
+          "min_count": 0
+        }
+      }
     },
     {
       "name": "euclid-overlay",
       "category": "direct-input-processor",
       "note": "Euclid-focused live-input render with a lighter granular support layer.",
-      "golden_permutations": true
+      "golden_permutations": true,
+      "musical_contract": {
+        "role": "scheduler-overlay",
+        "non_silence": {
+          "min_output_rms": 0.001,
+          "min_output_peak": 0.005
+        },
+        "no_clipping": {
+          "max_output_peak": 0.98,
+          "max_clipped_samples": 0
+        },
+        "input_output_difference": {
+          "min_mean_abs_diff": 0.002
+        },
+        "stereo_difference": {
+          "required": true,
+          "min_mean_abs_diff": 0.0001
+        },
+        "temporal_variation": {
+          "required": true,
+          "min_block_rms_range": 0.00005
+        },
+        "reseed": {
+          "min_count": 0
+        }
+      }
     },
     {
       "name": "reseed-live",
       "category": "direct-input-reseed",
       "note": "Live-input render with deterministic periodic reseeds that cycle the focused processor through granular, resonator, burst, and Euclid worlds.",
-      "golden_permutations": true
+      "golden_permutations": true,
+      "musical_contract": {
+        "role": "reseed-live",
+        "non_silence": {
+          "min_output_rms": 0.001,
+          "min_output_peak": 0.005
+        },
+        "no_clipping": {
+          "max_output_peak": 0.98,
+          "max_clipped_samples": 0
+        },
+        "input_output_difference": {
+          "min_mean_abs_diff": 0.002
+        },
+        "stereo_difference": {
+          "required": true,
+          "min_mean_abs_diff": 0.0001
+        },
+        "temporal_variation": {
+          "required": true,
+          "min_block_rms_range": 0.00005
+        },
+        "reseed": {
+          "min_count": 1
+        }
+      }
     }
   ]
 }
