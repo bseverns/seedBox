@@ -19,10 +19,15 @@ class HostControlBridge {
     std::unordered_map<std::string, float>& parameterState;
     std::uint8_t& quantizeScaleParam;
     std::uint8_t& quantizeRootParam;
+    // Last-wins deferred commands. Rapid changes overwrite the pending target
+    // and the maintenance timer applies only the newest command.
     std::function<void(std::uint32_t)> requestMasterSeedReseed;
     std::function<void(std::uint8_t, std::uint8_t)> requestSeedEngineApply;
     std::function<void(std::uint8_t, std::uint8_t)> requestQuantizeApply;
+    // Accumulating deferred command. Granular source is a relative gesture, so
+    // bursts must preserve net motion per seed slot until flush.
     std::function<void(std::uint8_t, std::int16_t)> requestGranularSourceStepApply;
+    // Last-wins deferred gate policy commands.
     std::function<void(std::uint8_t)> requestGateDivisionApply;
     std::function<void(float)> requestGateFloorApply;
   };

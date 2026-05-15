@@ -193,7 +193,14 @@ That does not eliminate all UI polling, but it removes needless display-frame
 rebuilds from clean timer ticks and makes the host lane honor the cached
 snapshot that `serviceHostMaintenance()` already owns.
 
-### 3b. `tickHostAudio()` is smaller, but its callback-reachable calls still need an explicit table
+### 3b. Next receipt needed: JUCE shell external input
+
+The native input probe now gives deterministic external-WAV proof for the shared
+render stack, but it does not exercise the VST3 or standalone JUCE callback
+shell. The next missing receipt is a host/device pass using
+[`docs/receipts/templates/juce-shell-external-input-receipt.md`](../receipts/templates/juce-shell-external-input-receipt.md).
+
+### 3c. `tickHostAudio()` is smaller, but its callback-reachable calls still need an explicit table
 
 `HostAudioRealtimeService::tick(...)` is now small enough to enumerate
 directly:
@@ -281,7 +288,7 @@ The current lightening pass on `parameterChanged(...)` is now in place too:
 - `syncSeedStateFromApp()` is deferred onto the maintenance timer
 - focused-seed engine property persistence is also deferred onto the maintenance timer
 - master-seed reseeds, focused-engine swaps, quantize changes, and live-input gate settings now ride fixed-size last-wins slots instead of a heap-backed command structure
-- granular-source stepping now accumulates per-seed deltas until the maintenance timer flushes them, so rapid step bursts do not collapse into a single final move
+- granular-source stepping is the one accumulating deferred command: deltas are captured against the focus seed at event time and accumulated independently for seed slots 0-3 until the maintenance timer flushes them
 
 That does not solve the full automation-thread question, but it moves the most
 obviously non-realtime host bookkeeping out of the direct parameter callback.
@@ -315,29 +322,60 @@ itself still exposes the broader public surface underneath.
 | `setFocusSeed(...)`, `setSeedEngine(...)`, `applySeedEditFromHost(...)` | parameter path and editor UI | host/control thread | seed/runtime mutation surface |
 | `applyPresetFromHost(...)` | state restore, panel quick preset | host/control thread | immediate apply in host-audio mode when crossfade is off |
 
+## Deferred Host Parameter Flush Contract
+
+The processor intentionally has two deferred command shapes:
+
+- **Last-wins:** `masterSeed`, `seedEngine`, `quantizeScale` / `quantizeRoot`, `gateDivision`, and `gateFloor`. Rapid automation overwrites the pending scalar slot, so only the newest target reaches `AppState` on the next maintenance timer flush.
+- **Accumulates:** `granularSourceStep`. This parameter is a relative gesture, not an absolute target. The bridge computes each delta from the prior APVTS value, captures the focused seed at event time, and the processor accumulates net motion in one atomic slot per seed. Invalid seed indices are ignored rather than wrapped onto another seed.
+
+The flush order in `SeedboxAudioProcessor::flushDeferredHostParameterWork()` is:
+
+1. last-wins master seed reseed
+2. last-wins focused seed engine apply
+3. last-wins quantize apply
+4. seed-state sync back into APVTS-facing storage
+5. accumulated granular source movement, flushed independently for seed slots 0-3
+6. last-wins gate division / gate floor policy
+
+This order is deliberate: global reseed/world changes happen before focused
+engine and pitch policy, APVTS seed metadata is refreshed from the resulting
+seed state, then relative source routing and live-input gate policy are applied.
+
 ## Parameter Change Table
 
 This table classifies the current APVTS parameters handled by
 `HostControlBridge::handleParameterChange(...)`.
 
-| Parameter | Thread | Immediate? | Can allocate in bridge? | Touches scheduler/runtime timing? | Dirty display? | Notes |
+| Parameter | Thread | Apply mode | Can allocate in bridge? | Touches scheduler/runtime timing? | Dirty display? | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `masterSeed` | host/control thread | yes | not in bridge; downstream reseed work may | yes | yes, via reseed path | full runtime reseed plus seed-state sync |
-| `focusSeed` | host/control thread | yes | no bridge allocation expected | no direct timing change | yes | changes focused edit target |
-| `seedEngine` | host/control thread | yes | no bridge allocation expected | may rebuild scheduler-facing assignments | yes | also persists focused engine metadata |
-| `swingPercent` | host/control thread | yes | no bridge allocation expected | yes | yes | alters scheduler groove |
-| `quantizeScale` | host/control thread | yes | no bridge allocation expected | yes | yes | participates in quantize control state machine |
-| `quantizeRoot` | host/control thread | yes | no bridge allocation expected | yes | yes | participates in quantize control state machine |
-| `transportLatch` | host/control thread | yes | no bridge allocation expected | yes | yes | mutates transport policy |
-| `clockSourceExternal` | host/control thread | yes | no bridge allocation expected | yes | yes | clock-provider policy switch |
-| `followExternalClock` | host/control thread | yes | no bridge allocation expected | yes | yes | external-clock follow policy |
-| `followHostTransport` | host/control thread | yes | no bridge allocation expected | yes, host transport policy | no direct app dirty | bridge-local host play-state policy |
-| `debugMeters` | host/control thread | yes | no bridge allocation expected | no | yes | toggles telemetry/UI mode |
-| `granularSourceStep` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | may affect render/input routing | yes | delta is accumulated per seed until flush, so bursty step gestures do not lose intermediate motion |
-| `gateDivision` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | yes | yes | changes live-input reseed grid; now deferred through a fixed-size slot |
-| `gateFloor` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | no direct timing change | yes | changes live-input sensitivity; now deferred through a fixed-size slot |
-| `forceIdlePassthrough` | host/control thread | yes | map write only | affects callback output policy, not scheduler | no direct app dirty | processor-side passthrough policy flag |
-| `testTone` | host/control thread | yes | map write only | affects callback render choice | no direct app dirty | processor-side flag; callback applies runtime toggle |
+| `masterSeed` | host/control thread | deferred last-wins | no bridge allocation expected | yes | yes, via reseed path | full runtime reseed plus seed-state sync on maintenance flush |
+| `focusSeed` | host/control thread | direct | no bridge allocation expected | no direct timing change | yes | changes focused edit target |
+| `seedEngine` | host/control thread | deferred last-wins | no bridge allocation expected | may rebuild scheduler-facing assignments | yes | captures focus seed at event time; also persists focused engine metadata |
+| `swingPercent` | host/control thread | direct | no bridge allocation expected | yes | yes | alters scheduler groove |
+| `quantizeScale` | host/control thread | deferred last-wins | no bridge allocation expected | yes | yes | participates in quantize control state machine |
+| `quantizeRoot` | host/control thread | deferred last-wins | no bridge allocation expected | yes | yes | participates in quantize control state machine |
+| `transportLatch` | host/control thread | direct | no bridge allocation expected | yes | yes | mutates transport policy |
+| `clockSourceExternal` | host/control thread | direct | no bridge allocation expected | yes | yes | clock-provider policy switch |
+| `followExternalClock` | host/control thread | direct | no bridge allocation expected | yes | yes | external-clock follow policy |
+| `followHostTransport` | host/control thread | direct | no bridge allocation expected | yes, host transport policy | no direct app dirty | bridge-local host play-state policy |
+| `debugMeters` | host/control thread | direct | no bridge allocation expected | no | yes | toggles telemetry/UI mode |
+| `granularSourceStep` | host/control thread | deferred accumulated | no bridge allocation expected | may affect render/input routing | yes | delta is accumulated per seed until flush, so bursty step gestures do not lose intermediate motion |
+| `gateDivision` | host/control thread | deferred last-wins | no bridge allocation expected | yes | yes | changes live-input reseed grid; now deferred through a fixed-size slot |
+| `gateFloor` | host/control thread | deferred last-wins | no bridge allocation expected | no direct timing change | yes | changes live-input sensitivity; now deferred through a fixed-size slot |
+| `forceIdlePassthrough` | host/control thread | direct | map write only | affects callback output policy, not scheduler | no direct app dirty | processor-side passthrough policy flag |
+| `testTone` | host/control thread | direct | map write only | affects callback render choice | no direct app dirty | processor-side flag; callback applies runtime toggle |
+
+The remaining direct runtime mutations are intentional in the current design:
+`focusSeed` must update immediately so later relative/deferred commands target
+the selected seed; `swingPercent`, transport/clock toggles, and `debugMeters`
+are small host/control-thread policy updates; `forceIdlePassthrough`,
+`followHostTransport`, and `testTone` are processor- or bridge-local flags read
+from the callback path. If a host proves APVTS callbacks are arriving on a
+real-time thread, the next deferral candidates would be `swingPercent`,
+`transportLatch`, `clockSourceExternal`, `followExternalClock`, and
+`debugMeters`, but no current seed-state persistence path remains directly in
+`parameterChanged(...)`.
 
 ## Real-Time Safe Eventually Checklist
 

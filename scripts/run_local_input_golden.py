@@ -34,38 +34,43 @@ def _run(cmd: list[str], cwd: Path) -> None:
     subprocess.check_call(cmd, cwd=str(cwd))
 
 
-SCENARIOS: list[dict[str, str]] = [
-    {
-        "name": "mixed-boot",
-        "category": "hybrid-overlay",
-        "note": "Desktop boot preset with granular live-input focus plus resonator, burst, and Euclid scheduler voices.",
-    },
-    {
-        "name": "granular-live",
-        "category": "direct-input-processor",
-        "note": "Focused granular live-input render. The source WAV is the effect material.",
-    },
-    {
-        "name": "resonator-live",
-        "category": "direct-input-processor",
-        "note": "Focused resonator live-input render. The source WAV excites the resonant body directly.",
-    },
-    {
-        "name": "burst-overlay",
-        "category": "direct-input-processor",
-        "note": "Burst-focused live-input render with a lighter granular support layer.",
-    },
-    {
-        "name": "euclid-overlay",
-        "category": "direct-input-processor",
-        "note": "Euclid-focused live-input render with a lighter granular support layer.",
-    },
-    {
-        "name": "reseed-live",
-        "category": "direct-input-reseed",
-        "note": "Live-input render with deterministic periodic reseeds that cycle the focused processor through granular, resonator, burst, and Euclid worlds.",
-    },
-]
+SCENARIO_MANIFEST = Path("docs/fixtures/external_input_scenarios.json")
+
+
+def _load_scenarios(repo_root: Path) -> list[dict[str, object]]:
+    manifest_path = repo_root / SCENARIO_MANIFEST
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+
+    scenarios = manifest.get("scenarios")
+    if not isinstance(scenarios, list):
+        raise SystemExit(f"{manifest_path} must contain a scenarios list")
+
+    seen: set[str] = set()
+    loaded: list[dict[str, object]] = []
+    for scenario in scenarios:
+        if not isinstance(scenario, dict):
+            raise SystemExit(f"{manifest_path} contains a non-object scenario entry")
+        name = scenario.get("name")
+        category = scenario.get("category")
+        note = scenario.get("note")
+        participates = scenario.get("golden_permutations")
+        if not all(isinstance(value, str) and value for value in (name, category, note)):
+            raise SystemExit(f"{manifest_path} scenario entries require non-empty name, category, and note")
+        if not isinstance(participates, bool):
+            raise SystemExit(f"{manifest_path} scenario {name} must set golden_permutations to true or false")
+        if name in seen:
+            raise SystemExit(f"{manifest_path} duplicates scenario name: {name}")
+        seen.add(name)
+        loaded.append(
+            {
+                "name": name,
+                "category": category,
+                "note": note,
+                "golden_permutations": participates,
+            }
+        )
+    return loaded
 
 
 def main(argv: list[str]) -> int:
@@ -99,6 +104,8 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     repo_root = Path(__file__).resolve().parent.parent
+    manifest_scenarios = _load_scenarios(repo_root)
+    manifest_by_name = {str(scenario["name"]): scenario for scenario in manifest_scenarios}
     input_path = args.input.expanduser().resolve()
     if not input_path.exists():
         raise SystemExit(f"input file does not exist: {input_path}")
@@ -114,18 +121,18 @@ def main(argv: list[str]) -> int:
 
     probe = repo_root / "build" / "juce" / "seedbox_native_input_probe"
     if not args.skip_build:
-      _run(
-          [
-              "cmake",
-              "--build",
-              "build/juce",
-              "--config",
-              "Release",
-              "--target",
-              "seedbox_native_input_probe",
-          ],
-          repo_root,
-      )
+        _run(
+            [
+                "cmake",
+                "--build",
+                "build/juce",
+                "--config",
+                "Release",
+                "--target",
+                "seedbox_native_input_probe",
+            ],
+            repo_root,
+        )
     if not probe.exists():
         raise SystemExit(f"probe binary is missing: {probe}")
 
@@ -136,7 +143,15 @@ def main(argv: list[str]) -> int:
     browser_html = output_dir / "index.html"
     receipt_json = fixtures_dir / "input-receipt.json"
 
-    scenarios = SCENARIOS if args.suite == "golden-permutations" else [{"name": args.scenario, "category": "custom", "note": ""}]
+    if args.suite == "golden-permutations":
+        scenarios = [scenario for scenario in manifest_scenarios if scenario["golden_permutations"]]
+    else:
+        scenario = manifest_by_name.get(args.scenario)
+        if scenario is None:
+            raise SystemExit(f"unknown scenario in {SCENARIO_MANIFEST}: {args.scenario}")
+        scenarios = [scenario]
+    if not scenarios:
+        raise SystemExit(f"{SCENARIO_MANIFEST} does not define any scenarios for {args.suite}")
     clock_mode = "external-ppqn" if args.suite == "golden-permutations" else "internal-block"
 
     scenario_artifacts: list[dict[str, object]] = []

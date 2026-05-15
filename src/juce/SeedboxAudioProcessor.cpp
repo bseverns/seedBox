@@ -377,17 +377,18 @@ bool SeedboxAudioProcessor::applyPanelQuickPreset() {
 }
 
 void SeedboxAudioProcessor::flushDeferredHostParameterWork() {
-  // These last-wins slots are intentionally tiny: they let the host parameter
-  // path shed a few more runtime mutations without introducing a heap-backed
-  // command queue into a live instrument build.
+  // Deferred host parameter work is intentionally tiny: scalar commands are
+  // last-wins slots, while granular source movement is an accumulating per-seed
+  // delta. This keeps rapid automation bounded without a heap-backed command
+  // queue in a live instrument build.
   //
   // Deferred host command ordering matters. The current ritual is:
-  // 1. master seed reseed
-  // 2. focused seed engine apply
-  // 3. quantize apply
+  // 1. last-wins master seed reseed
+  // 2. last-wins focused seed engine apply
+  // 3. last-wins quantize apply
   // 4. seed-state sync back into APVTS-facing storage
-  // 5. granular source movement
-  // 6. gate division / gate floor policy
+  // 5. accumulated granular source movement, flushed independently per seed
+  // 6. last-wins gate division / gate floor policy
   //
   // That keeps "new world" mutations first, pitch/body policy next, host-state
   // persistence after that, and live-input gate policy last.
@@ -457,7 +458,10 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
         pendingQuantizeApply_.store(packed, std::memory_order_relaxed);
       },
       [this](std::uint8_t seedIndex, std::int16_t delta) {
-        const std::size_t slot = static_cast<std::size_t>(seedIndex) % kDeferredSeedSlotCount;
+        if (seedIndex >= kDeferredSeedSlotCount) {
+          return;
+        }
+        const std::size_t slot = static_cast<std::size_t>(seedIndex);
         pendingGranularSourceDelta_[slot].fetch_add(static_cast<int>(delta), std::memory_order_relaxed);
       },
       [this](std::uint8_t division) {

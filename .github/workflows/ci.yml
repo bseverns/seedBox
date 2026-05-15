@@ -652,6 +652,9 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS} ${CURL_LIBS}" \
             -DCMAKE_SHARED_LINKER_FLAGS_INIT="${GTK_WEBKIT_LIBS} ${CURL_LIBS}"
 
+      - name: Smoke native external-input probe
+        run: python3 scripts/smoke_native_input_probe.py --skip-configure --build-dir build/juce
+
       - name: Build Linux targets
         run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
 

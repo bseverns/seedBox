@@ -507,6 +507,9 @@ void beforeBlockReseedLive(AppState& app, ScenarioRuntime& runtime, std::uint64_
 }
 
 const ScenarioSpec& lookupScenario(std::string_view name) {
+  // Scenario setup functions live here, while user-facing metadata is mirrored in
+  // docs/fixtures/external_input_scenarios.json for Python tooling. Keep this
+  // table in sync by running scripts/validate_input_scenarios.py after edits.
   static const std::array<ScenarioSpec, 6> kScenarios{{
       {"mixed-boot", "hybrid-overlay",
        "Desktop boot preset with granular live-input focus plus resonator, burst, and Euclid scheduler voices.",

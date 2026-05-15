@@ -34,6 +34,8 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
   }
 
   if (parameterID == kParamFocusSeed) {
+    // Focus is intentionally immediate: later relative/deferred commands in the
+    // same host gesture need to capture the seed slot selected at event time.
     controlThread_.setFocusSeed(static_cast<std::uint8_t>(newValue));
     parameterState[kParamFocusSeed] = newValue;
     return true;
@@ -104,7 +106,8 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
     const auto delta = static_cast<std::int16_t>(newValue - previous);
     if (delta != 0) {
       // This is a relative gesture, not an absolute target, so the processor
-      // accumulates deltas per seed until the maintenance timer flushes them.
+      // accumulates deltas per focused seed until the maintenance timer flushes
+      // them. Capturing focus here keeps all four seed slots independent.
       context.requestGranularSourceStepApply(controlThread_.focusSeed(), delta);
     }
     parameterState[kParamGranularSourceStep] = newValue;

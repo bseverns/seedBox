@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "name": "mixed-boot",
+      "category": "hybrid-overlay",
+      "note": "Desktop boot preset with granular live-input focus plus resonator, burst, and Euclid scheduler voices.",
+      "golden_permutations": true
+    },
+    {
+      "name": "granular-live",
+      "category": "direct-input-processor",
+      "note": "Focused granular live-input render. The file is the effect material, not just a trigger source.",
+      "golden_permutations": true
+    },
+    {
+      "name": "resonator-live",
+      "category": "direct-input-processor",
+      "note": "Focused resonator live-input render. The file excites the resonant body directly.",
+      "golden_permutations": true
+    },
+    {
+      "name": "burst-overlay",
+      "category": "scheduler-overlay",
+      "note": "Burst-focused live-input render with a lighter granular support layer.",
+      "golden_permutations": true
+    },
+    {
+      "name": "euclid-overlay",
+      "category": "direct-input-processor",
+      "note": "Euclid-focused live-input render with a lighter granular support layer.",
+      "golden_permutations": true
+    },
+    {
+      "name": "reseed-live",
+      "category": "direct-input-reseed",
+      "note": "Live-input render with deterministic periodic reseeds that cycle the focused processor through granular, resonator, burst, and Euclid worlds.",
+      "golden_permutations": true
+    }
+  ]
+}

@@ -16,8 +16,10 @@ say so loudly.
 | `generate_app_service_map.py` | Emits the Mermaid service graph from `docs/architecture/app_services_map.json`. | Writes `docs/architecture/app_services.mmd` so the extracted app/JUCE/runtime seams stay documented without hand-editing the graph. |
 | `generate_native_golden_header.py` | Regenerates `tests/native_golden/fixtures_autogen.hpp` from the manifest. | Keeps the Unity harness synced with whatever `compute_golden_hashes.py` discovers so we never hand-edit fixture tables. |
 | `offline_native_golden.sh` | Compiles and runs the desktop golden renderer without PlatformIO. | Accepts `--filter` plus repeatable `--input-tone [name=]freq[:amp[:seconds]]` so you can add ad-hoc tone fixtures into `build/fixtures/` and then rehash them into the manifest. |
-| `run_local_input_golden.py` | Runs an external WAV through the native host stack, then routes the resulting local fixture crate through the golden hash/browser pipeline. | Builds `seedbox_native_input_probe`, writes probe artifacts into a `fixtures/` subfolder beside the source file by default, emits `golden.local.json`, and generates a local `index.html` without touching the checked-in manifest/header. `--suite golden-permutations` fans one source file out through the local scenario set (`mixed-boot`, `granular-live`, `resonator-live`, `burst-overlay`, `euclid-overlay`, `reseed-live`). |
+| `run_local_input_golden.py` | Runs an external WAV through the native host stack, then routes the resulting local fixture crate through the golden hash/browser pipeline. | Builds `seedbox_native_input_probe`, writes probe artifacts into a `fixtures/` subfolder beside the source file by default, emits `golden.local.json`, and generates a local `index.html` without touching the checked-in manifest/header. `--suite golden-permutations` fans one source file out through the scenario set declared in `docs/fixtures/external_input_scenarios.json`. |
 | `serve_golden_fixture_browser.py` | Serves the fixture browser with a local-only tone-generation API. | Binds a same-origin POST endpoint for the generated HTML surface, runs `offline_native_golden.sh --input-tone ...`, and reloads the browser against the refreshed manifest/browser. |
+| `smoke_native_input_probe.py` | Builds and smoke-tests `seedbox_native_input_probe` with a generated tiny WAV. | Writes scratch input/output/status/summary files under `build/native_input_probe_smoke/`, runs `granular-live`, and checks for non-silent output plus `hostDiagnostics`. |
+| `validate_input_scenarios.py` | Checks external-input scenario metadata for drift. | Compares `docs/fixtures/external_input_scenarios.json`, the `tools/native_input_probe.cpp` scenario table, and the documented scenario list. |
 | `native/tap_tempo.py` | Estimates BPM from tap timestamps. | Accepts CLI args or STDIN; prints mean interval, BPM, and optional PPQN correction so workshops can nerd out on timing math. |
 | `native/micro_offset_probe.py` | Audits per-track micro offsets. | Feed it offsets in milliseconds and it yells if any lane drifts beyond your tolerance — perfect for regression gates around swing experiments. |
 | `kicad/sgtl5000_frontend.py` | Spits out a KiCad-ready SGTL5000 codec netlist using SKiDL. | Needs KiCad libraries on disk (`KICAD_SYMBOL_DIR` etc.) and `pip install skidl`. In library-less CI or preview runs it falls back to internal stub symbols, prints a ton of warnings, and still drops `build/hw/sgtl5000_frontend.net`. |
@@ -36,6 +38,29 @@ say so loudly.
 If a script spits out renders or logs, aim them at `out/` for disposable jams or
 `artifacts/` for golden material. Both paths are already ignored by git, so the
 history stays focused on intent, not binaries.
+
+### Local external-input golden permutations
+
+Use the checked-in scenario manifest to fan a single external WAV through the
+native input probe:
+
+```bash
+python scripts/run_local_input_golden.py --input <file.wav> --suite golden-permutations
+```
+
+That writes local receipt artifacts beside the input by default. Keep those
+generated WAVs, receipt JSON files, browser output, and absolute local paths out
+of commits. If you add or rename a scenario, run:
+
+```bash
+python scripts/validate_input_scenarios.py
+```
+
+For a CI-safe smoke test that does not need any local audio file, run:
+
+```bash
+python scripts/smoke_native_input_probe.py
+```
 
 ### Flag crib sheet on demand
 

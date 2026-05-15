@@ -147,9 +147,13 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::uint8_t quantizeRootParam_{0};
   bool testToneEnabled_{false};
   std::atomic<bool> pendingSeedStateSync_{false};
+  // Deferred host parameters are either last-wins scalar commands or
+  // accumulating relative commands. The maintenance timer is the only consumer.
   std::atomic<std::uint32_t> pendingMasterSeedReseed_{0xFFFFFFFFu};
   std::atomic<std::uint32_t> pendingSeedEngineApply_{0xFFFFFFFFu};
   std::atomic<std::uint32_t> pendingQuantizeApply_{0xFFFFFFFFu};
+  // Granular source changes are relative gestures, so each seed slot keeps its
+  // own accumulated delta until flush rather than collapsing to a final value.
   std::array<std::atomic<int>, 4> pendingGranularSourceDelta_{};
   std::atomic<int> pendingGateDivisionApply_{-1};
   std::atomic<float> pendingGateFloorApply_{-1.0f};
