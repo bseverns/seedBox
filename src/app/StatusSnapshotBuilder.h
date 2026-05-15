@@ -20,6 +20,7 @@ public:
     std::string_view activePresetSlot{};
     float bpm{0.0f};
     std::uint64_t schedulerTick{0};
+    seedbox::StatusSnapshot::HostDiagnostics hostDiagnostics{};
     bool externalClockDominant{false};
     bool followExternalClockEnabled{false};
     bool waitingForExternalClock{false};

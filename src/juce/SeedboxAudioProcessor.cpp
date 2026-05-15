@@ -21,6 +21,7 @@ namespace seedbox::juce_bridge {
 namespace {
 constexpr int kMinPreparedScratchFrames = 8192;
 constexpr int kHostMaintenanceHz = 15;
+constexpr std::uint32_t kInvalidDeferredHostCommand = 0xFFFFFFFFu;
 constexpr auto kParamMasterSeed = "masterSeed";
 constexpr auto kParamFocusSeed = "focusSeed";
 constexpr auto kParamSeedEngine = "seedEngine";
@@ -71,9 +72,10 @@ constexpr std::array<const char*, 16> kParameterIds = {kParamMasterSeed,      kP
 }
 
 void SeedboxAudioProcessor::prepareScratchBuffers(int samplesPerBlock) {
-  preparedScratchFrames_ = std::max(samplesPerBlock, kMinPreparedScratchFrames);
-  inputScratch_.setSize(2, preparedScratchFrames_, false, false, true);
-  renderScratch_.setSize(2, preparedScratchFrames_, false, false, true);
+  const int preparedFrames = std::max(samplesPerBlock, kMinPreparedScratchFrames);
+  preparedScratchFrames_.store(preparedFrames, std::memory_order_relaxed);
+  inputScratch_.setSize(2, preparedFrames, false, false, true);
+  renderScratch_.setSize(2, preparedFrames, false, false, true);
 }
 
 SeedboxAudioProcessor::SeedboxAudioProcessor()
@@ -115,10 +117,11 @@ std::uint32_t SeedboxAudioProcessor::midiDroppedCount() const {
 AppState::DiagnosticsSnapshot::HostRuntime SeedboxAudioProcessor::hostDiagnostics() const {
   AppState::DiagnosticsSnapshot::HostRuntime host{};
   host.midiDroppedCount = midiDroppedCount();
-  host.oversizeBlockDropCount = oversizeBlockDropCount_;
+  host.oversizeBlockDropCount = oversizeBlockDropCount_.load(std::memory_order_relaxed);
   host.lastOversizeBlockFrames =
-      static_cast<std::uint32_t>(std::max(lastOversizeBlockFrames_, 0));
-  host.preparedScratchFrames = static_cast<std::uint32_t>(std::max(preparedScratchFrames_, 0));
+      static_cast<std::uint32_t>(std::max(lastOversizeBlockFrames_.load(std::memory_order_relaxed), 0));
+  host.preparedScratchFrames =
+      static_cast<std::uint32_t>(std::max(preparedScratchFrames_.load(std::memory_order_relaxed), 0));
   return host;
 }
 
@@ -168,12 +171,13 @@ void SeedboxAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
   const int numSamples = buffer.getNumSamples();
   const int numInputs = getTotalNumInputChannels();
   const int numOutputs = getTotalNumOutputChannels();
+  const int preparedFrames = preparedScratchFrames_.load(std::memory_order_relaxed);
 
   auto inputBus = getBusBuffer(buffer, true, 0);
   auto outputBus = getBusBuffer(buffer, false, 0);
-  if (numSamples > preparedScratchFrames_) {
-    ++oversizeBlockDropCount_;
-    lastOversizeBlockFrames_ = numSamples;
+  if (numSamples > preparedFrames) {
+    oversizeBlockDropCount_.fetch_add(1u, std::memory_order_relaxed);
+    lastOversizeBlockFrames_.store(numSamples, std::memory_order_relaxed);
     jassertfalse;
     outputBus.clear();
     midiMessages.clear();
@@ -263,6 +267,7 @@ void SeedboxAudioProcessor::timerCallback() {
   if (!prepared_) {
     return;
   }
+  flushDeferredHostParameterWork();
   // Keep maintenance alive even when no editor is visible so deferred preset
   // commits and reseed/display upkeep do not depend on UI lifetime.
   controlThreadApp_.publishHostDiagnostics(hostDiagnostics());
@@ -370,15 +375,85 @@ bool SeedboxAudioProcessor::applyPanelQuickPreset() {
   return true;
 }
 
+void SeedboxAudioProcessor::flushDeferredHostParameterWork() {
+  // These last-wins slots are intentionally tiny: they let the host parameter
+  // path shed a few more runtime mutations without introducing a heap-backed
+  // command queue into a live instrument build.
+  const std::uint32_t masterSeed =
+      pendingMasterSeedReseed_.exchange(kInvalidDeferredHostCommand, std::memory_order_relaxed);
+  if (masterSeed != kInvalidDeferredHostCommand) {
+    controlThreadApp_.reseed(masterSeed);
+    pendingSeedStateSync_.store(true, std::memory_order_relaxed);
+  }
+
+  const std::uint32_t packedSeedEngine =
+      pendingSeedEngineApply_.exchange(kInvalidDeferredHostCommand, std::memory_order_relaxed);
+  if (packedSeedEngine != kInvalidDeferredHostCommand) {
+    const auto seedIndex = static_cast<std::uint8_t>((packedSeedEngine >> 8u) & 0xFFu);
+    const auto engineId = static_cast<std::uint8_t>(packedSeedEngine & 0xFFu);
+    controlThreadApp_.setSeedEngine(seedIndex, engineId);
+    setSeedProp(static_cast<int>(seedIndex), kPropEngineId, static_cast<int>(engineId));
+  }
+
+  const std::uint32_t packedQuantize =
+      pendingQuantizeApply_.exchange(kInvalidDeferredHostCommand, std::memory_order_relaxed);
+  if (packedQuantize != kInvalidDeferredHostCommand) {
+    const auto scale = static_cast<std::uint8_t>((packedQuantize >> 8u) & 0xFFu);
+    const auto root = static_cast<std::uint8_t>(packedQuantize & 0xFFu);
+    const auto control = static_cast<std::uint8_t>((scale * 32u) + (root % 12u));
+    controlThreadApp_.applyQuantizeControl(control);
+  }
+
+  if (pendingSeedStateSync_.exchange(false, std::memory_order_relaxed)) {
+    syncSeedStateFromApp();
+  }
+
+  const std::uint32_t packedGranularSource =
+      pendingGranularSourceStepApply_.exchange(kInvalidDeferredHostCommand, std::memory_order_relaxed);
+  if (packedGranularSource != kInvalidDeferredHostCommand) {
+    const auto seedIndex = static_cast<std::uint8_t>((packedGranularSource >> 16u) & 0xFFu);
+    const auto delta = static_cast<std::int16_t>(packedGranularSource & 0xFFFFu);
+    controlThreadApp_.seedPageCycleGranularSource(seedIndex, static_cast<int>(delta));
+  }
+
+  const int pendingGateDivision = pendingGateDivisionApply_.exchange(-1, std::memory_order_relaxed);
+  if (pendingGateDivision >= 0) {
+    controlThreadApp_.setInputGateDivision(static_cast<AppState::GateDivision>(pendingGateDivision));
+  }
+
+  const float pendingGateFloor = pendingGateFloorApply_.exchange(-1.0f, std::memory_order_relaxed);
+  if (pendingGateFloor >= 0.0f) {
+    controlThreadApp_.setInputGateFloor(pendingGateFloor);
+  }
+}
+
 void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue) {
   HostControlBridge::ParameterContext context{
       parameterState_,
       quantizeScaleParam_,
       quantizeRootParam_,
-      [this]() { syncSeedStateFromApp(); },
-      [this](std::uint8_t engineId) {
-        setSeedProp(static_cast<int>(controlThreadApp_.focusSeed()), kPropEngineId, static_cast<int>(engineId));
+      [this](std::uint32_t masterSeed) {
+        pendingMasterSeedReseed_.store(masterSeed, std::memory_order_relaxed);
       },
+      [this](std::uint8_t seedIndex, std::uint8_t engineId) {
+        const std::uint32_t packed =
+            (static_cast<std::uint32_t>(seedIndex) << 8u) | static_cast<std::uint32_t>(engineId);
+        pendingSeedEngineApply_.store(packed, std::memory_order_relaxed);
+      },
+      [this](std::uint8_t scale, std::uint8_t root) {
+        const std::uint32_t packed =
+            (static_cast<std::uint32_t>(scale) << 8u) | static_cast<std::uint32_t>(root);
+        pendingQuantizeApply_.store(packed, std::memory_order_relaxed);
+      },
+      [this](std::uint8_t seedIndex, std::int16_t delta) {
+        const std::uint32_t packed = (static_cast<std::uint32_t>(seedIndex) << 16u) |
+                                     static_cast<std::uint16_t>(delta);
+        pendingGranularSourceStepApply_.store(packed, std::memory_order_relaxed);
+      },
+      [this](std::uint8_t division) {
+        pendingGateDivisionApply_.store(static_cast<int>(division), std::memory_order_relaxed);
+      },
+      [this](float floor) { pendingGateFloorApply_.store(floor, std::memory_order_relaxed); },
   };
   if (hostControl_.handleParameterChange(parameterID, newValue, context)) {
     return;

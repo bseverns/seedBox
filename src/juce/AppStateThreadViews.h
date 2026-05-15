@@ -79,7 +79,7 @@ class HostReadThreadAccess {
  public:
   explicit HostReadThreadAccess(const AppState& app) : app_(app) {}
 
-  const AppState::UiState& uiStateCache() const { return app_.uiStateCache(); }
+  const UiState& uiStateCache() const { return app_.uiStateCache(); }
   const AppState::DisplaySnapshot& displayCache() const { return app_.displayCache(); }
   const std::vector<Seed>& seeds() const { return app_.seeds(); }
   std::uint8_t focusSeed() const { return app_.focusSeed(); }

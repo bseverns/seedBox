@@ -19,8 +19,12 @@ class HostControlBridge {
     std::unordered_map<std::string, float>& parameterState;
     std::uint8_t& quantizeScaleParam;
     std::uint8_t& quantizeRootParam;
-    std::function<void()> syncSeedStateFromApp;
-    std::function<void(std::uint8_t)> persistFocusedSeedEngine;
+    std::function<void(std::uint32_t)> requestMasterSeedReseed;
+    std::function<void(std::uint8_t, std::uint8_t)> requestSeedEngineApply;
+    std::function<void(std::uint8_t, std::uint8_t)> requestQuantizeApply;
+    std::function<void(std::uint8_t, std::int16_t)> requestGranularSourceStepApply;
+    std::function<void(std::uint8_t)> requestGateDivisionApply;
+    std::function<void(float)> requestGateFloorApply;
   };
 
   HostControlBridge(HostAudioThreadAccess& audioThread, HostControlThreadAccess& controlThread)

@@ -89,8 +89,9 @@ Current parameter-thread path:
 
 1. APVTS notifies `SeedboxAudioProcessor::parameterChanged(...)`
 2. the processor builds a narrow `ParameterContext`
-3. `HostControlBridge` applies the host-thread mutation policy through `HostControlThreadAccess`
-4. the processor shell stays out of the long parameter switch
+3. `HostControlBridge` applies the immediate runtime mutation policy through `HostControlThreadAccess`
+4. heavier state-tree sync/persist side effects and a small fixed-size set of host mutations are queued for the maintenance timer
+5. the processor shell stays out of the long parameter switch
 
 Sources:
 - [SeedboxAudioProcessor.cpp:353](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L353)
@@ -107,14 +108,14 @@ Sources:
 | `app_.setDryInputFromHost(...)` | [AppState.cpp:1025](/Users/bseverns/Documents/GitHub/seedbox/src/app/AppState.cpp#L1025) | delegated | no repo lock | no | improved, still on audio thread | no longer owns heap storage, but still part of the callback path |
 | `InputGateMonitor::setDryInput(...)` | [InputGateMonitor.cpp:44](/Users/bseverns/Documents/GitHub/seedbox/src/app/InputGateMonitor.cpp#L44) | no | no repo lock | no | hardened | now borrows the current block instead of copying into owned vectors |
 | `hostControl_.syncHostTransport(...)` | [HostControlBridge.cpp:35](/Users/bseverns/Documents/GitHub/seedbox/src/juce/HostControlBridge.cpp#L35) | no repo allocation visible | no repo lock | no | likely safe-ish, not proven | host `getPosition()` is outside repo control; treat as host-boundary risk until documented |
-| plugin MIDI staging -> `ProcessorMidiBackend` | [SeedboxAudioProcessor.cpp:185](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L185) | no heap growth in current queue | no repo lock | no | improved | plugin MIDI ingress now goes through bounded preallocated staging before `midi.poll()` |
+| plugin MIDI staging -> `ProcessorMidiBackend` | [SeedboxAudioProcessor.cpp:185](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L185) | no heap growth in current queue | no repo lock | no | improved | plugin MIDI ingress now goes through bounded preallocated staging before `midi.poll()`, and its drop counter is now atomic for cross-thread diagnostics reads |
 | `hal::audio::renderHostBuffer(...)` -> `AppState::handleAudio(...)` | [AppState.cpp:517](/Users/bseverns/Documents/GitHub/seedbox/src/app/AppState.cpp#L517) | none obvious in render path once dry buffers exist | no repo lock | no | closer to safe | render path itself mostly stays in fixed buffers + engine state |
 | `app_.midi.poll()` in standalone host | [JuceHost.cpp:211](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L211) | no repo allocation in current backend | no mutex in current backend | no | improved | `JuceHost` now uses a bounded preallocated queue and drops overflow instead of locking |
 | plugin `ProcessorMidiBackend` queueing | [SeedboxAudioProcessor.cpp:659](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L659) | bounded assignment only | no repo lock | no | hardened | plugin MIDI ingress now uses fixed-capacity storage and drops overflow instead of allocating |
 | `app_.tickHostAudio()` | [SeedboxAudioProcessor.cpp:238](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L238) | not allocation-free by formal contract | no repo lock visible | no direct storage/display work | reduced, still under audit | now a thin wrapper over `HostAudioRealtimeService`, which owns the callback-safe heartbeat |
-| `app_.setHostDiagnosticsFromHost(...)` in plugin timer | [SeedboxAudioProcessor.cpp:263](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L263) | trivial struct copy only | not on audio thread | no | improved | plugin maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot |
+| `app_.setHostDiagnosticsFromHost(...)` in plugin timer | [SeedboxAudioProcessor.cpp:263](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L263) | trivial struct copy only | not on audio thread | no | improved | plugin maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot; those counters are now atomic on the write/read boundary |
 | `app_.serviceHostMaintenance()` in plugin timer | [SeedboxAudioProcessor.cpp:264](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L264) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | this is now where deferred preset commits, reseed requests, and display snapshots are serviced in the plugin lane |
-| `app_.setHostDiagnosticsFromHost(...)` in standalone timer | [JuceHost.cpp:136](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L136) | trivial struct copy only | not on audio thread | no | improved | standalone maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot |
+| `app_.setHostDiagnosticsFromHost(...)` in standalone timer | [JuceHost.cpp:136](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L136) | trivial struct copy only | not on audio thread | no | improved | standalone maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot; those counters are now atomic on the write/read boundary |
 | `app_.serviceHostMaintenance()` in standalone timer | [JuceHost.cpp:137](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L137) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | standalone now has the same basic maintenance split as the plugin lane |
 | JUCE cached display text refresh | [SeedboxAudioProcessorEditor.cpp:872](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessorEditor.cpp#L872) | no snapshot rebuild on clean frames | no repo lock | no | improved | editor/panel now consume `displayCache_` and only rebuild OLED/debug text when `displayDirty_` flips; live output meters still poll `LearnFrame` |
 | `parameterChanged(...)` -> `HostControlBridge::handleParameterChange(...)` | [SeedboxAudioProcessor.cpp:353](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L353) | map updates only in current shell | no repo lock | may touch preset/seed/UI state by design | audited, still message-thread-sensitive | host-thread parameter mutations are now centralized, but still need an explicit contract table |
@@ -248,7 +249,7 @@ runtime and editor state:
 It writes into:
 
 - `parameterState_` (`std::unordered_map`)
-- APVTS `ValueTree` helpers
+- deferred APVTS `ValueTree` helpers
 - seed and preset-facing `AppState` entry points
 
 This path is now explicitly audited and centralized inside `HostControlBridge`,
@@ -262,11 +263,27 @@ It is still not a trivial path, though:
 
 That is not the same class of bug as the audio-thread issues above, but it
 means the JUCE boundary should be documented as two-thread, not one-thread.
+The safest current wording is:
+
+- audio thread for callback-safe heartbeat work
+- host/control thread for non-audio maintenance and parameter application
+- parameter application is still host-sensitive and under audit; it should not
+  be oversold as "definitely message-thread only" across all hosts/wrappers
 
 The host-boundary counters are now part of that shared contract too. Plugin and
 standalone both publish their bounded MIDI-drop and oversize-block counters into
 `AppState::DiagnosticsSnapshot::host` from the maintenance timer, so callback
 failures are no longer trapped in shell-local debug state alone.
+
+The current lightening pass on `parameterChanged(...)` is now in place too:
+
+- immediate audible/runtime mutations still happen on the host/control path
+- `syncSeedStateFromApp()` is deferred onto the maintenance timer
+- focused-seed engine property persistence is also deferred onto the maintenance timer
+- master-seed reseeds, focused-engine swaps, quantize changes, live-input gate settings, and granular-source stepping now ride a fixed-size last-wins queue instead of a heap-backed command structure
+
+That does not solve the full automation-thread question, but it moves the most
+obviously non-realtime host bookkeeping out of the direct parameter callback.
 
 ## Current Host Entry-Point Contract
 
@@ -315,9 +332,9 @@ This table classifies the current APVTS parameters handled by
 | `followExternalClock` | host/control thread | yes | no bridge allocation expected | yes | yes | external-clock follow policy |
 | `followHostTransport` | host/control thread | yes | no bridge allocation expected | yes, host transport policy | no direct app dirty | bridge-local host play-state policy |
 | `debugMeters` | host/control thread | yes | no bridge allocation expected | no | yes | toggles telemetry/UI mode |
-| `granularSourceStep` | host/control thread | yes | no bridge allocation expected | may affect render/input routing | yes | delta-based focused-seed mutation |
-| `gateDivision` | host/control thread | yes | no bridge allocation expected | yes | yes | changes live-input reseed grid |
-| `gateFloor` | host/control thread | yes | no bridge allocation expected | no direct timing change | yes | changes live-input sensitivity |
+| `granularSourceStep` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | may affect render/input routing | yes | delta is captured with focused seed and flushed through a fixed-size last-wins slot |
+| `gateDivision` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | yes | yes | changes live-input reseed grid; now deferred through a fixed-size slot |
+| `gateFloor` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | no direct timing change | yes | changes live-input sensitivity; now deferred through a fixed-size slot |
 | `forceIdlePassthrough` | host/control thread | yes | map write only | affects callback output policy, not scheduler | no direct app dirty | processor-side passthrough policy flag |
 | `testTone` | host/control thread | yes | map write only | affects callback render choice | no direct app dirty | processor-side flag; callback applies runtime toggle |
 

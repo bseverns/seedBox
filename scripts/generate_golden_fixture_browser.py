@@ -170,7 +170,7 @@ def _log_cards(fixtures: Iterable[Dict[str, Any]], paired_log_names: Iterable[st
     return "\n".join(cards)
 
 
-def render_browser(manifest: Dict[str, Any], repo_root: Path, output_path: Path) -> str:
+def render_browser(manifest: Dict[str, Any], repo_root: Path, output_path: Path, manifest_path: Path) -> str:
     fixtures = manifest.get("fixtures", [])
     if not isinstance(fixtures, list):
         raise ValueError("Manifest fixtures field must be a list")
@@ -194,7 +194,7 @@ def render_browser(manifest: Dict[str, Any], repo_root: Path, output_path: Path)
 
     audio_cards = _audio_cards(audio, logs_by_name, repo_root, output_path)
     log_cards = _log_cards(logs, paired_log_names, repo_root, output_path)
-    manifest_href = _href(output_path, repo_root / "tests/native_golden/golden.json")
+    manifest_href = _href(output_path, manifest_path.resolve())
     readme_href = _href(output_path, repo_root / "tests/native_golden/README.md")
     gallery_href = _href(output_path, repo_root / "docs/SeedGallery.md")
 
@@ -742,7 +742,7 @@ def main(argv: List[str]) -> int:
 
     try:
         manifest = _load_manifest(manifest_path)
-        body = render_browser(manifest, repo_root, output_path)
+        body = render_browser(manifest, repo_root, output_path, args.manifest.resolve())
     except Exception as exc:
       print(f"error: {exc}", file=sys.stderr)
       return 1

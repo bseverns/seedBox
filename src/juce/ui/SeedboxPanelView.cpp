@@ -573,7 +573,14 @@ void SeedboxPanelView::refresh(bool displayDirty) {
   const float rmsDb = toDb(learn.audio.combinedRms);
   const float peakDb = toDb(learn.audio.combinedPeak);
   juce::String meter = "OUT " + juce::String(rmsDb, 1) + "dB/" + juce::String(peakDb, 1) + "dB";
-  clockStatusLabel_.setText("CLK " + clockMode + " | " + meter, juce::dontSendNotification);
+  const auto diagnostics = app.diagnosticsSnapshot();
+  const auto& host = diagnostics.host;
+  juce::String clockStatus = "CLK " + clockMode + " | " + meter;
+  if (host.midiDroppedCount > 0u || host.oversizeBlockDropCount > 0u) {
+    clockStatus << " | WARN " << juce::String(static_cast<int>(host.midiDroppedCount)) << "/"
+                << juce::String(static_cast<int>(host.oversizeBlockDropCount));
+  }
+  clockStatusLabel_.setText(clockStatus, juce::dontSendNotification);
 
   const auto& seeds = app.seeds();
   const std::size_t focus = seeds.empty() ? 0 : std::min<std::size_t>(app.focusSeed(), seeds.size() - 1);

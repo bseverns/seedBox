@@ -17,6 +17,7 @@ Scope:
 - Clock source + BPM
 - Quiet mode / panic / consent status
 - Active engine per seed
+- Host-boundary diagnostics (MIDI drops, oversize block drops, scratch capacity)
 
 Deliverables:
 - Minimal host-side status endpoint (JSON snapshot) sourced from `AppState`
@@ -25,6 +26,8 @@ Deliverables:
 Current scaffold:
 - `AppState::captureStatusSnapshot(StatusSnapshot&)` returns a typed read-only state payload.
 - `AppState::captureStatusJson()` serializes the same payload as JSON for host tooling.
+- The status payload now includes a `hostDiagnostics` block so a host-side UI can
+  surface callback trouble without scraping debug overlays.
 
 ## Phase 2: safe control actions
 

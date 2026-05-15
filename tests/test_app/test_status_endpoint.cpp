@@ -23,6 +23,12 @@ void test_status_snapshot_reports_focus_seed_and_clock_state() {
   app.setPage(AppState::Page::kStorage);
   app.setClockSourceExternalFromHost(true);
   app.seedPageToggleLock(1);
+  AppState::DiagnosticsSnapshot::HostRuntime host{};
+  host.midiDroppedCount = 5;
+  host.oversizeBlockDropCount = 1;
+  host.lastOversizeBlockFrames = 512;
+  host.preparedScratchFrames = 4096;
+  app.setHostDiagnosticsFromHost(host);
 
   AppState::StatusSnapshot status{};
   app.captureStatusSnapshot(status);
@@ -38,6 +44,10 @@ void test_status_snapshot_reports_focus_seed_and_clock_state() {
   TEST_ASSERT_EQUAL_UINT32(app.seeds()[1].id, status.focusSeedId);
   TEST_ASSERT_EQUAL_UINT8(EngineRouter::kEuclidId, status.focusSeedEngineId);
   TEST_ASSERT_EQUAL_STRING("Euclid", status.focusSeedEngineName);
+  TEST_ASSERT_EQUAL_UINT32(5u, status.hostDiagnostics.midiDroppedCount);
+  TEST_ASSERT_EQUAL_UINT32(1u, status.hostDiagnostics.oversizeBlockDropCount);
+  TEST_ASSERT_EQUAL_UINT32(512u, status.hostDiagnostics.lastOversizeBlockFrames);
+  TEST_ASSERT_EQUAL_UINT32(4096u, status.hostDiagnostics.preparedScratchFrames);
   TEST_ASSERT_EQUAL_UINT8(SeedBoxConfig::kQuietMode ? 1u : 0u, status.quietMode ? 1u : 0u);
 }
 
@@ -51,6 +61,12 @@ void test_status_json_contains_expected_fields() {
   app.setModeFromHost(AppState::Mode::SETTINGS);
   app.setPage(AppState::Page::kStorage);
   app.setClockSourceExternalFromHost(true);
+  AppState::DiagnosticsSnapshot::HostRuntime host{};
+  host.midiDroppedCount = 7;
+  host.oversizeBlockDropCount = 2;
+  host.lastOversizeBlockFrames = 1024;
+  host.preparedScratchFrames = 8192;
+  app.setHostDiagnosticsFromHost(host);
 
   const std::string json = app.captureStatusJson();
   TEST_ASSERT_FALSE(json.empty());
@@ -58,6 +74,10 @@ void test_status_json_contains_expected_fields() {
   TEST_ASSERT_EQUAL_CHAR('}', json.back());
   TEST_ASSERT_TRUE(contains(json, "\"mode\":\"SET\""));
   TEST_ASSERT_TRUE(contains(json, "\"page\":\"Storage\""));
+  TEST_ASSERT_TRUE(contains(json, "\"hostDiagnostics\":{\"midiDroppedCount\":7"));
+  TEST_ASSERT_TRUE(contains(json, "\"oversizeBlockDropCount\":2"));
+  TEST_ASSERT_TRUE(contains(json, "\"lastOversizeBlockFrames\":1024"));
+  TEST_ASSERT_TRUE(contains(json, "\"preparedScratchFrames\":8192"));
   TEST_ASSERT_TRUE(contains(json, "\"externalClockDominant\":true"));
   TEST_ASSERT_TRUE(contains(json, "\"focusSeed\":{\"present\":true"));
   TEST_ASSERT_TRUE(contains(json, "\"engineId\":3"));

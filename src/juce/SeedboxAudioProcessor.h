@@ -3,6 +3,7 @@
 #if SEEDBOX_JUCE
 
 #include <array>
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <functional>
@@ -72,9 +73,9 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   bool followHostTransportEnabled() const;
   std::uint32_t midiDroppedCount() const;
   AppState::DiagnosticsSnapshot::HostRuntime hostDiagnostics() const;
-  std::uint32_t oversizeBlockDropCount() const { return oversizeBlockDropCount_; }
-  int lastOversizeBlockFrames() const { return lastOversizeBlockFrames_; }
-  int preparedScratchFrames() const { return preparedScratchFrames_; }
+  std::uint32_t oversizeBlockDropCount() const { return oversizeBlockDropCount_.load(std::memory_order_relaxed); }
+  int lastOversizeBlockFrames() const { return lastOversizeBlockFrames_.load(std::memory_order_relaxed); }
+  int preparedScratchFrames() const { return preparedScratchFrames_.load(std::memory_order_relaxed); }
 
  private:
   struct BufferedMidiMessage {
@@ -101,7 +102,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
 
     void queueIncoming(const BufferedMidiMessage& msg);
     void setOutboundBuffer(juce::MidiBuffer* buffer) { midiOut_ = buffer; }
-    std::uint32_t droppedCount() const { return droppedCount_; }
+    std::uint32_t droppedCount() const { return droppedCount_.load(std::memory_order_relaxed); }
 
    private:
     void handle(const BufferedMidiMessage& msg);
@@ -109,7 +110,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
 
     std::array<BufferedMidiMessage, kQueueCapacity> incoming_{};
     std::size_t queuedCount_{0};
-    std::uint32_t droppedCount_{0};
+    std::atomic<std::uint32_t> droppedCount_{0};
     juce::MidiBuffer* midiOut_{nullptr};
   };
 
@@ -125,6 +126,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   void setSeedProp(int idx, const juce::Identifier& key, const juce::var& value);
   juce::String serializePresetToBase64(const seedbox::Preset& preset) const;
   void prepareScratchBuffers(int samplesPerBlock);
+  void flushDeferredHostParameterWork();
 
   AppState app_;
   HostAudioThreadAccess audioThreadApp_;
@@ -144,9 +146,16 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::uint8_t quantizeScaleParam_{0};
   std::uint8_t quantizeRootParam_{0};
   bool testToneEnabled_{false};
-  int preparedScratchFrames_{0};
-  std::uint32_t oversizeBlockDropCount_{0};
-  int lastOversizeBlockFrames_{0};
+  std::atomic<bool> pendingSeedStateSync_{false};
+  std::atomic<std::uint32_t> pendingMasterSeedReseed_{0xFFFFFFFFu};
+  std::atomic<std::uint32_t> pendingSeedEngineApply_{0xFFFFFFFFu};
+  std::atomic<std::uint32_t> pendingQuantizeApply_{0xFFFFFFFFu};
+  std::atomic<std::uint32_t> pendingGranularSourceStepApply_{0xFFFFFFFFu};
+  std::atomic<int> pendingGateDivisionApply_{-1};
+  std::atomic<float> pendingGateFloorApply_{-1.0f};
+  std::atomic<int> preparedScratchFrames_{0};
+  std::atomic<std::uint32_t> oversizeBlockDropCount_{0};
+  std::atomic<int> lastOversizeBlockFrames_{0};
 };
 
 }  // namespace seedbox::juce_bridge

@@ -158,18 +158,22 @@ std::uint32_t JuceHost::midiDroppedCount() const {
 AppState::DiagnosticsSnapshot::HostRuntime JuceHost::hostDiagnostics() const {
   AppState::DiagnosticsSnapshot::HostRuntime host{};
   host.midiDroppedCount = midiDroppedCount();
-  host.oversizeBlockDropCount = oversizeBlockDropCount_;
-  host.lastOversizeBlockFrames = static_cast<std::uint32_t>(lastOversizeBlockFrames_);
-  host.preparedScratchFrames = static_cast<std::uint32_t>(preparedScratchFrames_);
+  host.oversizeBlockDropCount = oversizeBlockDropCount_.load(std::memory_order_relaxed);
+  host.lastOversizeBlockFrames =
+      static_cast<std::uint32_t>(lastOversizeBlockFrames_.load(std::memory_order_relaxed));
+  host.preparedScratchFrames =
+      static_cast<std::uint32_t>(preparedScratchFrames_.load(std::memory_order_relaxed));
   return host;
 }
 
 void JuceHost::prepareScratchBuffers(int blockSize) {
-  preparedScratchFrames_ = static_cast<std::size_t>(std::max(blockSize, static_cast<int>(kMinPreparedScratchFrames)));
-  inputScratchLeft_.assign(preparedScratchFrames_, 0.0f);
-  inputScratchRight_.assign(preparedScratchFrames_, 0.0f);
-  scratchLeft_.assign(preparedScratchFrames_, 0.0f);
-  scratchRight_.assign(preparedScratchFrames_, 0.0f);
+  const std::size_t preparedFrames =
+      static_cast<std::size_t>(std::max(blockSize, static_cast<int>(kMinPreparedScratchFrames)));
+  preparedScratchFrames_.store(preparedFrames, std::memory_order_relaxed);
+  inputScratchLeft_.assign(preparedFrames, 0.0f);
+  inputScratchRight_.assign(preparedFrames, 0.0f);
+  scratchLeft_.assign(preparedFrames, 0.0f);
+  scratchRight_.assign(preparedFrames, 0.0f);
 }
 
 void JuceHost::startMaintenanceTimer() {
@@ -234,9 +238,10 @@ void JuceHost::audioDeviceIOCallbackWithContext(const float* const* inputChannel
     juce::FloatVectorOperations::clear(outputChannelData[ch], numSamples);
   }
   std::size_t frames = static_cast<std::size_t>(std::max(0, numSamples));
-  if (frames > preparedScratchFrames_) {
-    ++oversizeBlockDropCount_;
-    lastOversizeBlockFrames_ = frames;
+  const std::size_t preparedFrames = preparedScratchFrames_.load(std::memory_order_relaxed);
+  if (frames > preparedFrames) {
+    oversizeBlockDropCount_.fetch_add(1u, std::memory_order_relaxed);
+    lastOversizeBlockFrames_.store(frames, std::memory_order_relaxed);
     jassertfalse;
     audioThreadApp_.setDryInput(nullptr, nullptr, 0);
     return;

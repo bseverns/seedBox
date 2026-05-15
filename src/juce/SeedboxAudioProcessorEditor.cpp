@@ -201,7 +201,7 @@ void HomePageComponent::refresh() {
   juce::String focusText = "FX Slot " + juce::String(static_cast<int>(focus + 1));
   const auto& seeds = app.seeds();
   if (focus < seeds.size()) {
-    focusText << " - " << juce::String(app.engineName(seeds[focus].engine));
+    focusText << " - " << juce::String(std::string(app.engineName(seeds[focus].engine)));
   }
   focusLabel_.setText(focusText, juce::dontSendNotification);
 }
@@ -806,7 +806,7 @@ void SeedboxAudioProcessorEditor::drawDebugOverlay(juce::Graphics& g) const {
   const std::size_t focusIndex = app.focusSeed();
   juce::String engineName = "UNKNOWN";
   if (focusIndex < app.seeds().size()) {
-    engineName = juce::String(app.engineShortName(app.seeds()[focusIndex].engine).data());
+    engineName = juce::String(std::string(app.engineShortName(app.seeds()[focusIndex].engine)));
   }
 
   const char* clockName = ui.clock == UiState::ClockSource::kExternal ? "External" : "Internal";
@@ -907,10 +907,15 @@ void SeedboxAudioProcessorEditor::refreshDisplay(bool displayDirty) {
   };
   const float rmsDb = toDb(learn.audio.combinedRms);
   const float peakDb = toDb(learn.audio.combinedPeak);
+  const auto diagnostics = app.diagnosticsSnapshot();
+  const auto& host = diagnostics.host;
 
   std::ostringstream stream;
   stream << cachedDisplayText_ << "\nCLK " << clockMode
          << "\nOUT " << std::fixed << std::setprecision(1) << rmsDb << "dB/" << peakDb << "dB";
+  if (host.midiDroppedCount > 0u || host.oversizeBlockDropCount > 0u) {
+    stream << "\nWARN MIDI " << host.midiDroppedCount << " OVR " << host.oversizeBlockDropCount;
+  }
   displayLabel_.setText(stream.str(), juce::dontSendNotification);
 }
 

@@ -113,6 +113,10 @@ repo still spans two different JUCE execution sites:
   `HostControlThreadAccess` in the plugin lane, even when no editor is open.
 - `JuceHost` now owns the same kind of non-audio maintenance timer in the
   standalone shim.
+- `HostControlBridge` now routes a small fixed-size deferred set through that
+  maintenance path so master-seed reseeds, focused-engine swaps, quantize,
+  live-input gate settings, and granular-source stepping do not need to finish
+  inline with every host parameter callback.
 - `InputGateMonitor::setDryInput` now borrows the current host block instead of
   owning copied audio, but it still executes on the audio callback path.
 - JUCE OLED/debug text now consumes `displayCache_` and only rebuilds those

@@ -17,7 +17,8 @@ OLED snapshot.【F:src/app/AppState.cpp†L268-L513】
 
 For host tooling, `AppState` now also exposes a read-only status payload via
 `captureStatusSnapshot` and `captureStatusJson`, so external UIs can poll mode,
-clock, preset, and focus-seed state without touching mutable internals.
+clock, preset, focus-seed state, and host-boundary diagnostics without touching
+mutable internals.
 
 Most of the real drama lives inside `processInputEvents()`. Incoming gestures
 are grouped into mode transitions, seed-prime tweaks, clock negotiations, and

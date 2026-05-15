@@ -486,6 +486,11 @@ def main(argv):
         type=Path,
         help="Where the generated fixture browser should land (default: build/fixtures/index.html)",
     )
+    parser.add_argument(
+        "--skip-header",
+        action="store_true",
+        help="Skip regenerating tests/native_golden/fixtures_autogen.hpp on --write",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -502,16 +507,17 @@ def main(argv):
             json.dump(manifest, handle, indent=2)
             handle.write("\n")
         print("\nmanifest updated -> {}".format(args.manifest))
-        generator = (Path(__file__).resolve().parent / "generate_native_golden_header.py").resolve()
-        subprocess.check_call(
-            [
-                sys.executable,
-                str(generator),
-                "--manifest",
-                str(args.manifest),
-            ]
-        )
-        print("fixture header refreshed -> tests/native_golden/fixtures_autogen.hpp")
+        if not args.skip_header:
+            generator = (Path(__file__).resolve().parent / "generate_native_golden_header.py").resolve()
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    str(generator),
+                    "--manifest",
+                    str(args.manifest),
+                ]
+            )
+            print("fixture header refreshed -> tests/native_golden/fixtures_autogen.hpp")
         if not args.skip_browser:
             browser_generator = (Path(__file__).resolve().parent / "generate_golden_fixture_browser.py").resolve()
             subprocess.check_call(

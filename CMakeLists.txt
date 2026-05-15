@@ -221,3 +221,21 @@ target_link_libraries(seedbox_juce_vst3_probe
     juce::juce_audio_formats
     juce::juce_core
 )
+
+add_executable(seedbox_native_input_probe
+  ${CMAKE_CURRENT_SOURCE_DIR}/tools/native_input_probe.cpp
+)
+
+target_include_directories(seedbox_native_input_probe PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_compile_definitions(seedbox_native_input_probe PRIVATE
+  ${SEEDBOX_COMPILE_DEFINITIONS}
+)
+
+target_link_libraries(seedbox_native_input_probe
+  PRIVATE
+    seedbox_core
+)

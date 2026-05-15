@@ -4,6 +4,12 @@
 
 namespace seedbox {
 struct StatusSnapshot {
+  struct HostDiagnostics {
+    std::uint32_t midiDroppedCount{0};
+    std::uint32_t oversizeBlockDropCount{0};
+    std::uint32_t lastOversizeBlockFrames{0};
+    std::uint32_t preparedScratchFrames{0};
+  } hostDiagnostics{};
   char mode[12];
   char page[12];
   std::uint32_t masterSeed{0};

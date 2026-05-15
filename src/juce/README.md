@@ -40,8 +40,10 @@ The editor now boots straight into a single-page "panel" that mirrors the SVG sk
 
 - Fire up the standalone: the device selector now asks for two inputs and two outputs so you can monitor a synth or mic straight through the plugin. The processor renders engine/test tone into a scratch buffer first; if that buffer is silent we blast the input straight to the output bus (mono duplicated if needed). If the engine or test tone is active it takes priority.
 - In a DAW, enable track monitoring and make sure the VST3 reports a stereo input bus. The plugin audio heartbeat (`app_.tickHostAudio()`) now runs every block, while a processor-owned JUCE timer services `serviceHostMaintenance()` off the audio callback so deferred upkeep no longer depends on an open editor.
+- Host parameter changes still mutate the runtime immediately where that cost is small, but the maintenance timer now owns the heavier seed-state sync path plus a small fixed-size deferred set for master-seed reseeds, focused-engine changes, quantize, live-input gate settings, and granular-source stepping.
 - The editor/panel now consume the cached display snapshot the maintenance timer already builds. OLED/debug text only rebuilds when the runtime marks that snapshot dirty; the output meter still updates live on the UI timer.
 - In `SeedBoxConfig::kUiDebug` builds, the overlay now also shows host diagnostics for dropped MIDI messages and fail-closed oversize blocks. The overlay reads those through the shared `AppState::DiagnosticsSnapshot::host` snapshot, so they are not editor-local only.
+- The main editor display and desktop panel now also surface a light warning when those host counters are nonzero, so callback trouble is visible even outside the debug overlay.
 - ENGINE knobs in the editor are live. Tweaks write straight into the focused seed, stash per-seed properties in the APVTS state tree (`seed0` .. `seed3`), and get replayed when the DAW reloads a preset.
 
 ## Keyboard shortcuts (desktop stand-in for panel combos)

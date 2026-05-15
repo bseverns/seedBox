@@ -28,8 +28,7 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
   auto& parameterState = context.parameterState;
 
   if (parameterID == kParamMasterSeed) {
-    controlThread_.reseed(static_cast<std::uint32_t>(newValue));
-    context.syncSeedStateFromApp();
+    context.requestMasterSeedReseed(static_cast<std::uint32_t>(newValue));
     parameterState[kParamMasterSeed] = newValue;
     return true;
   }
@@ -42,8 +41,8 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
 
   if (parameterID == kParamSeedEngine) {
     const auto engineId = static_cast<std::uint8_t>(newValue);
-    controlThread_.setSeedEngine(controlThread_.focusSeed(), engineId);
-    context.persistFocusedSeedEngine(engineId);
+    const auto focusSeed = controlThread_.focusSeed();
+    context.requestSeedEngineApply(focusSeed, engineId);
     parameterState[kParamSeedEngine] = newValue;
     return true;
   }
@@ -56,18 +55,14 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
 
   if (parameterID == kParamQuantizeScale) {
     context.quantizeScaleParam = static_cast<std::uint8_t>(newValue);
-    const auto control = static_cast<std::uint8_t>((context.quantizeScaleParam * 32u) +
-                                                   (context.quantizeRootParam % 12u));
-    controlThread_.applyQuantizeControl(control);
+    context.requestQuantizeApply(context.quantizeScaleParam, context.quantizeRootParam);
     parameterState[kParamQuantizeScale] = newValue;
     return true;
   }
 
   if (parameterID == kParamQuantizeRoot) {
     context.quantizeRootParam = static_cast<std::uint8_t>(newValue);
-    const auto control = static_cast<std::uint8_t>((context.quantizeScaleParam * 32u) +
-                                                   (context.quantizeRootParam % 12u));
-    controlThread_.applyQuantizeControl(control);
+    context.requestQuantizeApply(context.quantizeScaleParam, context.quantizeRootParam);
     parameterState[kParamQuantizeRoot] = newValue;
     return true;
   }
@@ -106,23 +101,22 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
 
   if (parameterID == kParamGranularSourceStep) {
     const float previous = parameterState[kParamGranularSourceStep];
-    const auto delta = static_cast<int>(newValue - previous);
+    const auto delta = static_cast<std::int16_t>(newValue - previous);
     if (delta != 0) {
-      controlThread_.seedPageCycleGranularSource(controlThread_.focusSeed(), delta);
+      context.requestGranularSourceStepApply(controlThread_.focusSeed(), delta);
     }
     parameterState[kParamGranularSourceStep] = newValue;
     return true;
   }
 
   if (parameterID == kParamGateDivision) {
-    const auto division = static_cast<AppState::GateDivision>(static_cast<int>(newValue));
-    controlThread_.setInputGateDivision(division);
+    context.requestGateDivisionApply(static_cast<std::uint8_t>(newValue));
     parameterState[kParamGateDivision] = newValue;
     return true;
   }
 
   if (parameterID == kParamGateFloor) {
-    controlThread_.setInputGateFloor(newValue);
+    context.requestGateFloorApply(newValue);
     parameterState[kParamGateFloor] = newValue;
     return true;
   }

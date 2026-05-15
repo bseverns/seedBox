@@ -1203,6 +1203,11 @@ void AppState::captureStatusSnapshot(StatusSnapshot& out) const {
       presetController_.activePresetSlot().empty() ? kDefaultPresetSlot : std::string_view{presetController_.activePresetSlot()};
   input.bpm = scheduler_.bpm();
   input.schedulerTick = scheduler_.ticks();
+  const auto hostDiagnostics = diagnosticsSnapshot().host;
+  input.hostDiagnostics.midiDroppedCount = hostDiagnostics.midiDroppedCount;
+  input.hostDiagnostics.oversizeBlockDropCount = hostDiagnostics.oversizeBlockDropCount;
+  input.hostDiagnostics.lastOversizeBlockFrames = hostDiagnostics.lastOversizeBlockFrames;
+  input.hostDiagnostics.preparedScratchFrames = hostDiagnostics.preparedScratchFrames;
   input.externalClockDominant = externalClockDominant();
   input.followExternalClockEnabled = followExternalClockEnabled();
   input.waitingForExternalClock = waitingForExternalClock();

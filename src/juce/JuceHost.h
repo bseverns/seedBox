@@ -46,9 +46,9 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   void stop();
   std::uint32_t midiDroppedCount() const;
   AppState::DiagnosticsSnapshot::HostRuntime hostDiagnostics() const;
-  std::uint32_t oversizeBlockDropCount() const { return oversizeBlockDropCount_; }
-  std::size_t lastOversizeBlockFrames() const { return lastOversizeBlockFrames_; }
-  std::size_t preparedScratchFrames() const { return preparedScratchFrames_; }
+  std::uint32_t oversizeBlockDropCount() const { return oversizeBlockDropCount_.load(std::memory_order_relaxed); }
+  std::size_t lastOversizeBlockFrames() const { return lastOversizeBlockFrames_.load(std::memory_order_relaxed); }
+  std::size_t preparedScratchFrames() const { return preparedScratchFrames_.load(std::memory_order_relaxed); }
 
  private:
   class MaintenanceTimer;
@@ -70,9 +70,9 @@ class JuceHost final : public juce::AudioIODeviceCallback, public juce::MidiInpu
   std::vector<float> inputScratchRight_{};
   std::vector<float> scratchLeft_{};
   std::vector<float> scratchRight_{};
-  std::size_t preparedScratchFrames_{0};
-  std::uint32_t oversizeBlockDropCount_{0};
-  std::size_t lastOversizeBlockFrames_{0};
+  std::atomic<std::size_t> preparedScratchFrames_{0};
+  std::atomic<std::uint32_t> oversizeBlockDropCount_{0};
+  std::atomic<std::size_t> lastOversizeBlockFrames_{0};
   std::unique_ptr<MaintenanceTimer> maintenanceTimer_{};
 };
 

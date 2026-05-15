@@ -127,6 +127,7 @@ void StatusSnapshotBuilder::build(seedbox::StatusSnapshot& out, const Input& inp
   writeField(out.activePresetSlot, input.activePresetSlot.empty() ? kDefaultPresetSlot : input.activePresetSlot);
   out.bpm = input.bpm;
   out.schedulerTick = input.schedulerTick;
+  out.hostDiagnostics = input.hostDiagnostics;
   out.externalClockDominant = input.externalClockDominant;
   out.followExternalClockEnabled = input.followExternalClockEnabled;
   out.waitingForExternalClock = input.waitingForExternalClock;
@@ -172,6 +173,12 @@ std::string StatusSnapshotBuilder::toJson(const seedbox::StatusSnapshot& status)
   appendJsonStringField(out, "activePresetSlot", slot, true);
   appendJsonFloatField(out, "bpm", status.bpm, true);
   appendJsonUIntField(out, "schedulerTick", status.schedulerTick, true);
+  out += "\"hostDiagnostics\":{";
+  appendJsonUIntField(out, "midiDroppedCount", status.hostDiagnostics.midiDroppedCount, true);
+  appendJsonUIntField(out, "oversizeBlockDropCount", status.hostDiagnostics.oversizeBlockDropCount, true);
+  appendJsonUIntField(out, "lastOversizeBlockFrames", status.hostDiagnostics.lastOversizeBlockFrames, true);
+  appendJsonUIntField(out, "preparedScratchFrames", status.hostDiagnostics.preparedScratchFrames, false);
+  out += "},";
   appendJsonBoolField(out, "externalClockDominant", status.externalClockDominant, true);
   appendJsonBoolField(out, "followExternalClockEnabled", status.followExternalClockEnabled, true);
   appendJsonBoolField(out, "waitingForExternalClock", status.waitingForExternalClock, true);
