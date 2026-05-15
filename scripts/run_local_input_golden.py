@@ -34,6 +34,40 @@ def _run(cmd: list[str], cwd: Path) -> None:
     subprocess.check_call(cmd, cwd=str(cwd))
 
 
+SCENARIOS: list[dict[str, str]] = [
+    {
+        "name": "mixed-boot",
+        "category": "hybrid-overlay",
+        "note": "Desktop boot preset with granular live-input focus plus resonator, burst, and Euclid scheduler voices.",
+    },
+    {
+        "name": "granular-live",
+        "category": "direct-input-processor",
+        "note": "Focused granular live-input render. The source WAV is the effect material.",
+    },
+    {
+        "name": "resonator-live",
+        "category": "direct-input-processor",
+        "note": "Focused resonator live-input render. The source WAV excites the resonant body directly.",
+    },
+    {
+        "name": "burst-overlay",
+        "category": "direct-input-processor",
+        "note": "Burst-focused live-input render with a lighter granular support layer.",
+    },
+    {
+        "name": "euclid-overlay",
+        "category": "direct-input-processor",
+        "note": "Euclid-focused live-input render with a lighter granular support layer.",
+    },
+    {
+        "name": "reseed-live",
+        "category": "direct-input-reseed",
+        "note": "Live-input render with deterministic periodic reseeds that cycle the focused processor through granular, resonator, burst, and Euclid worlds.",
+    },
+]
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, help="External WAV to feed through the native host stack")
@@ -45,6 +79,18 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument("--block-size", type=int, default=256, help="Host block size for the probe render")
     parser.add_argument("--sample-rate", type=int, default=48000, help="Target render sample rate")
+    parser.add_argument("--bpm", type=float, default=120.0, help="Musical BPM when using the golden permutation suite")
+    parser.add_argument(
+        "--suite",
+        choices=["single", "golden-permutations"],
+        default="single",
+        help="Render one straight host pass or a local golden-style permutation suite",
+    )
+    parser.add_argument(
+        "--scenario",
+        default="mixed-boot",
+        help="Scenario name when running --suite single",
+    )
     parser.add_argument(
         "--skip-build",
         action="store_true",
@@ -63,6 +109,8 @@ def main(argv: list[str]) -> int:
         else (input_path.parent / f"{input_path.stem}-seedbox-receipt").resolve()
     )
     output_dir.mkdir(parents=True, exist_ok=True)
+    fixtures_dir = output_dir / "fixtures"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
 
     probe = repo_root / "build" / "juce" / "seedbox_native_input_probe"
     if not args.skip_build:
@@ -81,66 +129,102 @@ def main(argv: list[str]) -> int:
     if not probe.exists():
         raise SystemExit(f"probe binary is missing: {probe}")
 
-    output_wav = output_dir / f"{input_path.stem}-native-output.wav"
-    status_json = output_dir / f"{input_path.stem}-native-status.json"
-    summary_json = output_dir / f"{input_path.stem}-native-summary.json"
+    output_wav = fixtures_dir / f"{input_path.stem}-native-output.wav"
+    status_json = fixtures_dir / f"{input_path.stem}-native-status.json"
+    summary_json = fixtures_dir / f"{input_path.stem}-native-summary.json"
     manifest_json = output_dir / "golden.local.json"
     browser_html = output_dir / "index.html"
-    receipt_json = output_dir / "input-receipt.json"
+    receipt_json = fixtures_dir / "input-receipt.json"
 
-    _run(
-        [
-            str(probe),
-            "--input",
-            str(input_path),
-            "--output",
-            str(output_wav),
-            "--status-json",
-            str(status_json),
-            "--summary-json",
-            str(summary_json),
-            "--block-size",
-            str(args.block_size),
-            "--sample-rate",
-            str(args.sample_rate),
-        ],
-        repo_root,
-    )
+    scenarios = SCENARIOS if args.suite == "golden-permutations" else [{"name": args.scenario, "category": "custom", "note": ""}]
+    clock_mode = "external-ppqn" if args.suite == "golden-permutations" else "internal-block"
+
+    scenario_artifacts: list[dict[str, object]] = []
+    for scenario in scenarios:
+        scenario_name = scenario["name"]
+        output_wav = fixtures_dir / f"{input_path.stem}-{scenario_name}-output.wav"
+        status_json = fixtures_dir / f"{input_path.stem}-{scenario_name}-status.json"
+        summary_json = fixtures_dir / f"{input_path.stem}-{scenario_name}-summary.json"
+
+        _run(
+            [
+                str(probe),
+                "--input",
+                str(input_path),
+                "--output",
+                str(output_wav),
+                "--status-json",
+                str(status_json),
+                "--summary-json",
+                str(summary_json),
+                "--scenario",
+                scenario_name,
+                "--clock-mode",
+                clock_mode,
+                "--bpm",
+                str(args.bpm),
+                "--block-size",
+                str(args.block_size),
+                "--sample-rate",
+                str(args.sample_rate),
+            ],
+            repo_root,
+        )
+
+        scenario_artifacts.append(
+            {
+                "name": scenario_name,
+                "category": scenario["category"],
+                "note": scenario["note"],
+                "output_path": str(output_wav),
+                "output_sha256": _sha256(output_wav),
+                "output_wav": _wav_meta(output_wav),
+                "status_json_path": str(status_json),
+                "status_json_sha256": _sha256(status_json),
+                "summary_json_path": str(summary_json),
+                "summary_json_sha256": _sha256(summary_json),
+            }
+        )
 
     source_meta = _wav_meta(input_path)
-    output_meta = _wav_meta(output_wav)
     receipt = {
         "kind": "external-input-local-golden",
+        "suite": args.suite,
         "input_path": str(input_path),
         "input_sha256": _sha256(input_path),
         "input_wav": source_meta,
-        "probe_output_path": str(output_wav),
-        "probe_output_sha256": _sha256(output_wav),
-        "probe_output_wav": output_meta,
-        "status_json_path": str(status_json),
-        "status_json_sha256": _sha256(status_json),
-        "summary_json_path": str(summary_json),
-        "summary_json_sha256": _sha256(summary_json),
+        "scenarios": scenario_artifacts,
         "render": {
             "block_size": args.block_size,
             "sample_rate": args.sample_rate,
+            "bpm": args.bpm,
+            "clock_mode": clock_mode,
         },
     }
     receipt_json.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
 
     notes = {
-        output_wav.stem: f"Local external-input golden from {input_path.name} "
-                         f"(sha256 {receipt['input_sha256'][:12]}..., block {args.block_size}, sr {args.sample_rate}).",
-        status_json.stem: f"Final AppState status snapshot for {input_path.name}.",
-        summary_json.stem: f"Render metrics summary for {input_path.name}.",
         receipt_json.stem: f"Source/input identity ledger for {input_path.name}.",
     }
+    for artifact in scenario_artifacts:
+        stem_base = Path(str(artifact["output_path"])).stem.removesuffix("-output")
+        output_stem = Path(str(artifact["output_path"])).stem
+        status_stem = Path(str(artifact["status_json_path"])).stem
+        summary_stem = Path(str(artifact["summary_json_path"])).stem
+        notes[output_stem] = (
+            f"{artifact['name']} local external-input golden from {input_path.name} "
+            f"(sha256 {receipt['input_sha256'][:12]}..., block {args.block_size}, sr {args.sample_rate}, "
+            f"clock {clock_mode}@{args.bpm:.1f}bpm; "
+            f"{artifact['note']})"
+        )
+        notes[status_stem] = f"Final AppState status snapshot for {input_path.name} scenario {artifact['name']}."
+        notes[summary_stem] = f"Render metrics summary for {input_path.name} scenario {artifact['name']}."
 
     cmd = [
         sys.executable,
         str((repo_root / "scripts" / "compute_golden_hashes.py").resolve()),
         "--fixtures-root",
-        str(output_dir),
+        str(fixtures_dir),
         "--manifest",
         str(manifest_json),
         "--browser-output",
@@ -155,6 +239,9 @@ def main(argv: list[str]) -> int:
     print(f"Local golden manifest: {manifest_json}")
     print(f"Local golden browser: {browser_html}")
     print(f"Local receipt ledger: {receipt_json}")
+    print("Scenarios:")
+    for artifact in scenario_artifacts:
+        print(f"  - {artifact['name']}: {artifact['output_path']}")
     return 0
 
 

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -13,6 +14,7 @@
 #include <vector>
 
 #include "app/AppState.h"
+#include "util/RNG.h"
 #include "hal/Board.h"
 #include "hal/hal_audio.h"
 
@@ -23,6 +25,9 @@ struct ProbeConfig {
   std::filesystem::path outputPath;
   std::filesystem::path statusPath;
   std::filesystem::path summaryPath;
+  std::string scenario = "mixed-boot";
+  std::string clockMode = "internal-block";
+  float bpm = 120.0f;
   std::uint32_t targetSampleRate = 48000u;
   std::size_t blockSize = 256u;
 };
@@ -48,6 +53,22 @@ struct ProbeSummary {
   std::uint64_t inputFrames = 0u;
   std::uint64_t resampledFrames = 0u;
   std::uint64_t renderedFrames = 0u;
+};
+
+struct ScenarioRuntime {
+  std::uint64_t blocksRendered = 0u;
+  std::uint64_t reseedCount = 0u;
+  std::uint64_t nextReseedFrame = 0u;
+  std::uint32_t reseedState = 0xB4000001u;
+  double ppqnSamplesAccum = 0.0;
+};
+
+struct ScenarioSpec {
+  const char* name;
+  const char* category;
+  const char* note;
+  void (*setup)(AppState& app, ScenarioRuntime& runtime);
+  void (*beforeBlock)(AppState& app, ScenarioRuntime& runtime, std::uint64_t frameOffset, const ProbeConfig& config);
 };
 
 std::uint16_t readU16(std::istream& in) {
@@ -287,6 +308,234 @@ void writeTextFile(const std::filesystem::path& path, const std::string& body) {
   out << body;
 }
 
+bool usesExternalPpqnClock(const ProbeConfig& config) {
+  if (config.clockMode == "external-ppqn") {
+    return true;
+  }
+  if (config.clockMode == "internal-block") {
+    return false;
+  }
+  throw std::runtime_error("unknown clock mode: " + config.clockMode);
+}
+
+void requireSeedEdit(AppState& app, std::uint8_t seedIndex, const std::function<void(Seed&)>& edit) {
+  if (!app.applySeedEditFromHost(seedIndex, edit)) {
+    throw std::runtime_error("failed to edit scenario seed state");
+  }
+}
+
+void quietSeed(AppState& app, std::uint8_t seedIndex) {
+  requireSeedEdit(app, seedIndex, [](Seed& seed) {
+    seed.density = 0.0f;
+    seed.probability = 0.0f;
+    seed.mutateAmt = 0.0f;
+    seed.jitterMs = 0.0f;
+    seed.spread = 0.0f;
+    seed.tone = 0.25f;
+  });
+}
+
+void configureSeedPrimeWorld(AppState& app, std::uint32_t masterSeed, AppState::SeedPrimeMode mode) {
+  app.seedPageReseed(masterSeed, mode);
+  app.armGranularLiveInput(true);
+  app.setFocusSeed(0);
+}
+
+void configureGranularLiveSeed(AppState& app) {
+  app.setSeedEngine(0, EngineRouter::kGranularId);
+  requireSeedEdit(app, 0, [](Seed& seed) {
+    seed.pitch = 12.0f;
+    seed.density = 4.1f;
+    seed.probability = 1.0f;
+    seed.mutateAmt = 1.0f;
+    seed.tone = 0.94f;
+    seed.spread = 1.0f;
+    seed.granular.grainSizeMs = 340.0f;
+    seed.granular.sprayMs = 96.0f;
+    seed.granular.transpose = 12.0f;
+    seed.granular.windowSkew = 0.82f;
+    seed.granular.stereoSpread = 1.0f;
+    seed.granular.source = static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
+    seed.granular.sdSlot = 0;
+  });
+}
+
+void configureResonatorLiveSeed(AppState& app) {
+  app.setSeedEngine(0, EngineRouter::kResonatorId);
+  requireSeedEdit(app, 0, [](Seed& seed) {
+    seed.density = 1.4f;
+    seed.probability = 0.9f;
+    seed.mutateAmt = 0.4f;
+    seed.tone = 0.7f;
+    seed.spread = 0.76f;
+    seed.pitch = 7.0f;
+    seed.resonator.exciteMs = 42.0f;
+    seed.resonator.damping = 0.48f;
+    seed.resonator.brightness = 0.78f;
+    seed.resonator.feedback = 0.72f;
+    seed.resonator.bank = 1;
+  });
+}
+
+void configureBurstLiveSeed(AppState& app) {
+  app.setSeedEngine(0, EngineRouter::kBurstId);
+  requireSeedEdit(app, 0, [](Seed& seed) {
+    seed.pitch = 7.0f;
+    seed.density = 4.4f;
+    seed.probability = 1.0f;
+    seed.jitterMs = 42.0f;
+    seed.mutateAmt = 1.0f;
+    seed.tone = 1.0f;
+    seed.spread = 0.08f;
+  });
+}
+
+void configureEuclidLiveSeed(AppState& app) {
+  app.setSeedEngine(0, EngineRouter::kEuclidId);
+  requireSeedEdit(app, 0, [](Seed& seed) {
+    seed.pitch = -5.0f;
+    seed.density = 3.0f;
+    seed.probability = 1.0f;
+    seed.mutateAmt = 0.92f;
+    seed.tone = 1.0f;
+    seed.spread = 0.0f;
+  });
+}
+
+void configureSupportGranularLayer(AppState& app) {
+  app.setSeedEngine(1, EngineRouter::kGranularId);
+  requireSeedEdit(app, 1, [](Seed& seed) {
+    seed.pitch = 0.0f;
+    seed.density = 1.1f;
+    seed.probability = 0.7f;
+    seed.mutateAmt = 0.35f;
+    seed.tone = 0.5f;
+    seed.spread = 0.9f;
+    seed.granular.grainSizeMs = 110.0f;
+    seed.granular.sprayMs = 18.0f;
+    seed.granular.transpose = 0.0f;
+    seed.granular.windowSkew = 0.1f;
+    seed.granular.stereoSpread = 0.75f;
+    seed.granular.source = static_cast<std::uint8_t>(GranularEngine::Source::kLiveInput);
+    seed.granular.sdSlot = 0;
+  });
+}
+
+void scenarioNoopBeforeBlock(AppState&, ScenarioRuntime&, std::uint64_t, const ProbeConfig&) {}
+
+void setupMixedBoot(AppState& app, ScenarioRuntime&) {
+  app.reseed(app.masterSeed());
+  app.armGranularLiveInput(true);
+  app.setFocusSeed(0);
+}
+
+void setupGranularLive(AppState& app, ScenarioRuntime&) {
+  configureSeedPrimeWorld(app, 0xB4001001u, AppState::SeedPrimeMode::kLiveInput);
+  configureGranularLiveSeed(app);
+  quietSeed(app, 1);
+  quietSeed(app, 2);
+  quietSeed(app, 3);
+}
+
+void setupResonatorLive(AppState& app, ScenarioRuntime&) {
+  configureSeedPrimeWorld(app, 0xB4002001u, AppState::SeedPrimeMode::kLiveInput);
+  configureResonatorLiveSeed(app);
+  quietSeed(app, 1);
+  quietSeed(app, 2);
+  quietSeed(app, 3);
+}
+
+void setupBurstOverlay(AppState& app, ScenarioRuntime&) {
+  configureSeedPrimeWorld(app, 0xB4003001u, AppState::SeedPrimeMode::kLiveInput);
+  configureBurstLiveSeed(app);
+  configureSupportGranularLayer(app);
+  app.setFocusSeed(0);
+  quietSeed(app, 2);
+  quietSeed(app, 3);
+}
+
+void setupEuclidOverlay(AppState& app, ScenarioRuntime&) {
+  configureSeedPrimeWorld(app, 0xB4004001u, AppState::SeedPrimeMode::kLiveInput);
+  configureEuclidLiveSeed(app);
+  configureSupportGranularLayer(app);
+  app.setFocusSeed(0);
+  quietSeed(app, 2);
+  quietSeed(app, 3);
+}
+
+void setupReseedLive(AppState& app, ScenarioRuntime& runtime) {
+  configureSeedPrimeWorld(app, 0xB4005001u, AppState::SeedPrimeMode::kLiveInput);
+  configureGranularLiveSeed(app);
+  quietSeed(app, 1);
+  quietSeed(app, 2);
+  quietSeed(app, 3);
+  runtime.reseedState = 0xB4005001u;
+  runtime.nextReseedFrame = 0u;
+}
+
+void configureReseedVoiceWorld(AppState& app, ScenarioRuntime& runtime) {
+  switch (runtime.reseedCount % 4u) {
+    case 0u:
+      configureGranularLiveSeed(app);
+      break;
+    case 1u:
+      configureResonatorLiveSeed(app);
+      break;
+    case 2u:
+      configureBurstLiveSeed(app);
+      break;
+    case 3u:
+    default:
+      configureEuclidLiveSeed(app);
+      break;
+  }
+  app.setFocusSeed(0);
+}
+
+void beforeBlockReseedLive(AppState& app, ScenarioRuntime& runtime, std::uint64_t frameOffset, const ProbeConfig& config) {
+  const std::uint64_t reseedIntervalFrames = static_cast<std::uint64_t>(config.targetSampleRate) * 8u;
+  while (frameOffset >= runtime.nextReseedFrame) {
+    if (runtime.reseedState == 0u) {
+      runtime.reseedState = 0xB4005001u;
+    }
+    RNG::xorshift(runtime.reseedState);
+    app.seedPageReseed(runtime.reseedState, AppState::SeedPrimeMode::kLiveInput);
+    configureReseedVoiceWorld(app, runtime);
+    ++runtime.reseedCount;
+    runtime.nextReseedFrame += reseedIntervalFrames;
+  }
+}
+
+const ScenarioSpec& lookupScenario(std::string_view name) {
+  static const std::array<ScenarioSpec, 6> kScenarios{{
+      {"mixed-boot", "hybrid-overlay",
+       "Desktop boot preset with granular live-input focus plus resonator, burst, and Euclid scheduler voices.",
+       &setupMixedBoot, &scenarioNoopBeforeBlock},
+      {"granular-live", "direct-input-processor",
+       "Focused granular live-input render. The file is the effect material, not just a trigger source.",
+       &setupGranularLive, &scenarioNoopBeforeBlock},
+      {"resonator-live", "direct-input-processor",
+       "Focused resonator live-input render. The file excites the resonant body directly.",
+       &setupResonatorLive, &scenarioNoopBeforeBlock},
+      {"burst-overlay", "scheduler-overlay",
+       "Burst-focused live-input render with a lighter granular support layer.",
+       &setupBurstOverlay, &scenarioNoopBeforeBlock},
+      {"euclid-overlay", "direct-input-processor",
+       "Euclid-focused live-input render with a lighter granular support layer.",
+       &setupEuclidOverlay, &scenarioNoopBeforeBlock},
+      {"reseed-live", "direct-input-reseed",
+       "Live-input render with deterministic periodic reseeds that cycle the focused processor through granular, resonator, burst, and Euclid worlds.",
+       &setupReseedLive, &beforeBlockReseedLive},
+  }};
+
+  for (const auto& scenario : kScenarios) {
+    if (name == scenario.name) {
+      return scenario;
+    }
+  }
+  throw std::runtime_error("unknown scenario: " + std::string(name));
+}
+
 ProbeConfig parseArgs(int argc, char** argv) {
   ProbeConfig config{};
   for (int i = 1; i < argc; ++i) {
@@ -306,6 +555,12 @@ ProbeConfig parseArgs(int argc, char** argv) {
       config.statusPath = requireValue("--status-json");
     } else if (arg == "--summary-json") {
       config.summaryPath = requireValue("--summary-json");
+    } else if (arg == "--scenario") {
+      config.scenario = requireValue("--scenario");
+    } else if (arg == "--clock-mode") {
+      config.clockMode = requireValue("--clock-mode");
+    } else if (arg == "--bpm") {
+      config.bpm = std::stof(requireValue("--bpm"));
     } else if (arg == "--block-size") {
       config.blockSize = static_cast<std::size_t>(std::stoul(requireValue("--block-size")));
     } else if (arg == "--sample-rate") {
@@ -317,7 +572,9 @@ ProbeConfig parseArgs(int argc, char** argv) {
 
   if (config.inputPath.empty() || config.outputPath.empty() || config.statusPath.empty() || config.summaryPath.empty()) {
     throw std::runtime_error("usage: seedbox_native_input_probe --input <wav> --output <wav> "
-                             "--status-json <json> --summary-json <json> [--block-size N] [--sample-rate Hz]");
+                             "--status-json <json> --summary-json <json> [--scenario name] "
+                             "[--clock-mode internal-block|external-ppqn] [--bpm BPM] "
+                             "[--block-size N] [--sample-rate Hz]");
   }
   return config;
 }
@@ -327,6 +584,8 @@ ProbeConfig parseArgs(int argc, char** argv) {
 int main(int argc, char** argv) {
   try {
     const ProbeConfig config = parseArgs(argc, argv);
+    const ScenarioSpec& scenario = lookupScenario(config.scenario);
+    const bool externalPpqnClock = usesExternalPpqnClock(config);
     AudioFile input = readPcm16Wave(config.inputPath);
     AudioFile resampled{};
     resampled.sampleRate = config.targetSampleRate;
@@ -338,6 +597,13 @@ int main(int argc, char** argv) {
 
     AppState app(hal::board());
     app.initJuceHost(static_cast<float>(config.targetSampleRate), config.blockSize);
+    ScenarioRuntime scenarioRuntime{};
+    scenario.setup(app, scenarioRuntime);
+    app.setInternalBpmFromHost(config.bpm);
+    if (externalPpqnClock) {
+      app.setFollowExternalClockFromHost(true);
+      app.onExternalTransportStart();
+    }
 
     std::vector<float> outLeft(resampled.left.size(), 0.0f);
     std::vector<float> outRight(resampled.left.size(), 0.0f);
@@ -345,9 +611,13 @@ int main(int argc, char** argv) {
     std::vector<float> blockRight(config.blockSize, 0.0f);
     std::vector<float> renderLeft(config.blockSize, 0.0f);
     std::vector<float> renderRight(config.blockSize, 0.0f);
+    const double samplesPerPpqnTick =
+        static_cast<double>(config.targetSampleRate) * 60.0 / (static_cast<double>(config.bpm) * 24.0);
 
+    constexpr std::uint64_t kMaintenanceEveryBlocks = 16u;
     for (std::size_t offset = 0; offset < resampled.left.size(); offset += config.blockSize) {
       const std::size_t frames = std::min(config.blockSize, resampled.left.size() - offset);
+      scenario.beforeBlock(app, scenarioRuntime, static_cast<std::uint64_t>(offset), config);
       std::fill(blockLeft.begin(), blockLeft.end(), 0.0f);
       std::fill(blockRight.begin(), blockRight.end(), 0.0f);
       std::copy_n(resampled.left.data() + offset, frames, blockLeft.data());
@@ -359,10 +629,26 @@ int main(int argc, char** argv) {
       }
 
       hal::audio::renderHostBuffer(renderLeft.data(), renderRight.data(), frames);
+      app.midi.poll();
+      if (externalPpqnClock) {
+        scenarioRuntime.ppqnSamplesAccum += static_cast<double>(frames);
+        while (scenarioRuntime.ppqnSamplesAccum >= samplesPerPpqnTick) {
+          app.onExternalClockTick();
+          scenarioRuntime.ppqnSamplesAccum -= samplesPerPpqnTick;
+        }
+      }
+      app.tickHostAudio();
       std::copy_n(renderLeft.data(), frames, outLeft.data() + offset);
       std::copy_n(renderRight.data(), frames, outRight.data() + offset);
+      ++scenarioRuntime.blocksRendered;
+      if ((scenarioRuntime.blocksRendered % kMaintenanceEveryBlocks) == 0u) {
+        app.serviceHostMaintenance();
+      }
     }
 
+    if (externalPpqnClock) {
+      app.onExternalTransportStop();
+    }
     app.serviceHostMaintenance();
 
     std::vector<std::int16_t> interleaved{};
@@ -389,6 +675,17 @@ int main(int argc, char** argv) {
     std::ostringstream summary;
     summary << std::fixed << std::setprecision(6);
     summary << "{\n";
+    summary << "  \"scenario\": {\n";
+    summary << "    \"name\": \"" << jsonEscape(scenario.name) << "\",\n";
+    summary << "    \"category\": \"" << jsonEscape(scenario.category) << "\",\n";
+    summary << "    \"note\": \"" << jsonEscape(scenario.note) << "\",\n";
+    summary << "    \"reseedCount\": " << scenarioRuntime.reseedCount << "\n";
+    summary << "  },\n";
+    summary << "  \"clock\": {\n";
+    summary << "    \"mode\": \"" << jsonEscape(config.clockMode) << "\",\n";
+    summary << "    \"bpm\": " << config.bpm << ",\n";
+    summary << "    \"ppqn\": 24\n";
+    summary << "  },\n";
     summary << "  \"input\": {\n";
     summary << "    \"path\": \"" << jsonEscape(config.inputPath.string()) << "\",\n";
     summary << "    \"sourceSampleRate\": " << input.sampleRate << ",\n";
@@ -417,6 +714,7 @@ int main(int argc, char** argv) {
     writeTextFile(config.summaryPath, summary.str());
 
     std::cout << "Rendered " << outLeft.size() << " frames at " << config.targetSampleRate << " Hz\n";
+    std::cout << "Scenario: " << scenario.name << "\n";
     std::cout << "Output WAV: " << config.outputPath << "\n";
     std::cout << "Status JSON: " << config.statusPath << "\n";
     std::cout << "Summary JSON: " << config.summaryPath << "\n";

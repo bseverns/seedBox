@@ -103,6 +103,8 @@ bool HostControlBridge::handleParameterChange(const juce::String& parameterID, f
     const float previous = parameterState[kParamGranularSourceStep];
     const auto delta = static_cast<std::int16_t>(newValue - previous);
     if (delta != 0) {
+      // This is a relative gesture, not an absolute target, so the processor
+      // accumulates deltas per seed until the maintenance timer flushes them.
       context.requestGranularSourceStepApply(controlThread_.focusSeed(), delta);
     }
     parameterState[kParamGranularSourceStep] = newValue;

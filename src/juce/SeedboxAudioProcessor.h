@@ -150,7 +150,7 @@ class SeedboxAudioProcessor : public juce::AudioProcessor,
   std::atomic<std::uint32_t> pendingMasterSeedReseed_{0xFFFFFFFFu};
   std::atomic<std::uint32_t> pendingSeedEngineApply_{0xFFFFFFFFu};
   std::atomic<std::uint32_t> pendingQuantizeApply_{0xFFFFFFFFu};
-  std::atomic<std::uint32_t> pendingGranularSourceStepApply_{0xFFFFFFFFu};
+  std::array<std::atomic<int>, 4> pendingGranularSourceDelta_{};
   std::atomic<int> pendingGateDivisionApply_{-1};
   std::atomic<float> pendingGateFloorApply_{-1.0f};
   std::atomic<int> preparedScratchFrames_{0};

@@ -22,6 +22,7 @@ namespace {
 constexpr int kMinPreparedScratchFrames = 8192;
 constexpr int kHostMaintenanceHz = 15;
 constexpr std::uint32_t kInvalidDeferredHostCommand = 0xFFFFFFFFu;
+constexpr std::size_t kDeferredSeedSlotCount = 4u;
 constexpr auto kParamMasterSeed = "masterSeed";
 constexpr auto kParamFocusSeed = "focusSeed";
 constexpr auto kParamSeedEngine = "seedEngine";
@@ -379,6 +380,17 @@ void SeedboxAudioProcessor::flushDeferredHostParameterWork() {
   // These last-wins slots are intentionally tiny: they let the host parameter
   // path shed a few more runtime mutations without introducing a heap-backed
   // command queue into a live instrument build.
+  //
+  // Deferred host command ordering matters. The current ritual is:
+  // 1. master seed reseed
+  // 2. focused seed engine apply
+  // 3. quantize apply
+  // 4. seed-state sync back into APVTS-facing storage
+  // 5. granular source movement
+  // 6. gate division / gate floor policy
+  //
+  // That keeps "new world" mutations first, pitch/body policy next, host-state
+  // persistence after that, and live-input gate policy last.
   const std::uint32_t masterSeed =
       pendingMasterSeedReseed_.exchange(kInvalidDeferredHostCommand, std::memory_order_relaxed);
   if (masterSeed != kInvalidDeferredHostCommand) {
@@ -408,12 +420,11 @@ void SeedboxAudioProcessor::flushDeferredHostParameterWork() {
     syncSeedStateFromApp();
   }
 
-  const std::uint32_t packedGranularSource =
-      pendingGranularSourceStepApply_.exchange(kInvalidDeferredHostCommand, std::memory_order_relaxed);
-  if (packedGranularSource != kInvalidDeferredHostCommand) {
-    const auto seedIndex = static_cast<std::uint8_t>((packedGranularSource >> 16u) & 0xFFu);
-    const auto delta = static_cast<std::int16_t>(packedGranularSource & 0xFFFFu);
-    controlThreadApp_.seedPageCycleGranularSource(seedIndex, static_cast<int>(delta));
+  for (std::size_t seedIndex = 0; seedIndex < pendingGranularSourceDelta_.size(); ++seedIndex) {
+    const int delta = pendingGranularSourceDelta_[seedIndex].exchange(0, std::memory_order_relaxed);
+    if (delta != 0) {
+      controlThreadApp_.seedPageCycleGranularSource(static_cast<std::uint8_t>(seedIndex), delta);
+    }
   }
 
   const int pendingGateDivision = pendingGateDivisionApply_.exchange(-1, std::memory_order_relaxed);
@@ -446,9 +457,8 @@ void SeedboxAudioProcessor::parameterChanged(const juce::String& parameterID, fl
         pendingQuantizeApply_.store(packed, std::memory_order_relaxed);
       },
       [this](std::uint8_t seedIndex, std::int16_t delta) {
-        const std::uint32_t packed = (static_cast<std::uint32_t>(seedIndex) << 16u) |
-                                     static_cast<std::uint16_t>(delta);
-        pendingGranularSourceStepApply_.store(packed, std::memory_order_relaxed);
+        const std::size_t slot = static_cast<std::size_t>(seedIndex) % kDeferredSeedSlotCount;
+        pendingGranularSourceDelta_[slot].fetch_add(static_cast<int>(delta), std::memory_order_relaxed);
       },
       [this](std::uint8_t division) {
         pendingGateDivisionApply_.store(static_cast<int>(division), std::memory_order_relaxed);

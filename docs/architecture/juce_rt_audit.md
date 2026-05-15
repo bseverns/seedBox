@@ -280,7 +280,8 @@ The current lightening pass on `parameterChanged(...)` is now in place too:
 - immediate audible/runtime mutations still happen on the host/control path
 - `syncSeedStateFromApp()` is deferred onto the maintenance timer
 - focused-seed engine property persistence is also deferred onto the maintenance timer
-- master-seed reseeds, focused-engine swaps, quantize changes, live-input gate settings, and granular-source stepping now ride a fixed-size last-wins queue instead of a heap-backed command structure
+- master-seed reseeds, focused-engine swaps, quantize changes, and live-input gate settings now ride fixed-size last-wins slots instead of a heap-backed command structure
+- granular-source stepping now accumulates per-seed deltas until the maintenance timer flushes them, so rapid step bursts do not collapse into a single final move
 
 That does not solve the full automation-thread question, but it moves the most
 obviously non-realtime host bookkeeping out of the direct parameter callback.
@@ -332,7 +333,7 @@ This table classifies the current APVTS parameters handled by
 | `followExternalClock` | host/control thread | yes | no bridge allocation expected | yes | yes | external-clock follow policy |
 | `followHostTransport` | host/control thread | yes | no bridge allocation expected | yes, host transport policy | no direct app dirty | bridge-local host play-state policy |
 | `debugMeters` | host/control thread | yes | no bridge allocation expected | no | yes | toggles telemetry/UI mode |
-| `granularSourceStep` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | may affect render/input routing | yes | delta is captured with focused seed and flushed through a fixed-size last-wins slot |
+| `granularSourceStep` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | may affect render/input routing | yes | delta is accumulated per seed until flush, so bursty step gestures do not lose intermediate motion |
 | `gateDivision` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | yes | yes | changes live-input reseed grid; now deferred through a fixed-size slot |
 | `gateFloor` | host/control thread, applied on maintenance timer | yes | no bridge allocation expected | no direct timing change | yes | changes live-input sensitivity; now deferred through a fixed-size slot |
 | `forceIdlePassthrough` | host/control thread | yes | map write only | affects callback output policy, not scheduler | no direct app dirty | processor-side passthrough policy flag |
