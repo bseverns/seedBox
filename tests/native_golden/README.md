@@ -128,6 +128,10 @@ That manifest doubles as documentation in the new
 so remember to capture any future twists there as you add fixtures or widen the
 rendering matrix.
 
+For a musician-facing translation of the generated WAVs into SeedBox patch
+moves, use the
+[`Native Fixture Sound Playbook`](../../docs/receipts/templates/Playbook.md).
+
 ## Future adventures
 
 - Drop more engines into the harness and layer multi-track renders so we can
