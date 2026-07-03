@@ -304,9 +304,16 @@ std::int16_t clampToPcm16(float sample) {
   return static_cast<std::int16_t>(std::lrint(clamped * 32767.0f));
 }
 
+void ensureParentDirectory(const std::filesystem::path& path) {
+  const std::filesystem::path parent = path.parent_path();
+  if (!parent.empty()) {
+    std::filesystem::create_directories(parent);
+  }
+}
+
 void writePcm16Wave(const std::filesystem::path& path, const std::vector<std::int16_t>& interleaved,
                     std::uint32_t sampleRate, std::uint16_t channels) {
-  std::filesystem::create_directories(path.parent_path());
+  ensureParentDirectory(path);
   std::ofstream out(path, std::ios::binary);
   if (!out) {
     throw std::runtime_error("failed to create output WAV");
@@ -376,7 +383,7 @@ std::string jsonEscape(const std::string& text) {
 }
 
 void writeTextFile(const std::filesystem::path& path, const std::string& body) {
-  std::filesystem::create_directories(path.parent_path());
+  ensureParentDirectory(path);
   std::ofstream out(path);
   if (!out) {
     throw std::runtime_error("failed to write text artifact");
@@ -654,6 +661,9 @@ ProbeConfig parseArgs(int argc, char** argv) {
                              "--status-json <json> --summary-json <json> [--scenario name] "
                              "[--clock-mode internal-block|external-ppqn] [--bpm BPM] "
                              "[--block-size N] [--sample-rate Hz]");
+  }
+  if (config.blockSize == 0u) {
+    throw std::runtime_error("block size must be greater than zero");
   }
   return config;
 }

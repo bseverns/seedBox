@@ -184,6 +184,49 @@ def main(argv: list[str]) -> int:
         repo_root,
     )
 
+    bare_dir = work_dir / "bare-paths"
+    bare_dir.mkdir(parents=True, exist_ok=True)
+    _run(
+        [
+            str(probe),
+            "--input",
+            str(input_wav),
+            "--output",
+            "out.wav",
+            "--status-json",
+            "status.json",
+            "--summary-json",
+            "summary.json",
+        ],
+        bare_dir,
+    )
+    _assert_output_wav(bare_dir / "out.wav")
+    _assert_json_outputs(bare_dir / "status.json", bare_dir / "summary.json")
+
+    zero_block = subprocess.run(
+        [
+            str(probe),
+            "--input",
+            str(input_wav),
+            "--output",
+            str(work_dir / "zero-output.wav"),
+            "--status-json",
+            str(work_dir / "zero-status.json"),
+            "--summary-json",
+            str(work_dir / "zero-summary.json"),
+            "--block-size",
+            "0",
+        ],
+        cwd=str(repo_root),
+        text=True,
+        capture_output=True,
+        timeout=5,
+    )
+    if zero_block.returncode == 0:
+        raise SystemExit("zero block size should fail")
+    if "block size must be greater than zero" not in zero_block.stderr:
+        raise SystemExit(f"unexpected zero block size error: {zero_block.stderr}")
+
     print(f"Native input probe smoke passed: {work_dir}")
     return 0
 
