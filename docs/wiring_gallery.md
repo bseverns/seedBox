@@ -22,8 +22,9 @@ polaroids: annotate it, remix it, but keep the intent front and centre.
       [`include/HardwareConfig.h`](../include/HardwareConfig.h) untouched. If you
       reroute MCLK/LRCLK, annotate the diff.
 - [ ] Run the Qwiic OLED over SDA/SCL (pins 18/19) and confirm the default
-      `0x3C` address in `HardwareConfig` still lines up with the display driver in
-      [`src/ui/OledStatus.cpp`](../src/ui/OledStatus.cpp).
+      `0x3C` address against your display module. `HardwareConfig` records the
+      wiring reference; [`OledView`](../src/ui/OledView.cpp) draws through the
+      supplied Adafruit SH1107 display instance.
 - [ ] Wire encoders so clockwise turns increment values — the UI state machine in
       [`src/app/AppState.cpp`](../src/app/AppState.cpp) assumes that polarity when
       dispatching mode changes.

@@ -45,7 +45,7 @@ struct Seed {
   // Routing ------------------
   // Engines treat this as a "which DSP lane should fire" enum.  EngineRouter
   // keeps the IDs aligned with Engine::Type.
-  uint8_t engine{0};        // 0=sampler,1=granular,2=resonator
+  uint8_t engine{0};        // 0=Sampler, 1=Granular, 2=Resonator, 3=Euclid, 4=Burst, 5=Toy (EngineRouter IDs)
   uint8_t sampleIdx{0};
   // Mutation amount is the guard-rail for random walk editors.  SeedLock uses
   // it to decide how aggressive to be when the mutate encoder is twisted.

@@ -94,7 +94,7 @@ The current runtime spine is:
    adapters, not alternate runtime models.
 
 The generated service graph in
-[`app_services.mmd`](/Users/bseverns/Documents/GitHub/seedbox/docs/architecture/app_services.mmd)
+[`app_services.mmd`](app_services.mmd)
 shows the current dependency picture.
 
 ## Host / JUCE Boundary
@@ -132,7 +132,7 @@ That split is materially better than the old "everything rides through
 - `tickHostAudio()` is still broader than a strict RT-minimal contract
 
 The first-pass audit lives in
-[`juce_rt_audit.md`](/Users/bseverns/Documents/GitHub/seedbox/docs/architecture/juce_rt_audit.md).
+[`juce_rt_audit.md`](juce_rt_audit.md).
 
 ## Refactor Status
 

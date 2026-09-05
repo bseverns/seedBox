@@ -8,6 +8,7 @@ say so loudly.
 
 | Script | Job | Notes |
 | --- | --- | --- |
+| `check_doc_links.py` | Checks local Markdown link targets and rejects machine-specific links. | Uses repository files, skips external URLs and fragments; run `python3 scripts/check_doc_links.py`. |
 | `check_panel_contract.py` | Compares the compiled panel inventory with the guide, SVG, BOM, and wiring table. | Needs C++17 (`CXX` override supported); see [SB-04](../docs/roadmaps/SB-04-panel-contract-tests.md). |
 | `starter_bundle.sh` | Runs the minimum newcomer workflow (`pio pkg install` + `pio test -e native`). | Use this when onboarding: it proves the laptop-native path before touching hardware. |
 | `describe_seedbox_config.py` | Reads `include/SeedBoxConfig.h` and prints flag defaults. | CI uses it to prove the docs aren't lying about the toggles; run it locally when writing docs. |

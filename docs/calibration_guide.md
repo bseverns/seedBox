@@ -20,8 +20,7 @@ the next crew can replay the session without guesswork.
 - [ ] Power the rig and confirm the SGTL5000 wake flow matches the bring-up
       path in [`src/main.cpp`](../src/main.cpp) — headphone hiss or missing
       output usually means codec enable lines aren’t latched.
-- [ ] Boot the native simulator with `pio test -e native --filter test_app --test-name
-      test_simulator_audio_reports_48k` to prove the 48 kHz baseline still
+- [ ] Boot the native simulator with `pio test -e native --filter test_app` to prove the 48 kHz baseline still
       matches [`hal::audio::sampleRate()`](../tests/test_app/test_audio_defaults.cpp).
 - [ ] Trigger a resonator seed via the sim or hardware UI and compare the voice
       metrics to the expectations captured in

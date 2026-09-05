@@ -63,6 +63,12 @@ clicks, or other signs of buffer pain.
   new scripts in `scripts/README.md`.
 - When in doubt, drop quick notes into `docs/` so we remember the experiment.
 
+## Generated artifacts
+
+Reviewed golden WAVs and ledgers in `build/fixtures/` are intentional reference
+files. Compiled binaries and ad-hoc renders stay out of commits. Follow the
+[artifact policy](docs/artifact_policy.md) when refreshing fixtures.
+
 ## Docs are first-class
 
 Documentation lives under both MIT (code) and CC BY 4.0 (docs). When you add or

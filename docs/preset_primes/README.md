@@ -44,6 +44,6 @@ matching code witness:
 3. Dump `snapshot.serialize()` to disk and drop the JSON in this folder.
 4. Commit it alongside any lesson notes so future you knows why the bank exists.
 
-Remember to run `pio test -e native --filter test_app --test-name test_preset_round_trip_via_eeprom_store` before you ship
+Remember to run `pio test -e native --filter test_app` before you ship
 changes; that suite proves the serialization path is still deterministic for the
 whole preset pipeline.

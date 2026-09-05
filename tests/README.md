@@ -18,7 +18,7 @@ flowchart TD
   Cases --> Golden{ENABLE_GOLDEN?}
   Patterns --> Golden
   Engines --> Golden
-  Golden -->|yes| Artifacts["/artifacts/ (gitignored)/"]
+  Golden -->|yes| Artifacts["Golden WAVs: build/fixtures/; scratch logs: artifacts/"]
   Golden -->|no| Console["Logs + assertions"]
 ```
 
@@ -41,23 +41,21 @@ setup light and failure messages readable.
 pio test -e native
 ```
 
-That command is the heartbeat of the project. Run it whenever you touch `src/`
-or `include/` code.
+Use `--filter test_app` or `--filter test_engine` to select a suite directory.
+The suite entry points invoke their registered Unity tests; `--test-name` is
+not a supported PlatformIO option.
 
 ### Toggle-able test flags
 
 Defaults for every switch live in [`include/SeedBoxConfig.h`](../include/SeedBoxConfig.h).
 
-- `ENABLE_GOLDEN` — When set, tests can record fresh comparison data into
-  `artifacts/`. Commit the intent in docs, not the raw files, so the repo stays
-  lean. Fire up the `native_golden` PlatformIO env to toggle it without
-  juggling manual build flags. PlatformIO feeds the project path in as
-  `SEEDBOX_PROJECT_ROOT_HINT`, the harness respects a runtime
-  `SEEDBOX_PROJECT_ROOT` override, and it still walks up the filesystem hunting
-  for `platformio.ini` if all else fails. The rendered WAVs always land in
-  `<repo>/build/fixtures` even though the binary runs inside `.pio/`. Override
-  that default with `SEEDBOX_FIXTURE_ROOT=/tmp/seedbox-fixtures` if you're
-  prototyping somewhere else.
+- `ENABLE_GOLDEN` — Enables golden capture. The `native_golden` environment
+  sets it for you. Curated WAVs and control ledgers live in `build/fixtures/`;
+  tick-debug logs written to `artifacts/` are disposable. Follow the
+  [artifact policy](../docs/artifact_policy.md) when refreshing references.
+  `SEEDBOX_PROJECT_ROOT_HINT` supplies the project root; a runtime
+  `SEEDBOX_PROJECT_ROOT` override is also supported. Use `SEEDBOX_FIXTURE_ROOT`
+  to send experimental renders to a temporary directory.
 - `QUIET_MODE` — Suppresses log spam while still running assertions. Handy when
   you're generating `.wav` snippets into `out/` for listening tests.
 
@@ -69,10 +67,10 @@ we mostly run the suite on laptops.
 - **Front panel story time:** `tests/test_app/test_app.cpp` now contains
   `test_scripted_front_panel_walkthrough`, a soup-to-nuts rehearsal that hits
   mode changes, reseeds, and preset recall using nothing but the native
-  board shim. Run it solo with:
+  board shim. Run its containing suite with:
 
   ```bash
-  pio test -e native --filter test_app --test-name test_scripted_front_panel_walkthrough
+  pio test -e native --filter test_app
   ```
 
 - **Clock goldens:** `tests/test_patterns/test_tick_golden.cpp` captures tick
@@ -80,7 +78,7 @@ we mostly run the suite on laptops.
   `artifacts/pattern_ticks_*.txt` fixtures by flipping `ENABLE_GOLDEN`:
 
   ```bash
-  pio test -e native_golden --filter test_patterns --test-name test_clock_tick_log_golden
+  pio test -e native_golden --filter test_patterns
   ```
 
 - **Engine postcards:** `tests/test_engine/test_euclid_burst.cpp` now writes

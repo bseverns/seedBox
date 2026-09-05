@@ -38,7 +38,7 @@ remain desktop extensions; they are not additional physical panel controls.
 The old panel-specific Alt+Reseed / Alt+Lock quick-preset gestures are replaced
 by the shared Storage gestures on Alt Seed and Seed/Bank.
 
-## Validation
+## Validation recorded for SB-03
 
 - Native application suite: **68/68 passed**, including elapsed-clock mode and
   restoration of deterministic scripted timing.
@@ -58,7 +58,6 @@ parity were not exercised by these checks.
 
 ## Follow-up
 
-SB-04 can enforce this inventory in CI with pin uniqueness, count, documentation,
-and independent-control checks. This change shares the production definitions
-and fixes the current descriptions; it does not claim bench validation or a
-fabrication-ready panel drawing.
+[SB-04](SB-04-panel-contract-tests.md) now enforces this inventory with pin
+uniqueness, count, documentation, and independent-control checks. These steps
+do not claim bench validation or a fabrication-ready panel drawing.

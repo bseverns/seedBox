@@ -3,9 +3,9 @@
 //
 // Wiring cheat sheet.
 // --------------------
-// Everything hardware-specific lands here so the rest of the firmware can stay
-// agnostic.  Bring this file to the workbench and you have a literal map of
-// which Teensy pins feed which controls.
+// Legacy wiring reference; these declarations do not initialize Board.
+// The current physical control inventory and pin assignments are defined in
+// hal/PanelControls.h and consumed by the platform Board implementations.
 #include <stdint.h>
 #include <stddef.h>
 
@@ -27,19 +27,20 @@ struct EncoderPins {
 // so the only cabled MIDI now rolls through the Type-A mini TRS pair.
 static constexpr EncoderPins kEncoders[] = {
   {0, 1, 2,   "Seed/Bank"},
-  {3, 4, 5,   "Density/Prob"},
+  {3, 4, 5,   "Density"},
   {24, 26, 27, "Tone/Tilt"},
   {6, 9, 30,   "FX/Mutate"},
 };
 
 static constexpr size_t kEncoderCount = sizeof(kEncoders) / sizeof(kEncoders[0]);
 
-// Buttons moved to the high-number analog-capable pads. Those pads are free on
-// the audio shield and easy to ribbon over to a control panel.
+// Legacy subset of button pin names; this is not the control contract.
+// See hal/PanelControls.h for the complete inventory, including Live Capture.
 static constexpr uint8_t kTapTempoPin = 31;
 static constexpr uint8_t kShiftButtonPin = 32;
 static constexpr uint8_t kAltSeedButtonPin = 33;
 
+// Optional expression wiring references; Board does not expose these as controls.
 static constexpr uint8_t kExpression1Pin = 15; // analog CV 0-3.3V
 static constexpr uint8_t kExpression2Pin = 16; // analog CV 0-3.3V
 

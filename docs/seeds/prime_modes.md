@@ -23,7 +23,7 @@ The tests in [`tests/test_app/test_seed_prime_modes.cpp`](../../tests/test_app/t
 Want to watch the preset bank round-trip byte-for-byte? Run the native preset regression:
 
 ```bash
-pio test -e native --filter test_app --test-name test_preset_round_trip_via_eeprom_store
+pio test -e native --filter test_app
 ```
 
 Preset genomes live in [`docs/preset_primes/`](../preset_primes). The firmware hydrates them through `AppState::setSeedPreset` and `AppState::buildPresetSeeds`, so a reseed on the sampler will replay the exact pitches, envelopes, and engine picks captured in those JSON dumps.

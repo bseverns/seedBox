@@ -24,12 +24,13 @@ Current behavior:
   without navigation, recall, or reseed.
 - Live Capture retains its existing capture and panic gestures.
 - Slot/global lock APIs and host controls remain available. No physical Lock
-  button is assigned by Board today; SB-02 must resolve that control contract.
+  button is assigned by the current Board contract.
   Pin 3 must not be used as an implicit Lock button.
 
-SB-02 remains the next step: decide the physical control inventory and canonical
-pin/gesture contract. This change does not add speculative standalone controls.
-SB-03 can then reconcile the panel, BOM, simulator, JUCE, and builder documents.
+Follow-up completed: [SB-03](SB-03-panel-reconciliation.md) preserved this Board
+layout and recorded it in `PanelControls.h`; [SB-04](SB-04-panel-contract-tests.md)
+added contract and independent-control checks. No separate SB-02 decision was
+recorded. A future physical Lock assignment would be a contract change.
 
 Regression coverage in `tests/test_app/test_board_input_ownership.cpp` checks
 that AppState preserves existing GPIO configuration, raw pin 2/3 edges cannot
@@ -37,7 +38,7 @@ reseed or lock, a short Seed press navigates without reseeding, Density turns do
 not lock seeds, and a host-maintenance Seed hold reseeds only once. The scripted
 panel walkthrough saves and recalls through Board events rather than mock GPIO.
 
-Validation:
+Validation recorded for SB-01:
 
 - Native application suite: **67/67 passed**, including both ownership
   regressions and the scripted panel walkthrough.

@@ -17,7 +17,7 @@ AppState into the Sampler engine, and record experiments along the way.
 | `jitterMs` | Timing spray in milliseconds. | Scheduler offsets trigger timestamps by this wander. |
 | `tone` | Tilt-EQ macro. | Sampler maps 0–1 to 400–8000 Hz, Resonator biases brightness. |
 | `spread` | Stereo width macro. | `stereo::constantPowerWidth` sets per-voice mixer gains. |
-| `engine` | Engine lane selector (0 sampler, 1 granular, 2 resonator). | `EngineRouter::triggerSeed` sanitizes it and calls the target engine. |
+| `engine` | Engine lane selector: 0 Sampler, 1 Granular, 2 Resonator, 3 Euclid, 4 Burst, 5 Toy; see [EngineRouter IDs](../../src/engine/EngineRouter.h). | `EngineRouter::triggerSeed` sanitizes it and calls the target engine. |
 | `sampleIdx` | Wavetable slot request. | Sampler picks RAM vs SD streaming based on this index. |
 | `mutateAmt` | Bound for random walk editors. | `SeedLock` and mutate UI gestures use it as the guard rail. |
 | `granular.*` | Grain dimensions, source selection, and stereo spread. | `GranularEngine::configureVoice` (see src/engine/Granular.cpp) consumes these fields directly. |

@@ -1,5 +1,9 @@
 # Native golden harness — the mixtape finally pressed to vinyl
 
+Curated fixtures are tracked under `build/fixtures/`; exploratory renders and
+compiled outputs are not. See the [artifact policy](../../docs/artifact_policy.md).
+
+
 The plan from the old zine margin made it to wax. When you flip
 `ENABLE_GOLDEN=1` and run the native test environment we now capture both the
 raw PCM render **and** the matching hash in a manifest so CI artifacts tell the

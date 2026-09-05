@@ -21,19 +21,21 @@ the firmware when you're teaching.
 
 The firmware now ships with an opt-in log hook that yells whenever the external
 clock state flips. Toggle it on when you compile (and peek at
-[`include/SeedBoxConfig.h`](../../include/SeedBoxConfig.h) for the canonical
-flag descriptions):
+[`include/SeedBoxConfig.h`](../../../include/SeedBoxConfig.h) for the canonical
+flag descriptions). Add `-DQUIET_MODE=0` and
+`-DSEEDBOX_DEBUG_CLOCK_SOURCE=1` to the existing `[env:teensy40]` build flags
+in `platformio.ini`, preserving the other flags, then build/upload:
 
 ```bash
 # from repo root
-pio run -e seedbox_hw -t upload --silent --project-option="build_flags = -DQUIET_MODE=0 -DSEEDBOX_DEBUG_CLOCK_SOURCE=1"
+pio run -e teensy40 --target upload
 ```
 
 * `QUIET_MODE=0` keeps the MIDI router live. Quiet mode short-circuits the
   callbacks, so leave that at zero for this test.
 * `SEEDBOX_DEBUG_CLOCK_SOURCE=1` enables the Serial prints inside
-  `AppState::onExternalClockTick/Start/Stop`. They announce exactly when the
-  firmware decides an external clock is in charge.
+  `AppUiClockService` (`onExternalClockTick`, `onExternalTransportStart`, and
+  `onExternalTransportStop`). They announce changes in external-clock ownership.
 
 If you're not using PlatformIO, inject the same `-D` flags into your
 `platform.txt` / Makefile setup before compiling.

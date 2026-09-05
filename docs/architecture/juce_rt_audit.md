@@ -38,8 +38,8 @@ Primary path:
 9. call `app_.tickHostAudio()`
 
 Source:
-- [SeedboxAudioProcessor.cpp:135](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L135)
-- [HostAudioRealtimeService.cpp:5](/Users/bseverns/Documents/GitHub/seedbox/src/app/HostAudioRealtimeService.cpp#L5)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
+- [HostAudioRealtimeService.cpp](../../src/app/HostAudioRealtimeService.cpp)
 
 ### `JuceHost::audioDeviceIOCallbackWithContext`
 
@@ -55,7 +55,7 @@ Primary path:
 8. call `app_.tickHostAudio()`
 
 Source:
-- [JuceHost.cpp:161](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L161)
+- [JuceHost.cpp](../../src/juce/JuceHost.cpp)
 
 ### `SeedboxAudioProcessor::timerCallback`
 
@@ -67,8 +67,8 @@ Current plugin maintenance path:
 4. rebuild OLED/debug text only when the cached snapshot is marked dirty
 
 Source:
-- [SeedboxAudioProcessor.cpp:245](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L245)
-- [SeedboxAudioProcessorEditor.cpp:856](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessorEditor.cpp#L856)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
+- [SeedboxAudioProcessorEditor.cpp](../../src/juce/SeedboxAudioProcessorEditor.cpp)
 
 ### `JuceHost::MaintenanceTimer`
 
@@ -79,7 +79,7 @@ Current standalone maintenance path:
 3. keep standalone panel/preset/display upkeep off the device callback
 
 Source:
-- [JuceHost.cpp:132](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L132)
+- [JuceHost.cpp](../../src/juce/JuceHost.cpp)
 
 ## Non-Audio Thread Path
 
@@ -94,31 +94,31 @@ Current parameter-thread path:
 5. the processor shell stays out of the long parameter switch
 
 Sources:
-- [SeedboxAudioProcessor.cpp:353](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L353)
-- [HostControlBridge.cpp:26](/Users/bseverns/Documents/GitHub/seedbox/src/juce/HostControlBridge.cpp#L26)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
+- [HostControlBridge.cpp](../../src/juce/HostControlBridge.cpp)
 
 ## Call Risk Table
 
 | Site | Evidence | Alloc / resize | Lock | Filesystem / storage | Current status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| scratch buffer preallocation in `prepareToPlay(...)` | [SeedboxAudioProcessor.cpp:104](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L104) | yes, but off audio thread | no repo lock | no | hardened | plugin scratch buffers are now preallocated before callback use |
-| scratch buffer preallocation in `audioDeviceAboutToStart(...)` / `configureForTests(...)` | [JuceHost.cpp:123](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L123) | yes, but off audio thread | no repo lock | no | hardened | standalone scratch vectors are now sized before callback entry |
-| callback overflow guard (`numSamples > preparedScratchFrames_`) | [SeedboxAudioProcessor.cpp:143](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L143) | no | no repo lock | no | fail-closed | avoids allocation on unexpected oversize blocks at the cost of dropping that block |
-| standalone overflow guard (`frames > preparedScratchFrames_`) | [JuceHost.cpp:171](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L171) | no | no repo lock | no | fail-closed | same policy for the standalone callback |
-| `app_.setDryInputFromHost(...)` | [AppState.cpp:1025](/Users/bseverns/Documents/GitHub/seedbox/src/app/AppState.cpp#L1025) | delegated | no repo lock | no | improved, still on audio thread | no longer owns heap storage, but still part of the callback path |
-| `InputGateMonitor::setDryInput(...)` | [InputGateMonitor.cpp:44](/Users/bseverns/Documents/GitHub/seedbox/src/app/InputGateMonitor.cpp#L44) | no | no repo lock | no | hardened | now borrows the current block instead of copying into owned vectors |
-| `hostControl_.syncHostTransport(...)` | [HostControlBridge.cpp:35](/Users/bseverns/Documents/GitHub/seedbox/src/juce/HostControlBridge.cpp#L35) | no repo allocation visible | no repo lock | no | likely safe-ish, not proven | host `getPosition()` is outside repo control; treat as host-boundary risk until documented |
-| plugin MIDI staging -> `ProcessorMidiBackend` | [SeedboxAudioProcessor.cpp:185](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L185) | no heap growth in current queue | no repo lock | no | improved | plugin MIDI ingress now goes through bounded preallocated staging before `midi.poll()`, and its drop counter is now atomic for cross-thread diagnostics reads |
-| `hal::audio::renderHostBuffer(...)` -> `AppState::handleAudio(...)` | [AppState.cpp:517](/Users/bseverns/Documents/GitHub/seedbox/src/app/AppState.cpp#L517) | none obvious in render path once dry buffers exist | no repo lock | no | closer to safe | render path itself mostly stays in fixed buffers + engine state |
-| `app_.midi.poll()` in standalone host | [JuceHost.cpp:211](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L211) | no repo allocation in current backend | no mutex in current backend | no | improved | `JuceHost` now uses a bounded preallocated queue and drops overflow instead of locking |
-| plugin `ProcessorMidiBackend` queueing | [SeedboxAudioProcessor.cpp:659](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L659) | bounded assignment only | no repo lock | no | hardened | plugin MIDI ingress now uses fixed-capacity storage and drops overflow instead of allocating |
-| `app_.tickHostAudio()` | [SeedboxAudioProcessor.cpp:238](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L238) | not allocation-free by formal contract | no repo lock visible | no direct storage/display work | reduced, still under audit | now a thin wrapper over `HostAudioRealtimeService`, which owns the callback-safe heartbeat |
-| `app_.setHostDiagnosticsFromHost(...)` in plugin timer | [SeedboxAudioProcessor.cpp:263](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L263) | trivial struct copy only | not on audio thread | no | improved | plugin maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot; those counters are now atomic on the write/read boundary |
-| `app_.serviceHostMaintenance()` in plugin timer | [SeedboxAudioProcessor.cpp:264](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L264) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | this is now where deferred preset commits, reseed requests, and display snapshots are serviced in the plugin lane |
-| `app_.setHostDiagnosticsFromHost(...)` in standalone timer | [JuceHost.cpp:136](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L136) | trivial struct copy only | not on audio thread | no | improved | standalone maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot; those counters are now atomic on the write/read boundary |
-| `app_.serviceHostMaintenance()` in standalone timer | [JuceHost.cpp:137](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L137) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | standalone now has the same basic maintenance split as the plugin lane |
-| JUCE cached display text refresh | [SeedboxAudioProcessorEditor.cpp:872](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessorEditor.cpp#L872) | no snapshot rebuild on clean frames | no repo lock | no | improved | editor/panel now consume `displayCache_` and only rebuild OLED/debug text when `displayDirty_` flips; live output meters still poll `LearnFrame` |
-| `parameterChanged(...)` -> `HostControlBridge::handleParameterChange(...)` | [SeedboxAudioProcessor.cpp:353](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L353) | map updates only in current shell | no repo lock | may touch preset/seed/UI state by design | audited, still message-thread-sensitive | host-thread parameter mutations are now centralized, but still need an explicit contract table |
+| scratch buffer preallocation in `prepareToPlay(...)` | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | yes, but off audio thread | no repo lock | no | hardened | plugin scratch buffers are now preallocated before callback use |
+| scratch buffer preallocation in `audioDeviceAboutToStart(...)` / `configureForTests(...)` | [JuceHost.cpp](../../src/juce/JuceHost.cpp) | yes, but off audio thread | no repo lock | no | hardened | standalone scratch vectors are now sized before callback entry |
+| callback overflow guard (`numSamples > preparedScratchFrames_`) | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | no | no repo lock | no | fail-closed | avoids allocation on unexpected oversize blocks at the cost of dropping that block |
+| standalone overflow guard (`frames > preparedScratchFrames_`) | [JuceHost.cpp](../../src/juce/JuceHost.cpp) | no | no repo lock | no | fail-closed | same policy for the standalone callback |
+| `app_.setDryInputFromHost(...)` | [AppState.cpp](../../src/app/AppState.cpp) | delegated | no repo lock | no | improved, still on audio thread | no longer owns heap storage, but still part of the callback path |
+| `InputGateMonitor::setDryInput(...)` | [InputGateMonitor.cpp](../../src/app/InputGateMonitor.cpp) | no | no repo lock | no | hardened | now borrows the current block instead of copying into owned vectors |
+| `hostControl_.syncHostTransport(...)` | [HostControlBridge.cpp](../../src/juce/HostControlBridge.cpp) | no repo allocation visible | no repo lock | no | likely safe-ish, not proven | host `getPosition()` is outside repo control; treat as host-boundary risk until documented |
+| plugin MIDI staging -> `ProcessorMidiBackend` | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | no heap growth in current queue | no repo lock | no | improved | plugin MIDI ingress now goes through bounded preallocated staging before `midi.poll()`, and its drop counter is now atomic for cross-thread diagnostics reads |
+| `hal::audio::renderHostBuffer(...)` -> `AppState::handleAudio(...)` | [AppState.cpp](../../src/app/AppState.cpp) | none obvious in render path once dry buffers exist | no repo lock | no | closer to safe | render path itself mostly stays in fixed buffers + engine state |
+| `app_.midi.poll()` in standalone host | [JuceHost.cpp](../../src/juce/JuceHost.cpp) | no repo allocation in current backend | no mutex in current backend | no | improved | `JuceHost` now uses a bounded preallocated queue and drops overflow instead of locking |
+| plugin `ProcessorMidiBackend` queueing | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | bounded assignment only | no repo lock | no | hardened | plugin MIDI ingress now uses fixed-capacity storage and drops overflow instead of allocating |
+| `app_.tickHostAudio()` | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | not allocation-free by formal contract | no repo lock visible | no direct storage/display work | reduced, still under audit | now a thin wrapper over `HostAudioRealtimeService`, which owns the callback-safe heartbeat |
+| `app_.setHostDiagnosticsFromHost(...)` in plugin timer | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | trivial struct copy only | not on audio thread | no | improved | plugin maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot; those counters are now atomic on the write/read boundary |
+| `app_.serviceHostMaintenance()` in plugin timer | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | this is now where deferred preset commits, reseed requests, and display snapshots are serviced in the plugin lane |
+| `app_.setHostDiagnosticsFromHost(...)` in standalone timer | [JuceHost.cpp](../../src/juce/JuceHost.cpp) | trivial struct copy only | not on audio thread | no | improved | standalone maintenance now mirrors callback drop/oversize counters into the shared app diagnostics snapshot; those counters are now atomic on the write/read boundary |
+| `app_.serviceHostMaintenance()` in standalone timer | [JuceHost.cpp](../../src/juce/JuceHost.cpp) | can allocate indirectly through normal UI/control flows | not on audio thread | may reach preset/display flows | intentionally off callback | standalone now has the same basic maintenance split as the plugin lane |
+| JUCE cached display text refresh | [SeedboxAudioProcessorEditor.cpp](../../src/juce/SeedboxAudioProcessorEditor.cpp) | no snapshot rebuild on clean frames | no repo lock | no | improved | editor/panel now consume `displayCache_` and only rebuild OLED/debug text when `displayDirty_` flips; live output meters still poll `LearnFrame` |
+| `parameterChanged(...)` -> `HostControlBridge::handleParameterChange(...)` | [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp) | map updates only in current shell | no repo lock | may touch preset/seed/UI state by design | audited, still message-thread-sensitive | host-thread parameter mutations are now centralized, but still need an explicit contract table |
 
 ## Main Findings
 
@@ -130,10 +130,10 @@ prepared block.
 
 Direct evidence:
 
-- [SeedboxAudioProcessor.cpp:104](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L104)
-- [SeedboxAudioProcessor.cpp:143](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L143)
-- [JuceHost.cpp:123](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L123)
-- [JuceHost.cpp:171](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L171)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
+- [JuceHost.cpp](../../src/juce/JuceHost.cpp)
+- [JuceHost.cpp](../../src/juce/JuceHost.cpp)
 
 ### 2. `InputGateMonitor::setDryInput` is the first concrete fix target
 
@@ -141,8 +141,8 @@ This path was the first concrete fix target, and it is now materially safer.
 It no longer copies the host block into owned vectors; it borrows the current
 dry-input span and re-probes gate state from that borrowed block:
 
-- [HostControlService.cpp:122](/Users/bseverns/Documents/GitHub/seedbox/src/app/HostControlService.cpp#L122)
-- [InputGateMonitor.cpp:44](/Users/bseverns/Documents/GitHub/seedbox/src/app/InputGateMonitor.cpp#L44)
+- [HostControlService.cpp](../../src/app/HostControlService.cpp)
+- [InputGateMonitor.cpp](../../src/app/InputGateMonitor.cpp)
 
 It was a good first target because:
 
@@ -172,9 +172,9 @@ What moved off the plugin audio callback:
 - display snapshot refresh
 
 Sources:
-- [AppState.cpp:736](/Users/bseverns/Documents/GitHub/seedbox/src/app/AppState.cpp#L736)
-- [AppState.cpp:759](/Users/bseverns/Documents/GitHub/seedbox/src/app/AppState.cpp#L759)
-- [HostAudioRealtimeService.cpp:13](/Users/bseverns/Documents/GitHub/seedbox/src/app/HostAudioRealtimeService.cpp#L13)
+- [AppState.cpp](../../src/app/AppState.cpp)
+- [AppState.cpp](../../src/app/AppState.cpp)
+- [HostAudioRealtimeService.cpp](../../src/app/HostAudioRealtimeService.cpp)
 
 That is the right direction, but not the end state. `tickHostAudio()` still
 needs a tighter "RT-safe by contract" surface even though both JUCE lanes now
@@ -224,8 +224,8 @@ than by a stronger formal contract.
 `JuceHost` no longer uses the old mutex-protected incoming MIDI queue. It now
 uses a bounded preallocated ring and drops overflow when the queue is full:
 
-- [JuceHost.cpp:39](/Users/bseverns/Documents/GitHub/seedbox/src/juce/JuceHost.cpp#L39)
-- [SeedboxAudioProcessor.cpp:659](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L659)
+- [JuceHost.cpp](../../src/juce/JuceHost.cpp)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
 
 That removes the obvious heap/mutex surprise from both JUCE MIDI ingress
 paths. The remaining work is now more architectural than mechanical:
@@ -250,8 +250,8 @@ contract as the rest of `tickHostAudio()`.
 `parameterChanged(...)` is not on the audio callback, but it still mutates
 runtime and editor state:
 
-- [SeedboxAudioProcessor.cpp:353](/Users/bseverns/Documents/GitHub/seedbox/src/juce/SeedboxAudioProcessor.cpp#L353)
-- [HostControlBridge.cpp:26](/Users/bseverns/Documents/GitHub/seedbox/src/juce/HostControlBridge.cpp#L26)
+- [SeedboxAudioProcessor.cpp](../../src/juce/SeedboxAudioProcessor.cpp)
+- [HostControlBridge.cpp](../../src/juce/HostControlBridge.cpp)
 
 It writes into:
 

@@ -47,12 +47,13 @@ pio pkg install
   dependencies into `.pio/`. Re-run this after editing `platformio.ini`.
 - For the default laptop-native onboarding flow, run
   `./scripts/starter_bundle.sh` from the repo root.
-- Stash any generated `.wav` renders in `out/` and log artifacts in `artifacts/`.
-  Both are ignored by git, so no one has to review binary blobs in PRs.
+- Put ad-hoc audio renders in `out/` and disposable logs in `artifacts/`.
+  Curated golden fixtures under `build/fixtures/` are intentionally tracked;
+  see the [artifact policy](artifact_policy.md).
 
 ### Nice-to-have extras
 
-- `ninja` speeds up native builds; PlatformIO will fall back to `make` otherwise.
+- `ninja` is an optional generator for CMake/JUCE builds. PlatformIO uses SCons.
 - `teensy-loader-cli` handles uploads without the Arduino IDE. On Debian-based
   systems: `sudo apt install teensy-loader-cli`.
 - `pyenv` or `asdf` for juggling Python versions if you bounce between projects.
@@ -71,20 +72,20 @@ Container docs and pinned versions live in
 
 ## Repository rituals
 
-- **Stay in sync**: run `git pull --rebase` before you branch. Merging in master
+- **Stay in sync**: run `git pull --rebase` before you branch. Merging in main
   while you have uncommitted PlatformIO artifacts is a quick path to chaos. After
   big merges, sanity-check `main` with
   `python scripts/describe_seedbox_config.py --format=markdown` so the build flag
   crib sheet in docs still matches the header.
-- **Generated headers**: `scripts/gen_version.py` writes `include/BuildInfo.h`.
-  The build system calls it automatically, but if you see missing-version errors
-  during native tests, run the script manually to regenerate the header.
+- **Generated headers**: the PlatformIO hook `scripts/gen_version.py` writes
+  `include/BuildInfo.generated.h`. A normal `pio run` or `pio test` invokes it;
+  it requires the build environment and is not a standalone Python command.
 - **Docs as code**: every substantial firmware change should update the relevant
   roadmap or this primer. Leave a timestamped note in the "Repository rituals"
   section when you discover workflow hacks.
-- **Binary artifacts**: never commit compiled firmware or audio blobs. If a doc
-  references a file that should be generated, leave a `TODO: generate ...` note
-  instead.
+- **Artifacts**: keep compiled firmware and ad-hoc renders out of commits.
+  Reviewed golden fixtures are the documented exception; update their hashes
+  and companion files together. See the [artifact policy](artifact_policy.md).
 
 ## Hardware wiring & test points
 
@@ -148,7 +149,7 @@ running scrapbook of builds that map straight back to this table.
 | Build firmware | `pio run -e teensy40` | Generates `.pio/build/.../firmware.hex`. |
 | Upload via CLI | `pio run -e teensy40 --target upload` | Requires `teensy-loader-cli`. |
 | Open serial console | `pio device monitor -b 115200` | Shares the USB cable with MIDI clock. |
-| Regenerate build info | `python scripts/gen_version.py` | Only needed if the auto-hook fails. |
+| Regenerate build info | `pio run -e native` | The version hook runs as part of the build. |
 
 > ⚡️ Legacy cleanup: the `teensy40_usbmidiserial` alias is gone. If an old
 > script still whispers that name, swap it for `teensy40` before you press run.
@@ -156,21 +157,23 @@ running scrapbook of builds that map straight back to this table.
 > ⚠️ **Quiet mode reminder:** defaults live in
 > [`include/SeedBoxConfig.h`](../include/SeedBoxConfig.h). Hardware uploads stay
 > quiet until you append `-D QUIET_MODE=0` to your `build_flags` (per-env in
-> `platformio.ini` or via `--project-option`). Native tests already flip the flag
-> off so simulations keep their deterministic seeds.
+> `platformio.ini`). Both PlatformIO environments currently set quiet mode on;
+> CMake/JUCE defaults it off. Quiet mode is separate from deterministic seeding.
 
 When documenting lab sessions, jot down the exact command invocations and link
 to this table. Future students can replay your steps.
 
 ## Debugging playbook
 
-- **Clock drift**: If the scheduler feels laggy, log incoming MIDI clock rates
-  with `MidiRouter::debugDump()`. Compare USB vs. TRS feeds.
-- **Seed chaos**: When triggers look random, print the seed table via
-  `SeedTable::debugDescribe()` to confirm reseed order.
-- **Audio silence**: The Sampler and Granular engines are works in progress. Confirm
-  the scheduler is firing by watching the OLED snapshots before hunting in DSP
-  code.
+- **Clock drift**: inspect the clock source and transport fields in
+  `AppState::captureStatusSnapshot()` and compare USB versus TRS input using
+  `tests/test_app/test_external_midi_priority.cpp`.
+- **Seed changes**: inspect `AppState::seeds()` and `masterSeed()`, or capture a
+  status snapshot alongside the control ledger to compare reseed order.
+- **Audio silence**: confirm the scheduler is firing in the display/status
+  snapshots, then inspect `AppState::captureLearnFrame()` audio metrics and the
+  current quiet-mode setting. Check [current support](StabilityAndSupport.md)
+  before assuming a missing engine implementation.
 - **Native vs. hardware mismatches**: Wrap hardware-only includes with
   `#if SEEDBOX_HW`. The native build should always compile without Teensy
   headers present.
