@@ -68,7 +68,7 @@ we mostly run the suite on laptops.
 
 - **Front panel story time:** `tests/test_app/test_app.cpp` now contains
   `test_scripted_front_panel_walkthrough`, a soup-to-nuts rehearsal that hits
-  mode changes, reseeds, locks, and preset recall using nothing but the native
+  mode changes, reseeds, and preset recall using nothing but the native
   board shim. Run it solo with:
 
   ```bash

@@ -126,8 +126,6 @@ void PresetTransitionRunner::apply(AppState& app, const seedbox::Preset& preset,
   app.debugMetersEnabled_ = preset.clock.debugMeters;
   app.setTempoTarget(preset.clock.bpm, true);
   app.currentPage_ = static_cast<AppState::Page>(preset.page);
-  app.storageButtonHeld_ = false;
-  app.storageLongPress_ = false;
 
   if (!preset.engineSelections.empty()) {
     app.seedEngineSelections_ = preset.engineSelections;

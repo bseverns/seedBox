@@ -1,5 +1,7 @@
 #include <unity.h>
 
+void test_raw_gpio_cannot_reseed_or_lock();
+void test_board_seed_press_and_density_turn_do_not_reseed_or_lock();
 void test_external_clock_priority();
 void test_cc_cycles_engine_and_snapshot_updates();
 void test_engine_selection_persists_and_updates_scheduler();
@@ -68,6 +70,8 @@ void test_tap_tempo_tracker_caps_history();
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_raw_gpio_cannot_reseed_or_lock);
+  RUN_TEST(test_board_seed_press_and_density_turn_do_not_reseed_or_lock);
   RUN_TEST(test_external_clock_priority);
   RUN_TEST(test_cc_cycles_engine_and_snapshot_updates);
   RUN_TEST(test_engine_selection_persists_and_updates_scheduler);

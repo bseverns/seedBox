@@ -125,8 +125,6 @@ void ModeEventRouter::applyModeTransition(AppState& app, const InputEvents::Even
         // Alt long-press is the one routing gesture that also changes page
         // state, because Storage lives "under" the current mode system.
         app.setPage(AppState::Page::kStorage);
-        app.storageButtonHeld_ = false;
-        app.storageLongPress_ = false;
       }
       if (app.mode_ != transition.to) {
         if (fromMode == AppState::Mode::SWING && transition.to != AppState::Mode::SWING) {

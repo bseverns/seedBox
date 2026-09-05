@@ -24,6 +24,7 @@ public:
     ButtonChord,
     EncoderTurn,
     EncoderHoldTurn,
+    ButtonRelease,
   };
 
   struct Event {
@@ -33,6 +34,8 @@ public:
     hal::Board::EncoderID encoder{hal::Board::EncoderID::SeedBank};
     int32_t encoderDelta{0};
     std::uint64_t timestampUs{0};
+    // Duration measured by the Board clock; populated for ButtonRelease.
+    std::uint64_t heldUs{0};
   };
 
   explicit InputEvents(hal::Board& board);

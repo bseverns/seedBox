@@ -64,6 +64,7 @@ void InputEvents::handleButton(hal::Board::ButtonID id, const hal::Board::Button
   const bool pressed = sample.pressed;
 
   if (pressed != state.down) {
+    const auto heldUs = now - state.lastChange;
     state.down = pressed;
     state.lastChange = now;
 
@@ -109,6 +110,13 @@ void InputEvents::handleButton(hal::Board::ButtonID id, const hal::Board::Button
         }
       }
     } else {
+      Event release{};
+      release.type = Type::ButtonRelease;
+      release.primaryButton = id;
+      release.buttons = {id};
+      release.timestampUs = now;
+      release.heldUs = heldUs;
+      emit(std::move(release));
       held_mask_ &= ~buttonBit(id);
       state.lastRelease = now;
       if (!state.longSent) {

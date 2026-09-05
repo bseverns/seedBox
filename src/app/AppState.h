@@ -330,7 +330,6 @@ private:
   void updateClockDominance();
   void requestPresetChange(const seedbox::Preset& preset, bool crossfade, PresetBoundary boundary);
   void maybeCommitPendingPreset(uint64_t currentTick);
-  void handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp);
   void handleAudio(const hal::audio::StereoBufferView& buffer);
   void configureMidiRouting();
   void bootRuntime(EngineRouter::Mode mode, bool hardwareMode);
@@ -372,8 +371,6 @@ private:
   void exitSwingMode(Mode targetMode);
   void adjustSwing(float delta);
   void applySwingPercent(float value);
-  static void digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
-                                   void* ctx);
   void setTempoTarget(float bpm, bool immediate);
   void updateTempoSmoothing();
 
@@ -432,10 +429,5 @@ private:
   AudioRuntimeState audioRuntime_{};
   InputGateMonitor inputGate_{};
   GateDivision gateDivision_{GateDivision::kBars};
-  bool storageButtonHeld_{false};
-  bool storageLongPress_{false};
-  uint64_t storageButtonPressFrame_{0};
-  bool lockButtonHeld_{false};
-  uint32_t lockButtonPressTimestamp_{0};
   float swingPercent_{0.0f};
 };

@@ -61,12 +61,13 @@ class TeensyBoard final : public Board {
 public:
   TeensyBoard() {
     io::init(kPinConfig.data(), kPinConfig.size());
+    // Pin modes are configured above; Bounce attaches without configuring them again.
     last_micros_tick_ = static_cast<std::uint32_t>(::micros());
     for (std::size_t i = 0; i < kEncoders.size(); ++i) {
       // Bounce2 gives us a debounced snapshot of each encoder's push switch so
       // we can treat it like a glorified button.
       auto& bounce = encoder_switches_[i];
-      bounce.attach(kEncoders[i].pin_switch, INPUT_PULLUP);
+      bounce.attach(kEncoders[i].pin_switch);
       bounce.interval(5);
       // The quadrature pins skip Bounce2 because we want raw transitions; the
       // decodeQuadrature helper handles direction.
@@ -74,7 +75,7 @@ public:
     }
     for (std::size_t i = 0; i < kStandaloneButtons.size(); ++i) {
       auto& bounce = buttons_[i];
-      bounce.attach(kStandaloneButtons[i].second, INPUT_PULLUP);
+      bounce.attach(kStandaloneButtons[i].second);
       bounce.interval(5);
     }
   }

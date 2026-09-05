@@ -64,21 +64,10 @@
 #endif
 
 namespace {
-constexpr uint32_t kStorageLongPressFrames = 60;
 constexpr std::string_view kDefaultPresetSlot = "default";
 constexpr std::size_t kSeedSlotCount = 4;
 
-constexpr hal::io::PinNumber kReseedButtonPin = 2;
-constexpr hal::io::PinNumber kLockButtonPin = 3;
 constexpr hal::io::PinNumber kStatusLedPin = 13;
-
-const std::array<hal::io::DigitalConfig, 3> kFrontPanelPins{{
-    {kReseedButtonPin, true, true},
-    {kLockButtonPin, true, true},
-    {kStatusLedPin, false, false},
-}};
-
-constexpr uint32_t kLockLongPressUs = 600000;  // ~0.6s long press threshold.
 
 constexpr std::array<const char*, 4> kDemoSdClips{{"wash", "dust", "vox", "pads"}};
 #if !SEEDBOX_HW
@@ -298,12 +287,6 @@ AppState::AppState(hal::Board& board) : board_(board), input_(board) {
   selectClockProvider(&internalClock_);
   applySwingPercent(swingPercent_);
   inputGate_.setFloor(hal::audio::kEnginePassthroughFloor);
-  static bool ioInitialised = false;
-  if (!ioInitialised) {
-    hal::io::init(kFrontPanelPins.data(), kFrontPanelPins.size());
-    ioInitialised = true;
-  }
-  hal::io::setDigitalCallback(&AppState::digitalCallbackThunk, this);
   Storage::registerApp(*this);
 }
 
@@ -317,13 +300,6 @@ AppState::~AppState() {
   Storage::unregisterApp(*this);
   hal::audio::stop();
   hal::audio::shutdown();
-}
-
-void AppState::digitalCallbackThunk(hal::io::PinNumber pin, bool level, std::uint32_t timestamp,
-                                    void* ctx) {
-  if (auto* self = static_cast<AppState*>(ctx)) {
-    self->handleDigitalEdge(static_cast<uint8_t>(pin), level, timestamp);
-  }
 }
 
 // initHardware wires up the physical instrument: MIDI ingress, the engine
@@ -500,9 +476,6 @@ void AppState::bootRuntime(EngineRouter::Mode mode, bool hardwareMode) {
   clearPresetCrossfade();
   presetController_.setActivePresetSlot(std::string{});
   currentPage_ = Page::kSeeds;
-  storageButtonHeld_ = false;
-  storageLongPress_ = false;
-  storageButtonPressFrame_ = frame_;
   quantizeScaleIndex_ = 0;
   quantizeRoot_ = 0;
   mode_ = Mode::HOME;
@@ -607,78 +580,6 @@ void AppState::handleAudio(const hal::audio::StereoBufferView& buffer) {
   latestAudioMetrics_.limiter = latestAudioMetrics_.clip;
 }
 
-void AppState::handleDigitalEdge(uint8_t pin, bool level, uint32_t timestamp) {
-  if (pin == kReseedButtonPin) {
-    if (level) {
-      // The reseed button is dual-purpose: outside Storage it arms a reseed;
-      // inside Storage the same hold duration becomes save vs recall.
-      storageButtonHeld_ = true;
-      storageLongPress_ = false;
-      storageButtonPressFrame_ = frame_;
-      if (currentPage_ != Page::kStorage) {
-        reseedRequested_ = true;
-      }
-      return;
-    }
-
-    if (!storageButtonHeld_) {
-      return;
-    }
-
-    storageButtonHeld_ = false;
-    const uint64_t heldFrames = (frame_ > storageButtonPressFrame_)
-                                    ? (frame_ - storageButtonPressFrame_)
-                                    : 0ULL;
-    const bool longPress = heldFrames >= kStorageLongPressFrames;
-
-    if (currentPage_ != Page::kStorage) {
-      return;
-    }
-
-    const std::string slotName = presetController_.activePresetSlot().empty()
-                                     ? std::string(kDefaultPresetSlot)
-                                     : presetController_.activePresetSlot();
-    if (longPress) {
-      // Long press means "commit this scene to disk"; short press means
-      // "audition what is already stored there".
-      storageLongPress_ = true;
-      savePreset(slotName);
-    } else {
-      storageLongPress_ = false;
-      recallPreset(slotName, true);
-    }
-    return;
-  }
-
-  if (pin != kLockButtonPin) {
-    return;
-  }
-
-  if (level) {
-    lockButtonHeld_ = true;
-    lockButtonPressTimestamp_ = timestamp;
-    return;
-  }
-
-  if (!lockButtonHeld_) {
-    return;
-  }
-
-  lockButtonHeld_ = false;
-  const uint32_t heldUs = (timestamp >= lockButtonPressTimestamp_)
-                              ? (timestamp - lockButtonPressTimestamp_)
-                              : 0u;
-  const bool longPress = heldUs >= kLockLongPressUs;
-  if (longPress) {
-    // Long press escalates from slot lock to table lock so the gesture surface
-    // stays tiny without losing a global "freeze the world" command.
-    seedPageToggleGlobalLock();
-  } else {
-    seedPageToggleLock(focusSeed_);
-  }
-  displayDirty_ = true;
-}
-
 // tick is the heartbeat. Every call either primes seeds (first-run), lets the
 // internal scheduler drive things when we own the transport, or just counts
 // frames so the OLED can display a ticking counter.
@@ -686,7 +587,6 @@ void AppState::tick() {
   // tick() is the civil service of the instrument. It polls physical state,
   // resolves pending gestures, advances whichever clock currently owns time,
   // and finally republishes the display snapshot.
-  hal::io::poll();
   board_.poll();
   input_.update();
   InputGestureRouter{}.process(*this);
@@ -740,7 +640,6 @@ void AppState::tickHostAudio() {
 void AppState::serviceHostMaintenance() {
   // Desktop upkeep lives here: poll the simulated panel, resolve any queued
   // host gestures, commit deferred preset requests, and refresh the UI caches.
-  hal::io::poll();
   board_.poll();
   input_.update();
   InputGestureRouter{}.process(*this);

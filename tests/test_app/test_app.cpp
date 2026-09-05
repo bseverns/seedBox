@@ -12,19 +12,6 @@
 
 namespace {
 
-constexpr hal::io::PinNumber kReseedPin = 2;
-constexpr hal::io::PinNumber kLockPin = 3;
-
-struct PanelClock {
-  std::uint32_t micros{0};
-  void reset() { micros = 0; }
-  std::uint32_t advance(std::uint32_t delta) {
-    micros += delta;
-    return micros;
-  }
-  std::uint32_t now() const { return micros; }
-};
-
 void runTicks(AppState& app, int count) {
   for (int i = 0; i < count; ++i) {
     app.tick();
@@ -69,34 +56,6 @@ void tapButton(AppState& app, const char* name, int holdMs = 40, int settleTicks
   hal::nativeBoardFeed(wait.c_str());
   hal::nativeBoardFeed(release.c_str());
   runTicks(app, settleTicks);
-}
-
-void pressLockButton(AppState& app, PanelClock& clock, bool longPress) {
-  clock.advance(1000);
-  hal::io::mockSetDigitalInput(kLockPin, true, clock.now());
-  app.tick();
-  const int idleTicks = longPress ? 48 : 8;
-  for (int i = 0; i < idleTicks; ++i) {
-    app.tick();
-  }
-  clock.advance(longPress ? 650000 : 120000);
-  hal::io::mockSetDigitalInput(kLockPin, false, clock.now());
-  app.tick();
-  runTicks(app, 6);
-}
-
-void pressStorageButton(AppState& app, PanelClock& clock, bool longPress) {
-  clock.advance(2000);
-  hal::io::mockSetDigitalInput(kReseedPin, true, clock.now());
-  app.tick();
-  const int holdFrames = longPress ? 80 : 12;
-  for (int i = 0; i < holdFrames; ++i) {
-    app.tick();
-  }
-  clock.advance(longPress ? 700000 : 90000);
-  hal::io::mockSetDigitalInput(kReseedPin, false, clock.now());
-  app.tick();
-  runTicks(app, 10);
 }
 
 void longPressShift(AppState& app, const char* stage = nullptr, int settleTicks = 80) {
@@ -274,7 +233,6 @@ void test_scripted_front_panel_walkthrough() {
   auto& board = hal::nativeBoard();
   AppState app(board);
   app.initSim();
-  PanelClock clock{};
 
   // Walk the four encoder buttons to tour the page stack.
   tapButton(app, "density");
@@ -322,20 +280,7 @@ void test_scripted_front_panel_walkthrough() {
   TEST_ASSERT_NOT_EQUAL(beforeSeed, app.masterSeed());
   TEST_ASSERT_FALSE(beforeSeeds.empty());
 
-  // Short presses of the dedicated lock key toggle the focus seed.
-  TEST_ASSERT_FALSE(app.isSeedLocked(app.focusSeed()));
-  pressLockButton(app, clock, false);
-  TEST_ASSERT_TRUE(app.isSeedLocked(app.focusSeed()));
-  pressLockButton(app, clock, false);
-  TEST_ASSERT_FALSE(app.isSeedLocked(app.focusSeed()));
-
-  // Long presses flip the global lock latch.
-  pressLockButton(app, clock, true);
-  TEST_ASSERT_TRUE(app.isGlobalSeedLocked());
-  pressLockButton(app, clock, true);
-  TEST_ASSERT_FALSE(app.isGlobalSeedLocked());
-
-  // Long-press Alt to drop into the storage page so the reseed button saves/recalls.
+  // Long-press Alt to drop into the storage page so the Seed switch saves/recalls.
   hal::nativeBoardFeed("btn alt down");
   hal::nativeBoardFeed("wait 600ms");
   hal::nativeBoardFeed("btn alt up");
@@ -344,12 +289,13 @@ void test_scripted_front_panel_walkthrough() {
   TEST_ASSERT_EQUAL(AppState::Mode::HOME, app.mode());
   const uint32_t savedMaster = app.masterSeed();
   const auto savedSeeds = app.seeds();
-  pressStorageButton(app, clock, true);
+  tapButton(app, "seed", 700, 90);
+  TEST_ASSERT_EQUAL_UINT32(savedMaster, app.masterSeed());
   TEST_ASSERT_EQUAL_STRING("default", app.activePresetSlot().c_str());
 
   // Mutate the table, then short-press to recall the saved preset with crossfade.
   app.reseed(app.masterSeed() + 37u);
-  pressStorageButton(app, clock, false);
+  tapButton(app, "seed", 90, 40);
   runTicks(app, static_cast<int>(AppState::kPresetCrossfadeTicks + 8));
 
   const auto recalledSeeds = app.seeds();
