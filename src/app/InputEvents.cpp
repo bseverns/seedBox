@@ -23,7 +23,7 @@ void InputEvents::update() {
 
   flushPendingPresses(now);
 
-  for (std::size_t i = 0; i < 4; ++i) {
+  for (std::size_t i = 0; i < static_cast<std::size_t>(hal::Board::EncoderID::Count); ++i) {
     const auto enc = static_cast<hal::Board::EncoderID>(i);
     const int32_t delta = board_.consumeEncoderDelta(enc);
     if (delta != 0) {

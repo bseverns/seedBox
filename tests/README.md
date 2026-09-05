@@ -107,3 +107,11 @@ Need more narrative? Cross-reference the [docs roadmap](../docs/roadmaps) or the
 your test file comments.
 
 Healthy tests let us stay bold with the music experiments.
+
+## Front-panel contract
+
+[SB-04](../docs/roadmaps/SB-04-panel-contract-tests.md) documents the compile-time
+pin/coverage guards, documentation checker and negative tests, scripted tests
+for all eight switches and four encoders, and the offscreen JUCE CTest. The
+scripted controls run in `pio test -e native --filter test_app`; they verify each
+control independently so one event cannot hide activity on another control.

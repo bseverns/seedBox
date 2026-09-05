@@ -44,6 +44,7 @@ public:
     Shift,
     AltSeed,
     LiveCapture,
+    Count,
   };
 
   enum class EncoderID : std::uint8_t {
@@ -51,6 +52,7 @@ public:
     Density,
     ToneTilt,
     FxMutate,
+    Count,
   };
 
   struct ButtonSample {

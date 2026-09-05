@@ -1,5 +1,7 @@
 #include <unity.h>
 
+void test_every_panel_button_independently();
+void test_every_panel_encoder_independently();
 void test_native_board_realtime_clock_preserves_scripted_default();
 void test_raw_gpio_cannot_reseed_or_lock();
 void test_board_seed_press_and_density_turn_do_not_reseed_or_lock();
@@ -71,6 +73,8 @@ void test_tap_tempo_tracker_caps_history();
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_every_panel_button_independently);
+  RUN_TEST(test_every_panel_encoder_independently);
   RUN_TEST(test_native_board_realtime_clock_preserves_scripted_default);
   RUN_TEST(test_raw_gpio_cannot_reseed_or_lock);
   RUN_TEST(test_board_seed_press_and_density_turn_do_not_reseed_or_lock);

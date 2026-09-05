@@ -40,7 +40,7 @@ const auto kButtonLookup = [] {
 const auto kEncoderLookup = [] {
   std::array<std::pair<const char*, Board::EncoderID>, panel::encoders.size()> result{};
   for (std::size_t i = 0; i < result.size(); ++i)
-    result[i] = {panel::encoders[i].token, static_cast<Board::EncoderID>(i)};
+    result[i] = {panel::encoders[i].token, panel::encoders[i].id};
   return result;
 }();
 
@@ -316,8 +316,8 @@ private:
   bool realtime_{false};
   std::chrono::steady_clock::time_point last_poll_{std::chrono::steady_clock::now()};
   std::deque<ScriptEvent> script_{};
-  std::array<ButtonSample, 8> button_samples_{};
-  std::array<int32_t, 4> encoder_deltas_{};
+  std::array<ButtonSample, panel::buttonCount> button_samples_{};
+  std::array<int32_t, panel::encoders.size()> encoder_deltas_{};
   std::uint64_t now_us_{0};
   std::uint32_t now_ms_{0};
   const std::uint32_t poll_period_us_{10000};

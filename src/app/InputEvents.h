@@ -66,7 +66,7 @@ private:
   void emit(Event&& evt);
 
   hal::Board& board_;
-  static constexpr std::size_t kButtonCount = static_cast<std::size_t>(hal::Board::ButtonID::LiveCapture) + 1;
+  static constexpr std::size_t kButtonCount = static_cast<std::size_t>(hal::Board::ButtonID::Count);
   std::array<ButtonState, kButtonCount> button_states_{};
   ButtonMask held_mask_{0};
   std::vector<Event> events_{};

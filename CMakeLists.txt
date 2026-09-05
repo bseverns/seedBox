@@ -239,3 +239,17 @@ target_link_libraries(seedbox_native_input_probe
   PRIVATE
     seedbox_core
 )
+
+include(CTest)
+if(BUILD_TESTING)
+  # Reuse the built plugin's implementation and JUCE modules. This executable
+  # instantiates the real panel offscreen and never opens an audio device.
+  add_executable(seedbox_panel_contract_test tools/tests/panel_contract_test.cpp)
+  target_include_directories(seedbox_panel_contract_test PRIVATE
+    $<TARGET_PROPERTY:SeedboxVST3,INCLUDE_DIRECTORIES>)
+  target_compile_definitions(seedbox_panel_contract_test PRIVATE
+    $<TARGET_PROPERTY:SeedboxVST3,COMPILE_DEFINITIONS>)
+  target_link_libraries(seedbox_panel_contract_test PRIVATE SeedboxVST3)
+  add_test(NAME panel_contract_juce COMMAND seedbox_panel_contract_test)
+  set_tests_properties(panel_contract_juce PROPERTIES TIMEOUT 30)
+endif()

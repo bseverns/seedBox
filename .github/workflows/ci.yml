@@ -9,6 +9,18 @@ env:
   BUILD_TYPE: Release
 
 jobs:
+  front-panel-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Check compiled panel contract and builder surfaces
+        run: python scripts/check_panel_contract.py
+      - name: Prove panel guards reject drift
+        run: python -m unittest discover -s scripts/tests -p test_panel_contract.py
+
   starter-bundle-smoke:
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +39,7 @@ jobs:
         run: ./scripts/starter_bundle.sh
 
   build:
-    needs: starter-bundle-smoke
+    needs: [starter-bundle-smoke, front-panel-contract]
     runs-on: ubuntu-latest
     env:
       ENABLE_GOLDEN: "0"
@@ -220,6 +232,7 @@ jobs:
           cmake -S . -B build/juce \
             -G Ninja \
             -DSEEDBOX_SIM=ON \
+            -DBUILD_TESTING=ON \
             -DSEEDBOX_VERSION="${{ github.sha }}" \
             -DJUCE_VST3_CAN_REPLACE_VST2=OFF \
             -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -228,6 +241,11 @@ jobs:
 
       - name: Build VST3 and standalone app
         run: cmake --build build/juce --config ${BUILD_TYPE} --target SeedboxVST3 SeedboxVST3_VST3 SeedboxApp
+
+      - name: Build and test the actual JUCE panel contract
+        run: |
+          cmake --build build/juce --config ${BUILD_TYPE} --target seedbox_panel_contract_test
+          ctest --test-dir build/juce -C ${BUILD_TYPE} -R '^panel_contract_juce$' --output-on-failure
 
       - name: Inspect universal binaries
         run: |
