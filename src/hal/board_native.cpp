@@ -1,10 +1,12 @@
 #if !SEEDBOX_HW
 
 #include "hal/Board.h"
+#include "hal/PanelControls.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <deque>
 #include <optional>
 #include <sstream>
@@ -28,23 +30,19 @@ struct ScriptEvent {
   int32_t encoder_delta{0};
 };
 
-constexpr std::array<std::pair<const char*, Board::ButtonID>, 8> kButtonLookup{{
-    {"seed", Board::ButtonID::EncoderSeedBank},
-    {"density", Board::ButtonID::EncoderDensity},
-    {"tone", Board::ButtonID::EncoderToneTilt},
-    {"fx", Board::ButtonID::EncoderFxMutate},
-    {"tap", Board::ButtonID::TapTempo},
-    {"shift", Board::ButtonID::Shift},
-    {"alt", Board::ButtonID::AltSeed},
-    {"capture", Board::ButtonID::LiveCapture},
-}};
-
-constexpr std::array<std::pair<const char*, Board::EncoderID>, 4> kEncoderLookup{{
-    {"seed", Board::EncoderID::SeedBank},
-    {"density", Board::EncoderID::Density},
-    {"tone", Board::EncoderID::ToneTilt},
-    {"fx", Board::EncoderID::FxMutate},
-}};
+const auto kButtonLookup = [] {
+  std::array<std::pair<const char*, Board::ButtonID>, panel::buttonCount> result{};
+  std::size_t i = 0;
+  for (const auto& encoder : panel::encoders) result[i++] = {encoder.token, encoder.button_id};
+  for (const auto& button : panel::buttons) result[i++] = {button.token, button.id};
+  return result;
+}();
+const auto kEncoderLookup = [] {
+  std::array<std::pair<const char*, Board::EncoderID>, panel::encoders.size()> result{};
+  for (std::size_t i = 0; i < result.size(); ++i)
+    result[i] = {panel::encoders[i].token, static_cast<Board::EncoderID>(i)};
+  return result;
+}();
 
 std::string toLower(std::string_view in) {
   // Micro helper: normalise tokens from the script parser.  Everything below
@@ -59,12 +57,10 @@ std::string toLower(std::string_view in) {
 class NativeBoard final : public Board {
 public:
   void poll() override {
-    // The simulator advances time in 10ms slices.  Every poll call jumps the
-    // clock forward and then chews through as much of the scripted input as
-    // possible.  This mirrors the "tight loop" vibe of embedded firmware
-    // without forcing the host CPU to sleep.  If you want to explain game loop
-    // patterns to students, this is an approachable anchor point.
-    now_us_ += poll_period_us_;
+    const auto now = std::chrono::steady_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - last_poll_).count();
+    now_us_ += realtime_ ? static_cast<std::uint64_t>(elapsed) : poll_period_us_;
+    last_poll_ = now;
     now_ms_ = static_cast<std::uint32_t>(now_us_ / 1000u);
 
     // Dev-note for the lab: each poll step nibbles through the scripted queue
@@ -108,7 +104,13 @@ public:
   std::uint32_t nowMillis() const override { return now_ms_; }
   std::uint64_t nowMicros() const override { return now_us_; }
 
+  void useRealtimeClock(bool enabled) {
+    realtime_ = enabled;
+    last_poll_ = std::chrono::steady_clock::now();
+  }
+
   void reset() {
+    useRealtimeClock(false);
     // Hard reset for the simulator: wipe any pending scripted events, reset the
     // virtual GPIO snapshots, and slam the clock back to zero.  This keeps
     // tests hermetic and mirrors the "pull the USB cable" ritual students know
@@ -311,6 +313,8 @@ private:
     button_samples_[idx].timestamp_us = now_us_;
   }
 
+  bool realtime_{false};
+  std::chrono::steady_clock::time_point last_poll_{std::chrono::steady_clock::now()};
   std::deque<ScriptEvent> script_{};
   std::array<ButtonSample, 8> button_samples_{};
   std::array<int32_t, 4> encoder_deltas_{};
@@ -331,6 +335,10 @@ NativeBoard& instance() {
 
 Board& board() { return instance(); }
 Board& nativeBoard() { return instance(); }
+
+void nativeBoardUseRealtimeClock(bool enabled) {
+  static_cast<NativeBoard&>(nativeBoard()).useRealtimeClock(enabled);
+}
 
 void nativeBoardFeed(const std::string& line) {
   // External hook for the simulator CLI.  Feeds a single script line into the

@@ -3,7 +3,7 @@
 The HAL stack is the switchboard that keeps SeedBox bilingual: it speaks to real
 Teensy hardware without breaking stride when you flip to the simulator. This lab
 hands you a soldering-iron-free sandbox. We’ll boot the mock audio path, inject
-synthetic GPIO edges, and script a loop that mirrors the panel choreography seen
+Board button events, and script a loop that mirrors the panel choreography seen
 in the integration tests.
 
 ## TL;DR
@@ -14,11 +14,12 @@ in the integration tests.
 - `hal::audio::mockPump(frames)` advances the sample clock and feeds your
   callback floating-point buffers — perfect for unit tests that want to sniff
   DSP output without wiring a codec.【F:src/hal/hal_audio.cpp†L139-L152】
-- `hal::io::mockSetDigitalInput` queues timestamped edges so `poll()` delivers
-  them in order, just like a frantic panel session. The simulator stores the
-  last level per pin so reads stay deterministic.【F:src/hal/hal_io.cpp†L53-L147】
-- `tests/test_app/test_app.cpp` already choreographs reseed + lock buttons with
-  the mock HAL; treat it as a pattern you can riff on in fresh fixtures.【F:tests/test_app/test_app.cpp†L74-L99】
+- Physical panel tests use `hal::nativeBoardFeed` or
+  `hal::nativeBoardSetButton`, then tick the application. Board and InputEvents
+  own control sampling and gesture recognition.
+- `tests/test_app/test_app.cpp` demonstrates navigation, reseeding, and Storage
+  save/recall through that pipeline. Raw GPIO mocks are only for testing the
+  GPIO layer; they do not drive application controls.
 
 ## 1. Boot the audio sandbox
 
@@ -72,112 +73,50 @@ path, so you can assert on absolute timing without conditional compilation.【F:
 Need a different tempo story? Call `mockSetSampleRate` before the pump and the
 rest of the engine maths will follow suit.【F:src/hal/hal_audio.cpp†L133-L137】
 
-## 3. Script panel edges like a proctor
+## 3. Script the Board surface
 
-Digital inputs follow the same pattern. Describe your pins once, then inject
-edges in timestamp order.
-
-```c++
-#include "hal/hal_io.h"
-
-namespace {
-constexpr hal::io::DigitalConfig kPins[] = {
-    {2, true, true},   // reseed button (input, pull-up)
-    {3, true, true},   // lock button (input, pull-up)
-};
-
-void onEdge(hal::io::PinNumber pin, bool level, std::uint32_t micros, void *) {
-  // record events, update state machine, etc.
-}
-}  // namespace
-
-void initPanel() {
-  hal::io::init(kPins, std::size(kPins));
-  hal::io::setDigitalCallback(&onEdge);
-}
-
-void fireFakePresses() {
-  std::uint32_t now = 1000;
-  hal::io::mockSetDigitalInput(3, true, now);
-  hal::io::poll();   // delivers the rising edge
-  now += 650000;
-  hal::io::mockSetDigitalInput(3, false, now);
-  hal::io::poll();   // delivers the falling edge
-}
-```
-
-The simulator keeps a queue of `PendingEvent` structs and only updates the cached
-pin level once `poll()` drains them, making the timing math easy to read in your
-assertions.【F:src/hal/hal_io.cpp†L81-L147】 Hardware builds skip the queue entirely
-and read straight from GPIO, so the same callback sees real switch bounce when you
-deploy.【F:src/hal/hal_io.cpp†L81-L113】
-
-## 4. Steal choreography from the integration test
-
-`tests/test_app/test_app.cpp` already demonstrates a full UI journey driven
-entirely by mock HAL pokes. One highlight is the lock-button helper: it schedules
-a press, ticks the app while the button is held, then releases with a long-delay
-stamp so the firmware’s hold logic fires.
+Use the same named controls as the physical panel. For example, a Seed switch
+hold requests a reseed outside Storage:
 
 ```c++
-void pressLockButton(AppState &app, PanelClock &clock, bool longPress) {
-  clock.advance(1000);
-  hal::io::mockSetDigitalInput(kLockPin, true, clock.now());
-  app.tick();
-  const int idleTicks = longPress ? 48 : 8;
-  for (int i = 0; i < idleTicks; ++i) {
+#include "app/AppState.h"
+#include "hal/Board.h"
+
+void rehearseReseed() {
+  hal::nativeBoardReset();
+  AppState app;
+  app.initSim();
+  hal::nativeBoardFeed("btn seed down");
+  hal::nativeBoardFeed("wait 520ms");
+  hal::nativeBoardFeed("btn seed up");
+  for (int i = 0; i < 96; ++i) {
     app.tick();
   }
-  clock.advance(longPress ? 650000 : 120000);
-  hal::io::mockSetDigitalInput(kLockPin, false, clock.now());
-  app.tick();
-  runTicks(app, 6);
 }
 ```
 
-Use that pattern when you need a reproducible story about long-press logic, seed
-locks, or page transitions. The test harness keeps the panel clock in plain
-microseconds so every assertion reads like a lab note.【F:tests/test_app/test_app.cpp†L74-L99】
+`btn` accepts `seed`, `density`, `tone`, `fx`, `tap`, `shift`, `alt`, and
+`capture`. `enc` accepts `seed`, `density`, `tone`, and `fx` with a signed delta,
+for example `enc density -2`. `wait 520ms` advances scripted Board time.
 
-## 5. Run the regression when in doubt
+## 4. Rehearse Storage save and recall
 
-Wrap your experiment in a Unity test, then run just the HAL-heavy suite:
+The integration walkthrough holds Alt to enter Storage, then holds the Seed
+switch to save or briefly presses it to recall. InputEvents reports release
+with a duration measured by the Board clock. A hold of at least 450 ms saves;
+a shorter press recalls. Both actions happen on release.
+
+Slot and global lock state can be exercised through `seedPageToggleLock` and
+`seedPageToggleGlobalLock`. Board currently has no dedicated physical Lock
+button. Pins 2 and 3 are the Seed switch and Density encoder A respectively;
+never initialize them as independent Reseed/Lock controls in application code.
+
+## 5. Run the regression
 
 ```bash
-pio test -e native --filter test_app/test_app.cpp
+pio test -e native --filter test_app
 ```
 
-The run boots the simulator board, feeds scripted button presses, and proves the
-mock HAL API behaved the same way your doc claims it does. When the Teensy rig is
-packed away, this loop keeps the muscle memory fresh.
-
-## 6. Sketch your own micro harness
-
-If you need a ten-line proof for class, drop the following into a scratch
-`main.cpp` and compile with the native env. It pumps a handful of frames, toggles
-one pin, and dumps the sample clock plus pin level so everyone can see the HAL
-state machine respond:
-
-```c++
-#include "hal/hal_audio.h"
-#include "hal/hal_io.h"
-
-int main() {
-  hal::audio::init(nullptr, nullptr);
-  hal::audio::start();
-  hal::audio::mockPump(64);
-
-  const hal::io::DigitalConfig pins[] = {{2, true, true}};
-  hal::io::init(pins, std::size(pins));
-  hal::io::mockSetDigitalInput(2, true, 1234);
-  hal::io::poll();
-
-  std::printf("clock=%u level=%d\n", hal::audio::sampleClock(),
-              hal::io::digitalRead(2));
-  return 0;
-}
-```
-
-That one-liner `printf` is the HAL twin of the live-input and quantizer guides: a
-quick, deterministic readout you can hand to students when you want them poking
-the stack without hunting for a full app scaffold.
+The suite includes a scripted panel walkthrough and checks that raw GPIO edges
+cannot reseed or lock the application. The full control inventory and wiring
+are in [the builder primer](../builder_bootstrap.md).

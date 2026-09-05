@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "hal/hal_audio.h"
+#include "hal/Board.h"
 
 namespace seedbox::juce_bridge {
 
@@ -177,6 +178,7 @@ void JuceHost::prepareScratchBuffers(int blockSize) {
 }
 
 void JuceHost::startMaintenanceTimer() {
+  hal::nativeBoardUseRealtimeClock(true);
   if (!maintenanceTimer_) {
     maintenanceTimer_ = std::make_unique<MaintenanceTimer>(*this, controlThreadApp_);
   }

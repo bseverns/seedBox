@@ -1,6 +1,6 @@
 # SB-01 — Board owns physical control input
 
-Implemented and validated locally; not committed or published.
+Implemented, validated, committed, and pushed before the SB-03 reconciliation.
 
 Physical control input follows `pin → Board → InputEvents → InputGestureRouter / ModeEventRouter → AppState`.
 `AppState` no longer configures panel inputs, subscribes to digital GPIO callbacks,

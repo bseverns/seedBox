@@ -8,6 +8,12 @@ alternatives without frying the groove. Once parts land, flip to the
 [wiring gallery](wiring_gallery.md) for routing photos and the
 [calibration guide](calibration_guide.md) before you ever power the stack.
 
+The panel inventory follows [`PanelControls.h`](../include/hal/PanelControls.h):
+four encoder/switch assemblies (Seed/Bank, Density, Tone/Tilt, FX/Mutate), four
+knobs, and four standalone buttons (Tap Tempo, Shift, Alt Seed, Live Capture).
+Reseed uses the Seed/Bank switch; no separate Reseed or Lock button is required.
+See the [wiring table](builder_bootstrap.md#pin-cheat-sheet-teensy-40).
+
 ## Core brain stack (must-haves)
 
 | Item | Suggested part numbers & sources | Why it matters | Notes |
@@ -16,9 +22,9 @@ alternatives without frying the groove. Once parts land, flip to the
 | PJRC Audio Shield (Rev D or later, SGTL5000) | PJRC [DEV-16829](https://www.pjrc.com/store/teensy3_audio.html) | Breaks out I²S, codec, and headphone amp so we can hear anything. | Works on Teensy 4.x with minor solder jumpers pre-made. |
 | 0.1" stacking headers for Teensy + audio shield | 14-pin & 24-pin stackable header kits | Physically mates the Teensy and audio shield without mangling test access. | Go for tall stackers if you plan to wire extra boards underneath. |
 | SparkFun Qwiic OLED 1.3" 128×64 (I²C, SH1107) | [LCD-17153](https://www.sparkfun.com/products/17153) | Debug + UI status display with enough pixels for verbose seed gossip. | Qwiic connector + castellated pads, 3.3 V only, on-board pull-ups already present. |
-| Rotary encoders with integrated push buttons (x2) | PEC11R, Bourns, or Alps clones | Primary human input for parameter twiddling. | Choose detent style you enjoy; 24 PPR feels right. |
-| Momentary push buttons (x2) | Panel-mount SPST normally-open | Transport control / macros. | Grab low-profile caps if you’re building a handheld case. |
-| 10 kΩ resistors (through-hole or SMD, x4) | E12 series kit | Pull-ups for buttons and encoders. | Metal film is fine; 1/8 W or 1/4 W. |
+| Rotary encoders with integrated push buttons (x4) | PEC11R, Bourns, or Alps clones | Primary human input for parameter twiddling. | Choose detent style you enjoy; 24 PPR feels right. |
+| Momentary push buttons (x4) | Panel-mount SPST normally-open | Tap Tempo, Shift, Alt Seed, Live Capture. | Grab low-profile caps if you’re building a handheld case. |
+| 10 kΩ resistors (optional) | E12 series kit | External pull-ups if required by your harness. | Board enables internal pull-ups on all 16 control input lines; external resistors are not part of the baseline count. |
 | Hook-up wire (26–28 AWG, solid) | Wire kit or ribbon cable | Routes signals from Teensy to panel controls. | Solid wire makes breadboarding easier; switch to stranded for flex joints. |
 | USB-C to micro-B cable | Any data-capable cable | Powers and programs the Teensy. | Keep a short, shielded cable for reduced noise. |
 
@@ -56,7 +62,7 @@ alternatives without frying the groove. Once parts land, flip to the
 | --- | --- | --- | --- |
 | M2.5 or M3 standoffs (nylon or metal) | 10 mm + 12 mm lengths | Secures Teensy + audio shield sandwich to your panel or baseplate. | Mix nylon + metal to avoid accidental shorts. |
 | Laser-cut or 3D-printed enclosure panels | DIY | Keeps fingers off the high-speed digital pins. | Share your CAD files in `/docs/` when you iterate. |
-| Knobs for encoders (x2) | Rogan soft-touch, Davies 1900H | Makes the interface feel like an instrument. | 6 mm D-shaft for most encoders. |
+| Knobs for encoders (x4) | Rogan soft-touch, Davies 1900H | Makes the interface feel like an instrument. | 6 mm D-shaft for most encoders. |
 | Rubber feet or adhesive bumpers | Hardware store | Stops the box from skating off the table during live tweaks. | Cheap insurance. |
 | Label tape / paint pen | Sharpie, Brother | Mark I/O and debug headers for future-you. | Hand-written labels > no labels. |
 

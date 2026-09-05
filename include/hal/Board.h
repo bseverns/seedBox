@@ -4,12 +4,13 @@
 // Board interface
 // ----------------
 // The physical SeedBox surface — four encoders with integrated switches plus
-// three transport/utility buttons — is abstracted behind this tiny interface so
+// four standalone buttons — is abstracted behind this tiny interface so
 // both the Teensy firmware and the native simulator speak the same control
 // dialect.  The goal is pedagogical: students can read this header, see which
 // buttons map to which pins, and then write tests or UI logic without touching
 // a single hardware register.
 //
+// Inventory, labels, script tokens, and pins: hal/PanelControls.h.
 // Hardware map cheat-sheet (mirrors docs/builder_bootstrap.md):
 //   * EncoderSeedBank    — pins 0 (A) / 1 (B), push switch on pin 2.
 //   * EncoderDensity     — pins 3 (A) / 4 (B), push switch on pin 5.
@@ -94,6 +95,8 @@ Board& nativeBoard();
 void nativeBoardFeed(const std::string& line);
 void nativeBoardReset();
 void nativeBoardFastForwardMicros(std::uint64_t delta);
+// Desktop interaction uses elapsed time; scripted tests default to fixed steps.
+void nativeBoardUseRealtimeClock(bool enabled);
 // Desktop UI shim: toggle a front-panel button without crafting a script line.
 void nativeBoardSetButton(Board::ButtonID id, bool pressed);
 // Discovery hook for any attached controllers (USB, BLE, etc.).  The native

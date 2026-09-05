@@ -4,14 +4,42 @@ The SeedBox surface is tiny on purpose, which means every gesture is doing
 double-duty. Treat this page like the annotated set list: a quick reminder of
 what the buttons and encoders pull off mid-jam, and why you'd reach for them.
 
+## Control inventory
+
+Firmware, native scripts, and JUCE use the inventory in
+[`PanelControls.h`](../include/hal/PanelControls.h).
+
+| Panel legend | Native token | GPIO (A / B / switch for encoders) |
+| --- | --- | --- |
+| Seed/Bank | `seed` | 0 / 1 / 2 |
+| Density | `density` | 3 / 4 / 5 |
+| Tone/Tilt | `tone` | 24 / 26 / 27 |
+| FX/Mutate | `fx` | 6 / 9 / 30 |
+| Tap Tempo | `tap` | 31 |
+| Shift | `shift` | 32 |
+| Alt Seed | `alt` | 33 |
+| Live Capture | `capture` | 34 |
+
+The first four controls each include a push switch. The last four are standalone
+momentary buttons. All switches are active-low. There is no separate Reseed or
+Lock button; lock state remains available through application/host APIs.
+
 ## Core gestures
 
-| Move | What happens | Why it matters |
-| --- | --- | --- |
-| Seed encoder button (press) | Hops between SEEDS → ENGINE → PERF → UTIL. | Fast tour of the main modes without fumbling for menus. |
-| Tap button (double press) | Toggles SETTINGS, double-tap again to bounce back. | Clock plumbing, debug toggles, and other deep cuts live here. |
-| Shift (long press) | Dumps you back to HOME from wherever you wandered. | Panic chord when you need to reorient a class. |
-| Reseed button (long press) | Spins a fresh master seed (unless locks block it). | Handy when you want to audition brand-new genomes. |
+| Move | What happens |
+| --- | --- |
+| Seed/Bank, Density, Tone/Tilt, FX/Mutate switch (press from HOME) | Enter SEEDS, ENGINE, PERF, UTIL respectively. |
+| Seed/Bank switch (hold outside Storage) | Request one new master seed; locked seed content stays fixed. |
+| Tap Tempo (double press) | Enter SETTINGS; double press again to return HOME. |
+| Shift (hold) | Return HOME from the supported performance modes. |
+| Alt Seed (hold) | Open Storage. |
+| Seed/Bank switch (release in Storage) | Under 450 ms: recall; at least 450 ms: save the active preset. |
+| Live Capture (press) | Capture/reseed using live input. |
+| Live Capture (hold) | Panic after the initial capture action. |
+
+Native examples: `btn capture down`, `wait 40ms`, `btn capture up`;
+`enc density -2` turns Density two steps. Run scripts through Board and tick the
+application as shown in the [HAL lab](tutorials/hal_poke_lab.md).
 
 ## Engine page: knobs with teeth
 

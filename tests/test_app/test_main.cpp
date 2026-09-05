@@ -1,5 +1,6 @@
 #include <unity.h>
 
+void test_native_board_realtime_clock_preserves_scripted_default();
 void test_raw_gpio_cannot_reseed_or_lock();
 void test_board_seed_press_and_density_turn_do_not_reseed_or_lock();
 void test_external_clock_priority();
@@ -70,6 +71,7 @@ void test_tap_tempo_tracker_caps_history();
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_native_board_realtime_clock_preserves_scripted_default);
   RUN_TEST(test_raw_gpio_cannot_reseed_or_lock);
   RUN_TEST(test_board_seed_press_and_density_turn_do_not_reseed_or_lock);
   RUN_TEST(test_external_clock_priority);

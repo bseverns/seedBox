@@ -12,13 +12,30 @@ Persistence: VST3 state rides along with the host chunk via the APVTS tree plus 
 
 ## Hardware panel-first view (new default)
 
-The editor now boots straight into a single-page "panel" that mirrors the SVG sketch in the brief. Think of it as a desk-sized control surface: one rounded rectangle, an OLED rail, four jumbo encoders, five tactile buttons, and a run of jack badges. The legacy multi-page UI still exists behind `-DSEEDBOX_LEGACY_UI=1` if you want the old tabbed tour.
+The default panel mirrors [the panel drawing](../../assets/front-panel-map.svg):
+four encoder/switch assemblies and four standalone momentary buttons. Labels,
+script tokens, and GPIO assignments come from
+[`PanelControls.h`](../../include/hal/PanelControls.h).
 
-- **Knobs:** Seed Bank (focus 1–4 + click-to-cycle), Density, Tone/Tilt (Shift = fine tilt), FX/Mutate (Spread; click cycles the engine).
-- **Buttons:** Tap (long-press toggles transport latch), Shift + Alt as momentary modifiers, Reseed (Alt saves a quick preset), Lock (Alt recalls the quick preset) tied to the per-seed lock state.
-- **OLED:** Monospace snapshot of the firmware display, refreshed ~15 Hz so you still see page hints/metrics.
-- **Jacks:** Decorative circles with light-touch helpers (MIDI clock follow/clock source toggles, audio device nudge) to mimic the panel art.
-- **Shortcuts:** Space = latch transport, `T` = tap tempo, `O` mirrors the Tone/Tilt button, `1`–`4` focus seeds, `E` cycle engines, arrows nudge the last touched control. Shift/Alt keys still mirror the hardware modifiers.
+- **Encoders:** Seed/Bank, Density, Tone/Tilt, FX/Mutate. Drag to turn; right-click
+  and hold the knob to operate its integrated switch. Rotations and switches
+  travel through Board and the same page/gesture policy as firmware.
+- **Buttons:** Tap Tempo, Shift, Alt Seed, Live Capture. Holding Seed/Bank
+  reseeds outside Storage. Holding Alt Seed opens Storage, where releasing the
+  Seed/Bank switch recalls (under 450 ms) or saves (at least 450 ms).
+- **Capture:** pressing Live Capture captures/reseeds; continuing to hold fires
+  panic. There are no standalone Reseed or Lock buttons in the physical layout.
+- **Timing:** desktop panel holds use elapsed time; native scripted tests retain
+  deterministic 10 ms steps. Every mouse edge is sampled immediately.
+- **OLED:** the application display snapshot shows mode, status, and hints.
+- **Jacks:** decorative badges open desktop audio/MIDI helpers.
+- **Desktop shortcuts:** Space toggles transport; `T` taps tempo, `O` mirrors the
+  Tone/Tilt switch, `1`–`4` focus seeds, `E` cycles engines, and arrows turn the
+  last touched knob one step. These host shortcuts supplement the panel.
+
+The optional legacy editor (`-DSEEDBOX_LEGACY_UI=1`) retains its host parameter
+pages. The [panel cheat sheet](../../docs/panel_cheat_sheet.md) describes physical
+controls; host parameter pages below are additional desktop editing surfaces.
 
 ## How to hear audio (monitoring + test tone priority)
 

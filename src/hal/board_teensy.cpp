@@ -1,6 +1,7 @@
 #if SEEDBOX_HW
 
 #include "hal/Board.h"
+#include "hal/PanelControls.h"
 
 #include <array>
 #include <Arduino.h>
@@ -12,33 +13,11 @@ namespace hal {
 
 namespace {
 
-constexpr std::uint8_t kButtonCount = 8;
-constexpr std::uint8_t kEncoderCount = 4;
+constexpr auto kButtonCount = panel::buttonCount;
+constexpr auto kEncoderCount = panel::encoders.size();
 constexpr io::PinNumber kStatusLedPin = 13;
-
-struct PinGroup {
-  Board::ButtonID button_id;
-  io::PinNumber pin_switch;
-  io::PinNumber pin_a;
-  io::PinNumber pin_b;
-};
-
-// Map each encoder to its associated GPIO pins.  The goal is to keep the
-// wiring manifest next to the firmware logic so hardware hackers have a single
-// place to update when they reroute the control surface.
-constexpr std::array<PinGroup, kEncoderCount> kEncoders{{
-    {Board::ButtonID::EncoderSeedBank, 2, 0, 1},
-    {Board::ButtonID::EncoderDensity, 5, 3, 4},
-    {Board::ButtonID::EncoderToneTilt, 27, 24, 26},
-    {Board::ButtonID::EncoderFxMutate, 30, 6, 9},
-}};
-
-constexpr std::array<std::pair<Board::ButtonID, io::PinNumber>, 4> kStandaloneButtons{{
-    {Board::ButtonID::TapTempo, 31},
-    {Board::ButtonID::Shift, 32},
-    {Board::ButtonID::AltSeed, 33},
-    {Board::ButtonID::LiveCapture, 34},
-}};
+constexpr auto& kEncoders = panel::encoders;
+constexpr auto& kStandaloneButtons = panel::buttons;
 
 constexpr std::array<io::DigitalConfig, kEncoderCount * 3 + kStandaloneButtons.size() + 1> buildPinConfig() {
   std::array<io::DigitalConfig, kEncoderCount * 3 + kStandaloneButtons.size() + 1> configs{};
@@ -49,7 +28,7 @@ constexpr std::array<io::DigitalConfig, kEncoderCount * 3 + kStandaloneButtons.s
     configs[idx++] = io::DigitalConfig{group.pin_b, true, true};
   }
   for (const auto& btn : kStandaloneButtons) {
-    configs[idx++] = io::DigitalConfig{btn.second, true, true};
+    configs[idx++] = io::DigitalConfig{btn.pin, true, true};
   }
   configs[idx++] = io::DigitalConfig{kStatusLedPin, false, false};
   return configs;
@@ -75,7 +54,7 @@ public:
     }
     for (std::size_t i = 0; i < kStandaloneButtons.size(); ++i) {
       auto& bounce = buttons_[i];
-      bounce.attach(kStandaloneButtons[i].second);
+      bounce.attach(kStandaloneButtons[i].pin);
       bounce.interval(5);
     }
   }
@@ -107,7 +86,7 @@ public:
 
     for (std::size_t i = 0; i < kStandaloneButtons.size(); ++i) {
       buttons_[i].update();
-      button_samples_[static_cast<std::size_t>(kStandaloneButtons[i].first)] =
+      button_samples_[static_cast<std::size_t>(kStandaloneButtons[i].id)] =
           buildSample(buttons_[i].read() == LOW);
     }
   }

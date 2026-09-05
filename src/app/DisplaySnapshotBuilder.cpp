@@ -97,8 +97,8 @@ void DisplaySnapshotBuilder::build(seedbox::DisplaySnapshot& out, UiState& uiOut
     writeUiField(uiOut.pageHints[1],
                  formatScratch(scratch, "Tap:%s clock", input.followExternalClockEnabled ? "ext" : "int"));
   } else if (input.currentPage == 1u) {
-    writeUiField(uiOut.pageHints[0], "GPIO: recall");
-    writeUiField(uiOut.pageHints[1], "Hold GPIO: save");
+    writeUiField(uiOut.pageHints[0], "Seed: recall");
+    writeUiField(uiOut.pageHints[1], "Hold Seed: save");
   } else if (globalLocked) {
     writeUiField(uiOut.pageHints[0], "Pg seeds locked");
     writeUiField(uiOut.pageHints[1], "Pg+Md: unlock all");

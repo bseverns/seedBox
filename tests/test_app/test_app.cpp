@@ -164,8 +164,8 @@ void test_alt_long_press_opens_storage_page() {
   AppState::DisplaySnapshot snap{};
   UiState ui{};
   app.captureDisplaySnapshot(snap, ui);
-  TEST_ASSERT_EQUAL_STRING("GPIO: recall", ui.pageHints[0].data());
-  TEST_ASSERT_EQUAL_STRING("Hold GPIO: save", ui.pageHints[1].data());
+  TEST_ASSERT_EQUAL_STRING("Seed: recall", ui.pageHints[0].data());
+  TEST_ASSERT_EQUAL_STRING("Hold Seed: save", ui.pageHints[1].data());
 }
 
 void test_double_tap_moves_to_settings() {

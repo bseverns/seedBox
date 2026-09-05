@@ -93,10 +93,16 @@ Container docs and pinned versions live in
 - **MCU**: Teensy 4.0
 - **Audio interface**: PJRC Audio Shield (SGTL5000)
 - **Display**: SparkFun Qwiic OLED 1.3" (SH1107 over I²C, default address `0x3C`)
-- **Input**: Two rotary encoders + push buttons, USB MIDI, plus dual 3.5 mm
+- **Input**: Four rotary encoders with integrated switches + four standalone buttons, USB MIDI, plus dual 3.5 mm
   Type-A MIDI jacks (DIN is dead; embrace the mini TRS future)
 
 ### Pin cheat sheet (Teensy 4.0)
+
+The shared control inventory is [`PanelControls.h`](../include/hal/PanelControls.h).
+There are four encoder/switch assemblies and four standalone momentary buttons
+(eight switches total). Reseed is a Seed/Bank hold gesture; there is no dedicated
+Reseed or Lock switch in this layout. See the [panel cheat sheet](panel_cheat_sheet.md)
+for gestures and native script tokens.
 
 | Function | Pin(s) | Notes |
 |----------|--------|-------|
@@ -105,8 +111,8 @@ Container docs and pinned versions live in
 | USB MIDI | Native USB port | Enumerates as `USB_MIDI_SERIAL`. |
 | TRS MIDI IN | 28 (Serial7 RX) | Mirror the Type-A spec; route the opto output from the TRS jack straight here. |
 | TRS MIDI OUT | 29 (Serial7 TX) | Buffer with the usual 33 Ω resistors before hitting the jack. |
-| Encoders | Seed/Bank: 0/1 + switch on 2; Density/Prob: 3/4 + switch on 5; Tone/Tilt: 24/26 + switch on 27; FX/Mutate: 6/9 + switch on 30 | Debounce in software via `EncoderReader`. |
-| Buttons | Tap: 31, Shift: 32, Alt Seed: 33 | Active-low with 10 kΩ pull-ups. |
+| Encoders | Seed/Bank: 0/1 + switch on 2; Density: 3/4 + switch on 5; Tone/Tilt: 24/26 + switch on 27; FX/Mutate: 6/9 + switch on 30 | Board decodes quadrature; Bounce2 debounces switches. |
+| Buttons | Tap Tempo: 31, Shift: 32, Alt Seed: 33, Live Capture: 34 | Active-low; Board enables internal pull-ups. |
 | LEDs (debug) | 16, 17 | Optional heartbeat / tick lamps. |
 
 > **TRS wiring ritual:** Mirror the official Type-A pinout. Route the TRS IN jack

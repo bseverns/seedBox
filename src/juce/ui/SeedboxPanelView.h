@@ -41,10 +41,13 @@ class SeedboxPanelView : public juce::Component {
   class PanelKnob : public juce::Slider {
    public:
     PanelKnob();
-    std::function<void()> onPress;
+    // Right mouse button operates the integrated push switch; drag turns.
+    std::function<void(bool)> onSwitch;
 
    private:
+    void mouseDown(const juce::MouseEvent& event) override;
     void mouseUp(const juce::MouseEvent& event) override;
+    bool switchDown_{false};
   };
 
   class PanelButton : public juce::TextButton {
@@ -88,12 +91,7 @@ class SeedboxPanelView : public juce::Component {
   bool altActive() const { return altHeldByButton_ || altHeldByKeyboard_; }
   bool toneActive() const { return toneHeldByButton_ || toneHeldByKeyboard_; }
   void applySensitivity();
-  void handleTap(bool longPress);
-  void handleReseed();
-  void handleLock();
-  void saveQuickPreset();
-  void recallQuickPreset();
-  void updateLockIndicator();
+  void setPanelButton(hal::Board::ButtonID id, bool pressed);
 
   SeedboxAudioProcessor& processor_;
   PanelLookAndFeel lookAndFeel_;
@@ -106,8 +104,7 @@ class SeedboxPanelView : public juce::Component {
   PanelButton tapButton_;
   PanelButton shiftButton_;
   PanelButton altButton_;
-  PanelButton reseedButton_;
-  PanelButton lockButton_;
+  PanelButton captureButton_;
 
   juce::OwnedArray<JackIcon> jackIcons_;
   juce::Label oledLabel_;
@@ -129,7 +126,6 @@ class SeedboxPanelView : public juce::Component {
   bool toneHeldByKeyboard_{false};
 
   juce::Slider* lastActive_{nullptr};
-  double lastTapMs_{0.0};
   juce::AudioDeviceManager* audioManager_{nullptr};
   juce::String cachedOledText_{};
 };

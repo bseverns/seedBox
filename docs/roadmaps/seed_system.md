@@ -97,20 +97,16 @@ variation profile.
 `SeedLock` is the tiny manager that keeps per-seed and global locks in sync.
 Everything funnels through the Seed page helpers:
 
-- `seedPageToggleLock(index)` — short-press the lock button, or call directly
-  from the UI. The indexed seed keeps its genome and engine assignment on the
+- `seedPageToggleLock(index)` — call from a host control or application policy. The indexed seed keeps its genome and engine assignment on the
   next reseed.
-- `seedPageToggleGlobalLock()` — long-press the lock button. The whole table is
+- `seedPageToggleGlobalLock()` — call from application policy. The whole table is
   frozen; reseeds only bump the master seed counter so notebooks stay honest.
 - `isSeedLocked(index)` / `isGlobalSeedLocked()` — sanity probes for UI chrome
   and tests.
 
-Button gestures:
-
-- **Reseed** button (pin 2): short press spins the master seed (same as before).
-- **Lock** button (pin 3):
-  - Short press → per-seed lock/unlock targeting the focused seed.
-  - Long press (~600 ms) → global lock toggle.
+Physical reseeding uses a hold on the Seed/Bank encoder switch. The current
+Board inventory has no dedicated Lock button; pins 2 and 3 are the Seed switch
+and Density encoder A. See the [panel cheat sheet](../panel_cheat_sheet.md).
 
 The `SeedLock` manager lives outside the scheduler so PatternScheduler stays
 oblivious — deterministic triggers first, pedagogy second.

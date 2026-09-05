@@ -1,3 +1,4 @@
+#include "hal/PanelControls.h"
 #include "juce/ui/SeedboxPanelView.h"
 
 #if SEEDBOX_JUCE
@@ -133,7 +134,8 @@ void SeedboxPanelView::PanelLookAndFeel::drawRotarySlider(juce::Graphics& g, int
   g.setColour(juce::Colours::black.withAlpha(0.7f));
   g.fillEllipse(bounds.reduced(4.0f));
 
-  const float angle = static_cast<float>(rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle));
+  const float angle = static_cast<float>(slider.getValue()) * juce::MathConstants<float>::twoPi / 24.0f;
+  juce::ignoreUnused(sliderPos, rotaryStartAngle, rotaryEndAngle);
   const auto thumb = centre.getPointOnCircumference(tickRadius, angle);
 
   g.setColour(accentColour());
@@ -168,11 +170,22 @@ SeedboxPanelView::PanelKnob::PanelKnob() {
   setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
 }
 
-void SeedboxPanelView::PanelKnob::mouseUp(const juce::MouseEvent& event) {
-  juce::Slider::mouseUp(event);
-  if (!event.mouseWasDraggedSinceMouseDown() && onPress) {
-    onPress();
+void SeedboxPanelView::PanelKnob::mouseDown(const juce::MouseEvent& event) {
+  if (event.mods.isRightButtonDown()) {
+    switchDown_ = true;
+    if (onSwitch) onSwitch(true);
+    return;
   }
+  juce::Slider::mouseDown(event);
+}
+
+void SeedboxPanelView::PanelKnob::mouseUp(const juce::MouseEvent& event) {
+  if (switchDown_) {
+    switchDown_ = false;
+    if (onSwitch) onSwitch(false);
+    return;
+  }
+  juce::Slider::mouseUp(event);
 }
 
 void SeedboxPanelView::PanelButton::mouseDown(const juce::MouseEvent& event) {
@@ -252,98 +265,47 @@ SeedboxPanelView::SeedboxPanelView(SeedboxAudioProcessor& processor, juce::Audio
     addAndMakeVisible(target.helper);
   };
 
-  setupKnob(seedKnob_, "FX Slot", "Choose 1-4");
-  seedKnob_.knob.setRange(0.0, 3.0, 1.0);
-  seedKnob_.knob.onValueChange = [this]() {
-    const auto value = static_cast<int>(std::round(seedKnob_.knob.getValue()));
-    processor_.controlThreadApp().setFocusSeed(static_cast<std::uint8_t>(value));
-    if (auto* param = processor_.parameters().getParameter("focusSeed")) {
-      param->setValueNotifyingHost(value / 3.0f);
-    }
-    updateEngineLabel();
-    updateLockIndicator();
-    lastActive_ = &seedKnob_.knob;
-  };
-  seedKnob_.knob.onPress = [this]() {
-    const int next = (static_cast<int>(processor_.readThreadApp().focusSeed()) + 1) % 4;
-    seedKnob_.knob.setValue(next, juce::sendNotificationSync);
-  };
+  const std::array<LabeledKnob*, 4> knobs{{&seedKnob_, &densityKnob_, &toneKnob_, &fxKnob_}};
+  for (std::size_t i = 0; i < knobs.size(); ++i) {
+    auto& target = *knobs[i];
+    const auto& control = hal::panel::encoders[i];
+    setupKnob(target, control.label, "Right-click: switch");
+    target.knob.setRange(-10000.0, 10000.0, 1.0);
+    target.knob.setValue(0.0, juce::dontSendNotification);
+    target.knob.setMouseDragSensitivity(200000);
+    target.knob.setTooltip("Drag to turn. Right-click and hold to press the encoder switch.");
+    target.knob.onValueChange = [this, knob = &target.knob, token = control.token, previous = 0]() mutable {
+      const auto value = static_cast<int>(std::round(knob->getValue()));
+      const int delta = value - previous;
+      previous = value;
+      if (delta != 0) {
+        hal::nativeBoardFeed(std::string("enc ") + token + " " + std::to_string(delta));
+        processor_.controlThreadApp().serviceMaintenance();
+      }
+      lastActive_ = knob;
+    };
+    target.knob.onSwitch = [this, id = control.button_id](bool pressed) {
+      if (id == hal::Board::ButtonID::EncoderToneTilt) setToneHeld(pressed, false);
+      else setPanelButton(id, pressed);
+    };
+  }
 
-  setupKnob(densityKnob_, "Motion", "Rate / pulse");
-  densityKnob_.knob.setRange(0.0, 8.0, 0.05);
-  densityKnob_.knob.onValueChange = [this]() {
-    processor_.applySeedEdit(juce::Identifier{"density"}, densityKnob_.knob.getValue(),
-                             [v = densityKnob_.knob.getValue()](Seed& seed) {
-                               seed.density = juce::jlimit(0.0f, 8.0f, static_cast<float>(v));
-                             });
-    lastActive_ = &densityKnob_.knob;
-  };
-
-  setupKnob(toneKnob_, "Color", "Bright / soft");
-  toneKnob_.knob.setRange(0.0, 1.0, 0.01);
-  toneKnob_.knob.onValueChange = [this]() {
-    processor_.applySeedEdit(juce::Identifier{"tone"}, toneKnob_.knob.getValue(),
-                             [v = toneKnob_.knob.getValue()](Seed& seed) {
-                               seed.tone = juce::jlimit(0.0f, 1.0f, static_cast<float>(v));
-                             });
-    lastActive_ = &toneKnob_.knob;
-  };
-
-  setupKnob(fxKnob_, "Shape", "Turn=space  Press=mode");
-  fxKnob_.knob.setRange(0.0, 1.0, 0.01);
-  fxKnob_.knob.onValueChange = [this]() {
-    processor_.applySeedEdit(juce::Identifier{"spread"}, fxKnob_.knob.getValue(),
-                             [v = fxKnob_.knob.getValue()](Seed& seed) {
-                               seed.spread = juce::jlimit(0.0f, 1.0f, static_cast<float>(v));
-                             });
-    lastActive_ = &fxKnob_.knob;
-  };
-  fxKnob_.knob.onPress = [this]() {
-    auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters().getParameter("seedEngine"));
-    if (choice == nullptr) {
-      return;
-    }
-    const int current = choice->getIndex();
-    const int next = (current + 1) % choice->choices.size();
-    const float normalized = static_cast<float>(next) / static_cast<float>(std::max(1, choice->choices.size() - 1));
-    choice->setValueNotifyingHost(normalized);
-    processor_.controlThreadApp().setSeedEngine(processor_.controlThreadApp().focusSeed(),
-                                                static_cast<std::uint8_t>(next));
-    updateEngineLabel();
-  };
-
-  auto setupButton = [&](PanelButton& btn, const juce::String& label) {
-    btn.setButtonText(label);
+  auto setupButton = [&](PanelButton& btn, const hal::panel::Button& control) {
+    btn.setButtonText(control.label);
     btn.setColour(juce::TextButton::buttonColourId, juce::Colours::dimgrey);
+    btn.onDown = [this, id = control.id](const juce::MouseEvent&) { setPanelButton(id, true); };
+    btn.onUp = [this, id = control.id](const juce::MouseEvent&) { setPanelButton(id, false); };
     addAndMakeVisible(btn);
   };
-
-  setupButton(tapButton_, "Tap Tempo");
-  tapButton_.onDown = [this](const juce::MouseEvent&) { lastTapMs_ = juce::Time::getMillisecondCounterHiRes(); };
-  tapButton_.onUp = [this](const juce::MouseEvent& evt) {
-    const double now = juce::Time::getMillisecondCounterHiRes();
-    const double delta = now - lastTapMs_;
-    handleTap(delta > 600.0);
-    tapButton_.setToggleState(false, juce::dontSendNotification);
-    juce::ignoreUnused(evt);
-  };
-
-  setupButton(shiftButton_, "Shift");
-  shiftButton_.setClickingTogglesState(false);
+  setupButton(tapButton_, hal::panel::buttons[0]);
+  setupButton(shiftButton_, hal::panel::buttons[1]);
   shiftButton_.onDown = [this](const juce::MouseEvent&) { setShiftHeld(true, false); };
   shiftButton_.onUp = [this](const juce::MouseEvent&) { setShiftHeld(false, false); };
-
-  setupButton(altButton_, "Alt / Storage");
-  altButton_.setClickingTogglesState(false);
+  setupButton(altButton_, hal::panel::buttons[2]);
   altButton_.onDown = [this](const juce::MouseEvent&) { setAltHeld(true, false); };
   altButton_.onUp = [this](const juce::MouseEvent&) { setAltHeld(false, false); };
-
-  setupButton(reseedButton_, "Reseed");
-  reseedButton_.onClick = [this]() { handleReseed(); };
-
-  setupButton(lockButton_, "Lock");
-  lockButton_.setClickingTogglesState(true);
-  lockButton_.onClick = [this]() { handleLock(); };
+  setupButton(captureButton_, hal::panel::buttons[3]);
+  captureButton_.setTooltip("Press: Live Capture. Hold: panic after capture.");
 
   oledLabel_.setJustificationType(juce::Justification::centred);
   oledLabel_.setColour(juce::Label::backgroundColourId, juce::Colours::black);
@@ -499,7 +461,7 @@ void SeedboxPanelView::layoutControls() {
     const float r = 32.0f * scale;
     juce::Rectangle<float> knobArea(centre.x - r, centre.y - r, r * 2.0f, r * 2.0f);
     target.knob.setBounds(knobArea.toNearestInt());
-    auto labelArea = knobArea.withY(knobArea.getBottom() + 6.0f * scale).withHeight(22.0f * scale);
+    auto labelArea = knobArea.expanded(28.0f * scale, 0).withY(knobArea.getBottom() + 6.0f * scale).withHeight(22.0f * scale);
     target.label.setBounds(labelArea.toNearestInt());
     target.helper.setBounds(labelArea.translated(0, static_cast<float>(labelArea.getHeight())).toNearestInt());
   };
@@ -510,16 +472,15 @@ void SeedboxPanelView::layoutControls() {
   placeKnob(fxKnob_, 570.0f, 170.0f);
 
   auto placeButton = [&](juce::TextButton& btn, float baseX, float baseY) {
-    const juce::Rectangle<float> area(viewOrigin.x + baseX * scale, viewOrigin.y + baseY * scale, 60.0f * scale,
+    const juce::Rectangle<float> area(viewOrigin.x + baseX * scale, viewOrigin.y + baseY * scale, 100.0f * scale,
                                       40.0f * scale);
     btn.setBounds(area.toNearestInt());
   };
 
-  placeButton(tapButton_, 120.0f, 250.0f);
-  placeButton(shiftButton_, 220.0f, 250.0f);
-  placeButton(altButton_, 320.0f, 250.0f);
-  placeButton(reseedButton_, 420.0f, 250.0f);
-  placeButton(lockButton_, 520.0f, 250.0f);
+  placeButton(tapButton_, 100.0f, 250.0f);
+  placeButton(shiftButton_, 240.0f, 250.0f);
+  placeButton(altButton_, 380.0f, 250.0f);
+  placeButton(captureButton_, 520.0f, 250.0f);
 
   auto placeJack = [&](JackIcon* jack, float baseX, float baseY) {
     const juce::Point<float> centre(viewOrigin.x + baseX * scale, viewOrigin.y + baseY * scale);
@@ -535,11 +496,15 @@ void SeedboxPanelView::layoutControls() {
     placeJack(jackIcons_[4], 580.0f, 360.0f);
   }
 
-  const juce::Rectangle<float> oledArea(viewOrigin.x + 290.0f * scale, viewOrigin.y + 80.0f * scale,
-                                        160.0f * scale, 70.0f * scale);
+  const juce::Rectangle<float> oledArea(viewOrigin.x + 290.0f * scale, viewOrigin.y + 65.0f * scale,
+                                        160.0f * scale, 65.0f * scale);
   oledLabel_.setBounds(oledArea.toNearestInt());
-  clockStatusLabel_.setBounds(oledArea.translated(0.0f, oledArea.getHeight() + 6.0f).toNearestInt());
-  const auto engineLine = fxKnob_.label.getBounds().withHeight(18).translated(0, -fxKnob_.label.getHeight() - 4);
+  clockStatusLabel_.setBounds(juce::Rectangle<float>(
+      viewOrigin.x + 80.0f * scale, viewOrigin.y + 315.0f * scale,
+      560.0f * scale, 18.0f * scale).toNearestInt());
+  const juce::Rectangle<int> engineLine(
+      static_cast<int>(viewOrigin.x + 490.0f * scale), static_cast<int>(viewOrigin.y + 80.0f * scale),
+      static_cast<int>(160.0f * scale), static_cast<int>(18.0f * scale));
   engineNameLabel_.setBounds(engineLine);
   engineHintLabel_.setBounds(engineLine.translated(0, 18));
 }
@@ -582,23 +547,7 @@ void SeedboxPanelView::refresh(bool displayDirty) {
   }
   clockStatusLabel_.setText(clockStatus, juce::dontSendNotification);
 
-  const auto& seeds = app.seeds();
-  const std::size_t focus = seeds.empty() ? 0 : std::min<std::size_t>(app.focusSeed(), seeds.size() - 1);
-  const Seed* focusSeed = seeds.empty() ? nullptr : &seeds[focus];
-
-  seedKnob_.knob.setValue(static_cast<double>(app.focusSeed()), juce::dontSendNotification);
-  if (focusSeed != nullptr) {
-    densityKnob_.knob.setValue(focusSeed->density, juce::dontSendNotification);
-    toneKnob_.knob.setValue(focusSeed->tone, juce::dontSendNotification);
-    fxKnob_.knob.setValue(focusSeed->spread, juce::dontSendNotification);
-    seedKnob_.helper.setText("Slot " + juce::String(static_cast<int>(focus) + 1) + " - " +
-                                 engineName(static_cast<int>(focusSeed->engine)),
-                             juce::dontSendNotification);
-  } else {
-    seedKnob_.helper.setText("No FX slots", juce::dontSendNotification);
-  }
   updateEngineLabel();
-  updateLockIndicator();
   applySensitivity();
 }
 
@@ -625,7 +574,7 @@ void SeedboxPanelView::setShiftHeld(bool held, bool keyboard) {
   shiftHeldByKeyboard_ = keyboard ? held : shiftHeldByKeyboard_;
   shiftHeldByButton_ = keyboard ? shiftHeldByButton_ : held;
   shiftButton_.setToggleState(shiftActive(), juce::dontSendNotification);
-  hal::nativeBoardSetButton(hal::Board::ButtonID::Shift, shiftActive());
+  setPanelButton(hal::Board::ButtonID::Shift, shiftActive());
   applySensitivity();
 }
 
@@ -633,75 +582,25 @@ void SeedboxPanelView::setAltHeld(bool held, bool keyboard) {
   altHeldByKeyboard_ = keyboard ? held : altHeldByKeyboard_;
   altHeldByButton_ = keyboard ? altHeldByButton_ : held;
   altButton_.setToggleState(altActive(), juce::dontSendNotification);
-  hal::nativeBoardSetButton(hal::Board::ButtonID::AltSeed, altActive());
+  setPanelButton(hal::Board::ButtonID::AltSeed, altActive());
   applySensitivity();
 }
 
 void SeedboxPanelView::setToneHeld(bool held, bool keyboard) {
   toneHeldByKeyboard_ = keyboard ? held : toneHeldByKeyboard_;
   toneHeldByButton_ = keyboard ? toneHeldByButton_ : held;
-  hal::nativeBoardSetButton(hal::Board::ButtonID::EncoderToneTilt, toneActive());
+  setPanelButton(hal::Board::ButtonID::EncoderToneTilt, toneActive());
   applySensitivity();
 }
 
 void SeedboxPanelView::applySensitivity() {
-  const double fine = shiftActive() ? 0.01 : 0.05;
-  auto setInterval = [](PanelKnob& knob, double interval) {
-    knob.setRange(knob.getMinimum(), knob.getMaximum(), interval);
-  };
-
-  setInterval(densityKnob_.knob, fine);
-  setInterval(toneKnob_.knob, shiftActive() ? 0.005 : 0.01);
-  setInterval(fxKnob_.knob, shiftActive() ? 0.005 : 0.01);
   toneKnob_.label.setColour(juce::Label::textColourId, toneActive() ? accentColour() : juce::Colours::whitesmoke);
 }
 
-void SeedboxPanelView::handleTap(bool longPress) {
-  if (longPress) {
-    const bool next = !processor_.readThreadApp().transportLatchEnabled();
-    processor_.controlThreadApp().setTransportLatch(next);
-    lastTapMs_ = 0.0;
-    return;
-  }
-  const double now = juce::Time::getMillisecondCounterHiRes();
-  if (lastTapMs_ > 0.0) {
-    processor_.controlThreadApp().recordTapTempoInterval(static_cast<uint32_t>(now - lastTapMs_));
-  }
-  lastTapMs_ = now;
-}
-
-void SeedboxPanelView::handleReseed() {
-  if (altActive()) {
-    saveQuickPreset();
-    return;
-  }
-  processor_.controlThreadApp().seedPageReseed(processor_.controlThreadApp().masterSeed(),
-                                               AppState::SeedPrimeMode::kLfsr);
-}
-
-void SeedboxPanelView::handleLock() {
-  if (altActive()) {
-    recallQuickPreset();
-    return;
-  }
-  processor_.controlThreadApp().seedPageToggleLock(processor_.controlThreadApp().focusSeed());
-  updateLockIndicator();
-}
-
-void SeedboxPanelView::saveQuickPreset() {
-  const auto preset = processor_.controlThreadApp().snapshotPreset("panel");
-  processor_.setPanelQuickPreset(preset);
-}
-
-void SeedboxPanelView::recallQuickPreset() {
-  processor_.applyPanelQuickPreset();
-  refresh();
-}
-
-void SeedboxPanelView::updateLockIndicator() {
-  const auto& app = processor_.readThreadApp();
-  const bool locked = app.isSeedLocked(app.focusSeed());
-  lockButton_.setToggleState(locked, juce::dontSendNotification);
+void SeedboxPanelView::setPanelButton(hal::Board::ButtonID id, bool pressed) {
+  hal::nativeBoardSetButton(id, pressed);
+  // Sample each edge now so quick clicks cannot disappear between timer ticks.
+  processor_.controlThreadApp().serviceMaintenance();
 }
 
 void SeedboxPanelView::updateEngineLabel() {
@@ -719,7 +618,8 @@ void SeedboxPanelView::nudgeActiveControl(double delta) {
     target = &seedKnob_.knob;
   }
   const double step = target->getInterval() > 0.0 ? target->getInterval() : 0.1;
-  target->setValue(target->getValue() + (delta * step), juce::sendNotificationSync);
+  if (delta != 0.0)
+    target->setValue(target->getValue() + (delta > 0.0 ? step : -step), juce::sendNotificationSync);
 }
 
 }  // namespace seedbox::juce_bridge

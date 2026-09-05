@@ -25,8 +25,8 @@ implementation stands and how we expect it to grow.
   router selections, seed genomes, seed-engine overrides, and the current UI
   page. Small enough for EEPROM, explicit enough for classroom walkthroughs.
 - **UI flow.** Long-press the Alt button to pop into the storage page; once the
-  OLED screams the GPIO hint, the reseed button short press recalls the active
-  slot and a long press saves it. Crossfades stretch over 48 ticks so transitions
+  OLED shows the Seed hint, releasing the Seed/Bank switch before 450 ms recalls
+  the active slot; releasing after a hold of at least 450 ms saves it. Crossfades stretch over 48 ticks so transitions
   feel musical, not jarring.
 
 ## Near-future riffs

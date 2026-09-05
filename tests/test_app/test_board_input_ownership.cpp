@@ -1,4 +1,6 @@
 #include <unity.h>
+#include <chrono>
+#include <thread>
 
 #include "app/AppState.h"
 #include "hal/Board.h"
@@ -57,4 +59,20 @@ void test_board_seed_press_and_density_turn_do_not_reseed_or_lock() {
   hal::nativeBoardSetButton(hal::Board::ButtonID::EncoderSeedBank, false);
   app.serviceHostMaintenance();
   TEST_ASSERT_EQUAL_UINT32(reseeded, app.masterSeed());
+}
+
+void test_native_board_realtime_clock_preserves_scripted_default() {
+  hal::nativeBoardReset();
+  auto& board = hal::nativeBoard();
+  board.poll();
+  TEST_ASSERT_EQUAL_UINT64(10000, board.nowMicros());
+  hal::nativeBoardUseRealtimeClock(true);
+  const auto before = board.nowMicros();
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  board.poll();
+  TEST_ASSERT_TRUE(board.nowMicros() - before >= 20000);
+  // Reset restores deterministic time for the next scripted rehearsal.
+  hal::nativeBoardReset();
+  board.poll();
+  TEST_ASSERT_EQUAL_UINT64(10000, board.nowMicros());
 }
