@@ -13,6 +13,7 @@ void test_phenotype_correlates_energy_space_and_stability();
 void test_phenotype_mapping_is_deterministic();
 void test_siblings_are_deterministic_and_nearer_than_unrelated_phenotypes();
 void test_mutation_record_keeps_parent_and_moved_dimensions();
+void test_mutation_distance_is_monotonic_when_dimensions_are_added();
 void test_branch_return_and_semantic_cross_are_deterministic();
 void test_burst_ecology_only_excites_resonator();
 
@@ -31,6 +32,7 @@ int main(int, char**) {
   RUN_TEST(test_phenotype_mapping_is_deterministic);
   RUN_TEST(test_siblings_are_deterministic_and_nearer_than_unrelated_phenotypes);
   RUN_TEST(test_mutation_record_keeps_parent_and_moved_dimensions);
+  RUN_TEST(test_mutation_distance_is_monotonic_when_dimensions_are_added);
   RUN_TEST(test_branch_return_and_semantic_cross_are_deterministic);
   RUN_TEST(test_burst_ecology_only_excites_resonator);
   return UNITY_END();

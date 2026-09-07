@@ -12,3 +12,12 @@ void test_mutation_record_keeps_parent_and_moved_dimensions() {
   TEST_ASSERT_TRUE(child.ancestry.dimensions & seedbox::kTone);
   TEST_ASSERT_TRUE(child.ancestry.distance > 0.f && child.ancestry.distance <= 1.f);
 }
+
+void test_mutation_distance_is_monotonic_when_dimensions_are_added() {
+  Seed parent{};
+  Seed one = parent; one.pitch = 12.f;
+  seedbox::recordMutation(parent, one);
+  Seed two = one; two.tone = .01f;
+  seedbox::recordMutation(parent, two);
+  TEST_ASSERT_TRUE(two.ancestry.distance > one.ancestry.distance);
+}

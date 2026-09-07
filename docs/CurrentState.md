@@ -24,7 +24,7 @@ Status labels used here:
 
 ### Experimental / frontier
 
-- JUCE desktop lane as a broader public-facing path
+- JUCE rehearsal/proof body for the shared core
 - Hardware parity at the level of bench-proven repeatability across different
   builds and setups
 
@@ -150,6 +150,8 @@ Status labels used here:
 - Golden renders include both audio fixtures and control logs, which makes the
   proof surface legible to both ears and eyes.
 - This is one of the strongest current public assets in the repository.
+- The Seed Card registry adds named, hashed render proofs; family fixtures add
+  deterministic parent/sibling/unrelated listening studies.
 
 **What to keep in mind**
 
@@ -193,8 +195,7 @@ Status labels used here:
   proof.
 - Hardware validation expectations were inferable, but not gathered into one
   practical trust document.
-- The relationship between simulator, JUCE, and hardware has been present, but
-  not yet stated in one concise outsider-facing explanation.
+- JUCE is a rehearsal/proof body; it does not establish hardware waveform identity.
 
 ## TODOs
 

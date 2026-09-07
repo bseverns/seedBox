@@ -8,3 +8,7 @@ safe seed-page nudges change an unlocked genome, and preset JSON preserves it.
 The record answers immediate parent and mutation questions without replaying a
 control log. It is deliberately an immediate-parent record; branching history
 and performance navigation are SB-12 work.
+
+Distance is fixed-space RMS across all six tracked dimensions. The denominator
+does not shrink when fewer dimensions move, so adding movement cannot reduce a
+reported distance.

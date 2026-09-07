@@ -87,6 +87,11 @@ def validate_card(root: Path, relative: Path, errors: list[str]):
                 errors.append(f"{label}.seed.{key}: must be a non-negative integer")
         if seed.get("source") not in {"lfsr", "tap_tempo", "preset", "live_input"}:
             errors.append(f"{label}.seed.source: unsupported Seed::Source value")
+        ancestry = seed.get("ancestry")
+        if ancestry is not None:
+            ancestry = require_fields(ancestry, {"parentId", "parentPrng", "parentLineage", "distance", "dimensions"}, f"{label}.seed.ancestry", errors)
+            if ancestry and (not isinstance(ancestry.get("distance"), (int, float)) or not 0 <= ancestry["distance"] <= 1):
+                errors.append(f"{label}.seed.ancestry.distance: must be normalized from 0 through 1")
         genome = require_fields(seed.get("genome"), REQUIRED_GENOME, f"{label}.seed.genome", errors)
         if genome:
             if not isinstance(genome.get("engine"), int) or not 0 <= genome["engine"] <= 5:

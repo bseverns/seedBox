@@ -21,7 +21,7 @@
     { "control": "Sample index", "value": 3, "purpose": "Selects the 261.63 Hz sampler base." },
     { "control": "ADSR / tone / spread", "value": "0.012/0.16/0.58/0.42, 0.52, 0.30", "purpose": "Defines the rendered contour and harmonic balance." }
   ],
-  "body": { "kind": "native", "target": "tests/native_golden/test_main.cpp::render_seed_card_lantern_fixture", "revision": "SB-07 worktree based on 0abced4" },
+  "body": { "kind": "native", "target": "tests/native_golden/test_main.cpp::render_seed_card_lantern_fixture", "revision": "b6651642cc27ffd6a5884ce975e812e83c470a5f" },
   "evidence": {
     "audio_render": { "path": "build/fixtures/seed-card-lantern.wav", "description": "48 kHz mono deterministic sampler render." },
     "control_ledger": { "path": "build/fixtures/seed-card-lantern-control.txt", "description": "Recorded provenance, trigger, and relevant sampler controls." }

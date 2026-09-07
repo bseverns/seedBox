@@ -32,6 +32,8 @@ jobs:
         run: python scripts/validate_seed_cards.py
       - name: Test the Seed Card validator
         run: python -m unittest discover -s scripts/tests -p test_seed_cards.py
+      - name: Validate cross-body parity records
+        run: python scripts/validate_cross_body_parity.py
 
   front-panel-contract:
     runs-on: ubuntu-latest

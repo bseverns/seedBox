@@ -25,6 +25,10 @@ Every card must state:
 - lowercase SHA-256 hashes for both evidence files; and
 - one concise statement each for what changed and what stayed fixed.
 
+Cards documenting a mutation or parentage also include the optional `ancestry`
+object: parent ID, PRNG and lineage, normalized mutation distance, and the
+bitmask of moved dimensions. Original seeds omit it.
+
 `source` uses `lfsr`, `tap_tempo`, `preset`, or `live_input`, matching
 `Seed::Source`. `engine` uses the current EngineRouter IDs 0–5. The full genome
 is deliberate: a preset serialization alone is insufficient because the card

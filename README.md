@@ -51,13 +51,14 @@ logic without soldering first.
 - Build the standalone app or VST3 from [`docs/juce_build.md`](docs/juce_build.md)
 - Use [`docs/ci_desktop_builds.md`](docs/ci_desktop_builds.md) for platform
   expectations
-- Treat JUCE as the desktop body of the same system, not a separate repo story
+- Treat JUCE as a rehearsal/proof body for the shared system; hardware remains
+  the first-class instrument body.
 
 ## One system, several surfaces
 
 - **Firmware:** the physical instrument path on Teensy 4.0
 - **Native simulator:** fastest way to explore, test, and render deterministically
-- **JUCE:** desktop-host body for standalone and DAW contexts
+- **JUCE:** rehearsal/proof body for standalone and DAW contexts
 - **Seed genome + shared core:** the thread that keeps behavior legible across
   targets
 - **Docs and tests:** part of the instrument body, not just supporting paperwork
@@ -70,6 +71,7 @@ logic without soldering first.
 - **Test harness:** [`tests/README.md`](tests/README.md)
 - **Stability boundary:** [`docs/StabilityAndSupport.md`](docs/StabilityAndSupport.md)
 - **Proof/listening surface:** [`docs/SeedGallery.md`](docs/SeedGallery.md)
+- **Seed Cards and parity records:** [`docs/seed_cards/README.md`](docs/seed_cards/README.md)
 
 ## Trust, tests, and receipts
 

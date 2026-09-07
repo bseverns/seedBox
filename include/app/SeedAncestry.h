@@ -21,7 +21,9 @@ inline void recordMutation(const Seed& parent, Seed& child) {
   moved(parent.probability, child.probability, 1.f, kProbability); moved(parent.jitterMs, child.jitterMs, 50.f, kJitter);
   moved(parent.tone, child.tone, 1.f, kTone); moved(parent.spread, child.spread, 1.f, kSpread);
   if (!mask) return;
+  // Use the fixed six-dimension space, not only changed dimensions. Adding a
+  // small second move can therefore never make a mutation appear closer.
   child.ancestry = {parent.id, parent.prng, parent.lineage,
-                    std::min(1.f, std::sqrt(squared / static_cast<float>(count))), mask};
+                    std::min(1.f, std::sqrt(squared / 6.0f)), mask};
 }
 }  // namespace seedbox

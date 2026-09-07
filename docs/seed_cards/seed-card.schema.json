@@ -17,6 +17,7 @@
         "prng": { "type": "integer", "minimum": 0 },
         "source": { "enum": ["lfsr", "tap_tempo", "preset", "live_input"] },
         "lineage": { "type": "integer", "minimum": 0 },
+        "ancestry": { "$ref": "#/$defs/ancestry" },
         "genome": { "$ref": "#/$defs/genome" }
       }
     },
@@ -75,6 +76,7 @@
     },
     "control": { "type": "object", "required": ["control", "value", "purpose"], "properties": { "control": { "type": "string", "minLength": 1 }, "purpose": { "type": "string", "minLength": 1 } } },
     "evidence_file": { "type": "object", "required": ["path", "description"], "properties": { "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" }, "description": { "type": "string", "minLength": 1 } } },
-    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "ancestry": { "type": "object", "required": ["parentId", "parentPrng", "parentLineage", "distance", "dimensions"], "properties": { "parentId": { "type": "integer", "minimum": 0 }, "parentPrng": { "type": "integer", "minimum": 0 }, "parentLineage": { "type": "integer", "minimum": 0 }, "distance": { "type": "number", "minimum": 0, "maximum": 1 }, "dimensions": { "type": "integer", "minimum": 0 } } }
   }
 }
