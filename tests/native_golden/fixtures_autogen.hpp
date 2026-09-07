@@ -31,6 +31,9 @@ constexpr FixtureInfo kAudioFixtures[] = {
     {"resonator-tail", "build/fixtures/resonator-tail.wav", "e329aa6faffb39f4"},
     {"sampler-grains", "build/fixtures/sampler-grains.wav", "630fbfadca574688"},
     {"seed-card-lantern", "build/fixtures/seed-card-lantern.wav", "7544fe68b4781441"},
+    {"seed-family-parent", "build/fixtures/seed-family-parent.wav", "af8bfd462a5e7d1c"},
+    {"seed-family-sibling", "build/fixtures/seed-family-sibling.wav", "0a6f155e455f99ff"},
+    {"seed-family-unrelated", "build/fixtures/seed-family-unrelated.wav", "ba1bfc0626b4d12c"},
     {"stage71-bus", "build/fixtures/stage71-bus.wav", "629833da6365625b"},
     {"surround-bus", "build/fixtures/surround-bus.wav", "ec0a317b727ea022"},
 };
@@ -57,6 +60,7 @@ constexpr FixtureInfo kLogFixtures[] = {
     {"resonator-tail-control", "build/fixtures/resonator-tail-control.txt", "2712188b6c69ba9a"},
     {"sampler-grains-control", "build/fixtures/sampler-grains-control.txt", "eef0854b3ed98143"},
     {"seed-card-lantern-control", "build/fixtures/seed-card-lantern-control.txt", "cd032407b2c42892"},
+    {"seed-family-control", "build/fixtures/seed-family-control.txt", "2e7b4b7af4fd34c1"},
     {"stage71-bus-control", "build/fixtures/stage71-bus-control.txt", "73d0dbc906c45eed"},
     {"surround-bus-control", "build/fixtures/surround-bus-control.txt", "440ade6a5be15506"},
 };

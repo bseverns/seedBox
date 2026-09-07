@@ -1,0 +1,10 @@
+{
+  "format_version": "1.0",
+  "study": "SB-10 family resemblance",
+  "parent": "build/fixtures/seed-family-parent.wav",
+  "sibling": "build/fixtures/seed-family-sibling.wav",
+  "unrelated": "build/fixtures/seed-family-unrelated.wav",
+  "ledger": "build/fixtures/seed-family-control.txt",
+  "listening_order": ["parent", "sibling", "unrelated"],
+  "claim": "Parent and sibling share a bounded phenotype variation; the unrelated contrast is intentionally farther away. This compares structural inheritance, not waveform identity."
+}

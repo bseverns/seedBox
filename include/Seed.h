@@ -51,6 +51,16 @@ struct Seed {
   // it to decide how aggressive to be when the mutate encoder is twisted.
   float mutateAmt{0.1f};    // bounded drift 0..1
 
+  // Immediate mutation provenance. These fields describe the parent genome
+  // from which this executable state moved; they do not replace source/lineage.
+  struct Ancestry {
+    uint32_t parentId{0};
+    uint32_t parentPrng{0};
+    uint32_t parentLineage{0};
+    float distance{0.f};       // normalized 0..1 mutation distance
+    uint32_t dimensions{0};    // bitmask of genome dimensions that moved
+  } ancestry;
+
   struct GranularParams {
     float grainSizeMs{90.f};     // grain length envelope target
     float sprayMs{18.f};         // random offset per grain

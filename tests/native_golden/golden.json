@@ -409,6 +409,51 @@
       "notes": "Control ledger for the Seed Card Lantern render."
     },
     {
+      "name": "seed-family-control",
+      "path": "build/fixtures/seed-family-control.txt",
+      "kind": "log",
+      "hash": "2e7b4b7af4fd34c1",
+      "bytes": 310,
+      "lines": 4,
+      "notes": ""
+    },
+    {
+      "name": "seed-family-parent",
+      "path": "build/fixtures/seed-family-parent.wav",
+      "kind": "audio",
+      "hash": "af8bfd462a5e7d1c",
+      "wav_path": "build/fixtures/seed-family-parent.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": ""
+    },
+    {
+      "name": "seed-family-sibling",
+      "path": "build/fixtures/seed-family-sibling.wav",
+      "kind": "audio",
+      "hash": "0a6f155e455f99ff",
+      "wav_path": "build/fixtures/seed-family-sibling.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": ""
+    },
+    {
+      "name": "seed-family-unrelated",
+      "path": "build/fixtures/seed-family-unrelated.wav",
+      "kind": "audio",
+      "hash": "ba1bfc0626b4d12c",
+      "wav_path": "build/fixtures/seed-family-unrelated.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": ""
+    },
+    {
       "name": "stage71-bus",
       "path": "build/fixtures/stage71-bus.wav",
       "kind": "audio",
@@ -457,5 +502,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2026-09-07T00:30:00Z"
+  "generated_at_utc": "2026-09-07T00:50:01Z"
 }

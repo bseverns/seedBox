@@ -26,6 +26,22 @@ AppState into the Sampler engine, and record experiments along the way.
 These annotations live directly in [`include/Seed.h`](../../include/Seed.h) so the
 struct tells its own story during code walkthroughs.【F:include/Seed.h†L1-L49】
 
+## Phenotype intent layer
+
+[`SeedPhenotype`](../../include/app/SeedPhenotype.h) offers seven normalized
+musical traits above the genome: energy, stability, brightness, space,
+roughness, recurrence, and tension. Applying one derives correlated executable
+parameters while preserving identity, lineage, engine choice, and source
+selection. See the [SB-09 record](../roadmaps/SB-09-seed-phenotype.md) for the
+mapping boundary and tests.
+
+## Family listening study
+
+SB-10 adds deterministic sibling variation and phenotype distance in
+[`SeedLineage.h`](../../include/app/SeedLineage.h). The
+[family study](../roadmaps/SB-10-lineage-recognition.md) pairs its parent,
+sibling, and unrelated comparison renders with a readable ledger.
+
 ## Routing tour: AppState → EngineRouter → Sampler
 
 1. **Prime the seed table.** `AppState::primeSeeds` hydrates the four default

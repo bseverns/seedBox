@@ -63,6 +63,12 @@ std::vector<std::uint8_t> Preset::serialize() const {
     seedObj["engine"] = s.engine;
     seedObj["sampleIdx"] = s.sampleIdx;
     seedObj["mutateAmt"] = s.mutateAmt;
+    JsonObject ancestryObj = seedObj["ancestry"].to<JsonObject>();
+    ancestryObj["parentId"] = s.ancestry.parentId;
+    ancestryObj["parentPrng"] = s.ancestry.parentPrng;
+    ancestryObj["parentLineage"] = s.ancestry.parentLineage;
+    ancestryObj["distance"] = s.ancestry.distance;
+    ancestryObj["dimensions"] = s.ancestry.dimensions;
 
     JsonObject granularObj = seedObj["granular"].to<JsonObject>();
     granularObj["grainSizeMs"] = s.granular.grainSizeMs;
@@ -142,6 +148,14 @@ bool Preset::deserialize(const std::vector<std::uint8_t>& bytes, Preset& out) {
       s.engine = seedObj["engine"].as<std::uint8_t>();
       s.sampleIdx = seedObj["sampleIdx"].as<std::uint8_t>();
       s.mutateAmt = seedObj["mutateAmt"].as<float>();
+      JsonObject ancestryObj = seedObj["ancestry"].as<JsonObject>();
+      if (!ancestryObj.isNull()) {
+        s.ancestry.parentId = ancestryObj["parentId"].as<std::uint32_t>();
+        s.ancestry.parentPrng = ancestryObj["parentPrng"].as<std::uint32_t>();
+        s.ancestry.parentLineage = ancestryObj["parentLineage"].as<std::uint32_t>();
+        s.ancestry.distance = ancestryObj["distance"].as<float>();
+        s.ancestry.dimensions = ancestryObj["dimensions"].as<std::uint32_t>();
+      }
 
       JsonObject granularObj = seedObj["granular"].as<JsonObject>();
       if (!granularObj.isNull()) {

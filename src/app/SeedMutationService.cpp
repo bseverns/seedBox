@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "engine/Granular.h"
+#include "app/SeedAncestry.h"
 
 // SeedMutationService owns "surgical" edits to individual seeds: focusing a
 // slot, swapping its engine, nudging a few parameters, or cycling granular
@@ -85,6 +86,7 @@ bool SeedMutationService::applySeedEditFromHost(AppState& app, std::uint8_t seed
   if (std::memcmp(&before, &app.seeds_[idx], sizeof(Seed)) == 0) {
     return false;
   }
+  seedbox::recordMutation(before, app.seeds_[idx]);
 
   syncSeedState(app, idx);
   return true;
@@ -100,6 +102,7 @@ void SeedMutationService::seedPageNudge(AppState& app, std::uint8_t index, const
   }
 
   Seed& seed = app.seeds_[idx];
+  const Seed before = seed;
   // Nudges are intentionally local and clamp-heavy: they should feel like safe
   // performance gestures, not arbitrary structure edits.
   if (nudge.pitchSemitones != 0.f) {
@@ -121,6 +124,7 @@ void SeedMutationService::seedPageNudge(AppState& app, std::uint8_t index, const
     seed.spread = std::clamp(seed.spread + nudge.spreadDelta, 0.f, 1.f);
   }
 
+  seedbox::recordMutation(before, seed);
   syncSeedState(app, idx);
 }
 
