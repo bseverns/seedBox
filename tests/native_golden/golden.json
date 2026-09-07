@@ -388,6 +388,27 @@
       "notes": ""
     },
     {
+      "name": "seed-card-lantern",
+      "path": "build/fixtures/seed-card-lantern.wav",
+      "kind": "audio",
+      "hash": "7544fe68b4781441",
+      "wav_path": "build/fixtures/seed-card-lantern.wav",
+      "sample_rate_hz": 48000,
+      "frames": 48000,
+      "channels": 1,
+      "channel_layout": "mono",
+      "notes": "Single-seed sampler render used by the first canonical Seed Card."
+    },
+    {
+      "name": "seed-card-lantern-control",
+      "path": "build/fixtures/seed-card-lantern-control.txt",
+      "kind": "log",
+      "hash": "cd032407b2c42892",
+      "bytes": 294,
+      "lines": 3,
+      "notes": "Control ledger for the Seed Card Lantern render."
+    },
+    {
       "name": "stage71-bus",
       "path": "build/fixtures/stage71-bus.wav",
       "kind": "audio",
@@ -436,5 +457,5 @@
     "hash": "64-bit FNV-1a over artifact payload",
     "script": "scripts/compute_golden_hashes.py"
   },
-  "generated_at_utc": "2026-04-25T18:09:05Z"
+  "generated_at_utc": "2026-09-07T00:30:00Z"
 }

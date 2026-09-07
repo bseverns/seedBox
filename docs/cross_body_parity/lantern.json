@@ -1,0 +1,22 @@
+{
+  "format_version": "1.0",
+  "id": "lantern",
+  "seed_card": "docs/seed_cards/cards/lantern.json",
+  "dimensions": ["lineage", "scheduling", "engine_choice", "control_behavior", "output_characteristics"],
+  "bodies": {
+    "native": {
+      "status": "observed",
+      "evidence": "docs/seed_cards/cards/lantern.json",
+      "findings": {
+        "lineage": "master seed 0x51eed, seed 42, and LFSR provenance are recorded in the ledger.",
+        "scheduling": "The sampler trigger is frame 0 at 48 kHz.",
+        "engine_choice": "Engine ID 0 selects Sampler.",
+        "control_behavior": "Sample index, ADSR, tone, and spread are recorded as fixed render controls.",
+        "output_characteristics": "The checked WAV is 48 kHz mono with a fixed low-register sampler contour."
+      }
+    },
+    "juce": { "status": "not_run", "reason": "No JUCE capture has applied Lantern's exact genome and ledger." },
+    "hardware": { "status": "unavailable", "reason": "No connected hardware capture is available in this checkout." }
+  },
+  "conclusion": "Native behavior is evidenced. Cross-body behavioral parity is not yet claimed, and waveform identity is not a parity requirement."
+}

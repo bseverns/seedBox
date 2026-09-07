@@ -39,7 +39,9 @@ cmake --build build/juce --target seedbox_panel_contract_test
 ctest --test-dir build/juce -R '^panel_contract_juce$' --output-on-failure
 ```
 
-The Python checker needs a C++17 compiler (`c++` by default, or set `CXX`). Its
+The Python checker needs a C++17 compiler (`c++` by default, or set `CXX`). On
+Apple Silicon it uses the ARM system driver automatically, including when an
+Intel-only Python is running under Rosetta. Its
 compiler outputs and mutation fixtures live in temporary directories. On a
 headless Linux host, the JUCE GUI test needs a display session such as Xvfb;
 CI runs that test in the existing macOS build job.

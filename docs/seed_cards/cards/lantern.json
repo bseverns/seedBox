@@ -1,0 +1,31 @@
+{
+  "format_version": "1.0",
+  "id": "lantern",
+  "name": "Lantern",
+  "seed": {
+    "master_seed": 335341,
+    "id": 42,
+    "prng": 1279344212,
+    "source": "lfsr",
+    "lineage": 335341,
+    "genome": {
+      "pitch": -7.0, "envA": 0.012, "envD": 0.16, "envS": 0.58, "envR": 0.42,
+      "density": 1.0, "probability": 1.0, "jitterMs": 0.0, "tone": 0.52, "spread": 0.3,
+      "engine": 0, "sampleIdx": 3, "mutateAmt": 0.0,
+      "granular": { "grainSizeMs": 90.0, "sprayMs": 18.0, "transpose": 0.0, "windowSkew": 0.0, "stereoSpread": 0.5, "source": 0, "sdSlot": 0 },
+      "resonator": { "exciteMs": 3.5, "damping": 0.35, "brightness": 0.6, "feedback": 0.78, "mode": 0, "bank": 0 }
+    }
+  },
+  "controls": [
+    { "control": "Sampler trigger", "value": "frame 0", "purpose": "Pins the one-shot start time." },
+    { "control": "Sample index", "value": 3, "purpose": "Selects the 261.63 Hz sampler base." },
+    { "control": "ADSR / tone / spread", "value": "0.012/0.16/0.58/0.42, 0.52, 0.30", "purpose": "Defines the rendered contour and harmonic balance." }
+  ],
+  "body": { "kind": "native", "target": "tests/native_golden/test_main.cpp::render_seed_card_lantern_fixture", "revision": "SB-07 worktree based on 0abced4" },
+  "evidence": {
+    "audio_render": { "path": "build/fixtures/seed-card-lantern.wav", "description": "48 kHz mono deterministic sampler render." },
+    "control_ledger": { "path": "build/fixtures/seed-card-lantern-control.txt", "description": "Recorded provenance, trigger, and relevant sampler controls." }
+  },
+  "hashes": { "algorithm": "sha256", "audio_render": "3a2ff096b8c01571f6a5fdbe8a999d47045c6617e30690aa95b7863e50604340", "control_ledger": "c18473e7f77832cd84335e16421a9e93b1805893c2047c33da7d9e3ded6a3be8" },
+  "comparison": { "changed": "Lantern uses a single LFSR-derived sampler seed with a fixed low-register contour.", "stayed_fixed": "The native sample rate, trigger frame, master seed, genome, and render algorithm stayed fixed." }
+}

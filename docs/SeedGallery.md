@@ -38,6 +38,14 @@ fixtures such as:
 Many of these also ship with matching `*-control.txt` ledgers so the render can
 be read as well as heard.
 
+## Seed Cards
+
+A fixture becomes a complete, named proof when it is paired with its Seed
+genome and lineage, relevant controls, render body, SHA-256 evidence hashes,
+and a concise comparison statement. The reusable
+[Seed Card format](seed_cards/README.md) is ready for that work; its registry
+is empty until the first end-to-end card is published in SB-07.
+
 ## Current fixture index
 
 | Fixture | What it is for | What to listen for | Companion ledger |

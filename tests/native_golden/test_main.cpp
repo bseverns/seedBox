@@ -298,6 +298,28 @@ Seed make_sampler_seed(std::uint32_t id,
     return seed;
 }
 
+Seed make_seed_card_lantern() {
+    Seed seed{};
+    seed.id = 42;
+    seed.prng = 0x4c414e54u;  // "LANT"
+    seed.source = Seed::Source::kLfsr;
+    seed.lineage = 0x00051eedu;
+    seed.pitch = -7.0f;
+    seed.envA = 0.012f;
+    seed.envD = 0.16f;
+    seed.envS = 0.58f;
+    seed.envR = 0.42f;
+    seed.density = 1.0f;
+    seed.probability = 1.0f;
+    seed.jitterMs = 0.0f;
+    seed.tone = 0.52f;
+    seed.spread = 0.30f;
+    seed.engine = static_cast<std::uint8_t>(Engine::Type::kSampler);
+    seed.sampleIdx = 3;
+    seed.mutateAmt = 0.0f;
+    return seed;
+}
+
 double sampler_adsr(double t,
                     double attack,
                     double decay,
@@ -409,6 +431,50 @@ std::vector<int16_t> render_sampler_fixture() {
         const double scaled = mix[i] * scale;
         samples[i] = static_cast<int16_t>(std::clamp<std::int32_t>(
             static_cast<std::int32_t>(std::lround(scaled * 32767.0)), -32768, 32767));
+    }
+    return samples;
+}
+
+std::vector<int16_t> render_seed_card_lantern_fixture() {
+    Sampler sampler;
+    sampler.init();
+    const Seed seed = make_seed_card_lantern();
+    sampler.trigger(seed, 0u);
+
+    std::ostringstream control;
+    control << "# seed-card-lantern control ledger" << '\n';
+    control << "master_seed=0x51eed seed_id=" << seed.id << " prng=0x4c414e54 source=lfsr lineage=0x51eed" << '\n';
+    control << std::fixed << std::setprecision(4);
+    control << "trigger_sample=0 engine=sampler sample_idx=" << static_cast<int>(seed.sampleIdx)
+            << " pitch=" << seed.pitch << " envA=" << seed.envA << " envD=" << seed.envD
+            << " envS=" << seed.envS << " envR=" << seed.envR << " tone=" << seed.tone
+            << " spread=" << seed.spread << " density=" << seed.density
+            << " probability=" << seed.probability << " jitter_ms=" << seed.jitterMs << '\n';
+    (void)emit_control_log_impl("seed-card-lantern", control.str());
+
+    const auto voice = sampler.voice(0);
+    const double base_frequencies[] = {110.0, 164.81, 220.0, 261.63, 329.63, 392.0, 523.25};
+    const double frequency = base_frequencies[voice.sampleIndex % std::size(base_frequencies)] * voice.playbackRate;
+    const double pan_gain = 0.5 * (voice.leftGain + voice.rightGain);
+    constexpr double sustain_hold = 0.25;
+    std::vector<double> mix(kDroneFrames, 0.0);
+    for (std::size_t frame = 0; frame < mix.size(); ++frame) {
+        const double t = static_cast<double>(frame) / kSampleRate;
+        const double env = sampler_adsr(t, voice.envelope.attack, voice.envelope.decay,
+                                        voice.envelope.sustain, voice.envelope.release, sustain_hold);
+        const double fundamental = std::sin(2.0 * M_PI * frequency * t);
+        const double harmonic = std::sin(2.0 * M_PI * frequency * 2.03 * t);
+        mix[frame] = ((1.0 - voice.tone) * fundamental + voice.tone * harmonic) * env * pan_gain;
+    }
+    double max_abs = 0.0;
+    for (double sample : mix) {
+        max_abs = std::max(max_abs, std::abs(sample));
+    }
+    const double scale = max_abs > 0.0 ? 0.92 / max_abs : 0.0;
+    std::vector<int16_t> samples(mix.size());
+    for (std::size_t frame = 0; frame < mix.size(); ++frame) {
+        samples[frame] = static_cast<int16_t>(std::clamp<std::int32_t>(
+            static_cast<std::int32_t>(std::lround(mix[frame] * scale * 32767.0)), -32768, 32767));
     }
     return samples;
 }
@@ -1325,6 +1391,25 @@ void test_render_sampler_golden() {
     assert_manifest_contains(manifest_body, *fixture);
 }
 
+void test_render_seed_card_lantern_golden() {
+    const auto* fixture = find_audio_fixture("seed-card-lantern");
+    const auto* ledger = find_log_fixture("seed-card-lantern-control");
+    TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "seed-card-lantern fixture metadata missing");
+    TEST_ASSERT_NOT_NULL_MESSAGE(ledger, "seed-card-lantern control metadata missing");
+
+    golden::WavWriteRequest request{};
+    request.path = fixture_disk_path(fixture->path).string();
+    request.sample_rate_hz = static_cast<uint32_t>(kSampleRate);
+    request.samples = render_seed_card_lantern_fixture();
+    TEST_ASSERT_TRUE_MESSAGE(golden::write_wav_16(request), "Failed to write Seed Card WAV");
+    TEST_ASSERT_EQUAL_STRING(fixture->expected_hash, golden::hash_pcm16(request.samples).c_str());
+
+    const auto ledger_path = fixture_disk_path(ledger->path);
+    std::ifstream input(ledger_path, std::ios::binary);
+    const std::string ledger_body((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    TEST_ASSERT_EQUAL_STRING(ledger->expected_hash, fnv1a_bytes(ledger_body).c_str());
+}
+
 void test_render_modulated_sampler_golden() {
     const auto* fixture = find_audio_fixture("modulated-sampler");
     TEST_ASSERT_NOT_NULL_MESSAGE(fixture, "modulated-sampler fixture metadata missing");
@@ -1798,6 +1883,7 @@ int main(int, char**) {
     RUN_TEST(test_emit_flag_matrix);
     RUN_TEST(test_render_and_compare_golden);
     RUN_TEST(test_render_sampler_golden);
+    RUN_TEST(test_render_seed_card_lantern_golden);
     RUN_TEST(test_render_modulated_sampler_golden);
     RUN_TEST(test_render_layered_euclid_burst_golden);
     RUN_TEST(test_render_burst_cluster_golden);

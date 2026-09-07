@@ -35,3 +35,7 @@ Do not refresh reference hashes merely to make an unexplained mismatch pass.
 Historical receipts can name local input paths and generated output paths as
 provenance. Those paths are not portable repository links or evidence that the
 files are included in a fresh checkout.
+
+Completed [Seed Cards](seed_cards/README.md) reference reviewed audio and
+ledger fixtures by repository-relative path and SHA-256. The card JSON belongs
+under `docs/seed_cards/cards/`; its evidence follows the fixture policy above.

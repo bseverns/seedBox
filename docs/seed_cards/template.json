@@ -1,0 +1,39 @@
+{
+  "format_version": "1.0",
+  "id": "replace-with-card-slug",
+  "name": "Replace with the seed's human name",
+  "seed": {
+    "master_seed": 0,
+    "id": 0,
+    "prng": 0,
+    "source": "lfsr",
+    "lineage": 0,
+    "genome": {
+      "pitch": 0.0,
+      "envA": 0.001,
+      "envD": 0.08,
+      "envS": 0.6,
+      "envR": 0.12,
+      "density": 1.0,
+      "probability": 0.85,
+      "jitterMs": 7.5,
+      "tone": 0.35,
+      "spread": 0.2,
+      "engine": 0,
+      "sampleIdx": 0,
+      "mutateAmt": 0.1,
+      "granular": { "grainSizeMs": 90.0, "sprayMs": 18.0, "transpose": 0.0, "windowSkew": 0.0, "stereoSpread": 0.5, "source": 0, "sdSlot": 0 },
+      "resonator": { "exciteMs": 3.5, "damping": 0.35, "brightness": 0.6, "feedback": 0.78, "mode": 0, "bank": 0 }
+    }
+  },
+  "controls": [
+    { "control": "replace-with-control", "value": "replace-with-value", "purpose": "Why this control matters to the render" }
+  ],
+  "body": { "kind": "native", "target": "replace-with-render-target", "revision": "replace-with-commit-or-release" },
+  "evidence": {
+    "audio_render": { "path": "build/fixtures/replace.wav", "description": "Rendered audio evidence" },
+    "control_ledger": { "path": "build/fixtures/replace-control.txt", "description": "Control transcript for the render" }
+  },
+  "hashes": { "algorithm": "sha256", "audio_render": "replace-with-64-lowercase-hex-digits", "control_ledger": "replace-with-64-lowercase-hex-digits" },
+  "comparison": { "changed": "The intentional variation from the named baseline.", "stayed_fixed": "The conditions held constant for this proof." }
+}

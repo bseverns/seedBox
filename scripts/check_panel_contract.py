@@ -8,16 +8,35 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def compiler_command() -> list[str]:
+    configured = os.environ.get("CXX")
+    if configured:
+        return shlex.split(configured)
+    # An Intel-only Python running under Rosetta launches universal tools as
+    # x86_64. On Apple Silicon that cannot use an ARM-only Command Line Tools
+    # xcrun library, even though the SDK and headers are valid. Force Apple's
+    # system C++ driver to arm64 when the host reports ARM capability.
+    if sys.platform == "darwin":
+        try:
+            probe = subprocess.run(["arch", "-arm64", "/usr/bin/true"], capture_output=True)
+            if probe.returncode == 0:
+                return ["arch", "-arm64", "/usr/bin/c++"]
+        except OSError:
+            pass
+    return ["c++"]
+
+
 def load_contract(root: Path) -> list[tuple[str, str, str, str]]:
     with tempfile.TemporaryDirectory(prefix="seedbox-panel-") as directory:
         executable = Path(directory) / "panel-contract"
-        subprocess.run([*shlex.split(os.environ.get("CXX", "c++")), "-std=c++17",
+        subprocess.run([*compiler_command(), "-std=c++17",
                         "-DSEEDBOX_HW=0", "-I", str(root / "include"),
                         str(root / "tools/panel_contract_dump.cpp"), "-o", str(executable)], check=True)
         output = subprocess.check_output([str(executable)], text=True)

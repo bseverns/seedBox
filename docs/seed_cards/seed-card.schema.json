@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bseverns/seedBox/docs/seed_cards/seed-card.schema.json",
+  "title": "SeedBox Seed Card",
+  "type": "object",
+  "required": ["format_version", "id", "name", "seed", "controls", "body", "evidence", "hashes", "comparison"],
+  "properties": {
+    "format_version": { "const": "1.0" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "seed": {
+      "type": "object",
+      "required": ["master_seed", "id", "prng", "source", "lineage", "genome"],
+      "properties": {
+        "master_seed": { "type": "integer", "minimum": 0 },
+        "id": { "type": "integer", "minimum": 0 },
+        "prng": { "type": "integer", "minimum": 0 },
+        "source": { "enum": ["lfsr", "tap_tempo", "preset", "live_input"] },
+        "lineage": { "type": "integer", "minimum": 0 },
+        "genome": { "$ref": "#/$defs/genome" }
+      }
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/control" }
+    },
+    "body": {
+      "type": "object",
+      "required": ["kind", "target", "revision"],
+      "properties": {
+        "kind": { "enum": ["native", "juce", "hardware"] },
+        "target": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["audio_render", "control_ledger"],
+      "properties": {
+        "audio_render": { "$ref": "#/$defs/evidence_file" },
+        "control_ledger": { "$ref": "#/$defs/evidence_file" }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "required": ["algorithm", "audio_render", "control_ledger"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "audio_render": { "$ref": "#/$defs/sha256" },
+        "control_ledger": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "required": ["changed", "stayed_fixed"],
+      "properties": {
+        "changed": { "type": "string", "minLength": 1 },
+        "stayed_fixed": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "number": { "type": "number" },
+    "genome": {
+      "type": "object",
+      "required": ["pitch", "envA", "envD", "envS", "envR", "density", "probability", "jitterMs", "tone", "spread", "engine", "sampleIdx", "mutateAmt", "granular", "resonator"],
+      "properties": {
+        "pitch": { "$ref": "#/$defs/number" }, "envA": { "$ref": "#/$defs/number" }, "envD": { "$ref": "#/$defs/number" }, "envS": { "$ref": "#/$defs/number" }, "envR": { "$ref": "#/$defs/number" },
+        "density": { "$ref": "#/$defs/number" }, "probability": { "$ref": "#/$defs/number" }, "jitterMs": { "$ref": "#/$defs/number" }, "tone": { "$ref": "#/$defs/number" }, "spread": { "$ref": "#/$defs/number" },
+        "engine": { "type": "integer", "minimum": 0, "maximum": 5 }, "sampleIdx": { "type": "integer", "minimum": 0 }, "mutateAmt": { "$ref": "#/$defs/number" },
+        "granular": { "type": "object", "required": ["grainSizeMs", "sprayMs", "transpose", "windowSkew", "stereoSpread", "source", "sdSlot"] },
+        "resonator": { "type": "object", "required": ["exciteMs", "damping", "brightness", "feedback", "mode", "bank"] }
+      }
+    },
+    "control": { "type": "object", "required": ["control", "value", "purpose"], "properties": { "control": { "type": "string", "minLength": 1 }, "purpose": { "type": "string", "minLength": 1 } } },
+    "evidence_file": { "type": "object", "required": ["path", "description"], "properties": { "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" }, "description": { "type": "string", "minLength": 1 } } },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

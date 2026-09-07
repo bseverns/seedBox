@@ -21,6 +21,18 @@ jobs:
       - name: Test the documentation link guard
         run: python -m unittest discover -s scripts/tests -p test_doc_links.py
 
+  seed-card-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate Seed Card registry
+        run: python scripts/validate_seed_cards.py
+      - name: Test the Seed Card validator
+        run: python -m unittest discover -s scripts/tests -p test_seed_cards.py
+
   front-panel-contract:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +63,7 @@ jobs:
         run: ./scripts/starter_bundle.sh
 
   build:
-    needs: [starter-bundle-smoke, front-panel-contract, doc-links]
+    needs: [starter-bundle-smoke, front-panel-contract, doc-links, seed-card-contract]
     runs-on: ubuntu-latest
     env:
       ENABLE_GOLDEN: "0"
