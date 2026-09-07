@@ -11,5 +11,8 @@ phenotype preserves seed ID, PRNG state, source, lineage, engine, sample choice,
 and granular source/slot. This gives future mutation and ancestry work a clear
 semantic input without changing today's routing contract.
 
+Follow-on work now uses this layer for reversible branch state (SB-12),
+semantic crossing (SB-13), and the first bounded engine ecology (SB-14).
+
 The native tests prove clamping, preserved identity, deterministic mapping, and
 the intended energy/space/stability correlations.
